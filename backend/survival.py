@@ -11,28 +11,41 @@ except ImportError:
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 def calculate_degradation_rate(health_score: float, anomaly_score: float, 
-                                 alert_level: str, bridge_id: int) -> dict:
+                               alert_level: str, bridge_id: int,
+                               risk_score: float = 0.0, sensor_overload: float = 1.0) -> dict:
     if health_score >= 80:
-        base_rate = 0.05   # was 0.1
+        base_rate = 0.05
     elif health_score >= 60:
-        base_rate = 0.15   # was 0.3
+        base_rate = 0.15
     elif health_score >= 40:
-        base_rate = 0.4    # was 0.8
+        base_rate = 0.4
     else:
-        base_rate = 0.7    # was 1.5
+        base_rate = 0.7
     
-    anomaly_multiplier = 1.0 + (anomaly_score * 0.8)  # was 2.0
-    alert_multipliers = {"NORMAL": 1.0, "WATCH": 1.2, "WARNING": 1.5, "CRITICAL": 2.0}  # reduced
+    anomaly_multiplier = 1.0 + (anomaly_score * 0.8)
+    alert_multipliers = {"NORMAL": 1.0, "WATCH": 1.2, "WARNING": 1.5, "CRITICAL": 2.0}
     alert_mult = alert_multipliers.get(alert_level, 1.0)
-    age_factor = 1.0 + (bridge_id / 400)  # was 200
-    final_rate = base_rate * anomaly_multiplier * alert_mult * age_factor
+    age_factor = 1.0 + (bridge_id / 400)
+    risk_multiplier = 1.0 + (max(0.0, min(1.0, float(risk_score))) * 1.5)
+    overload_multiplier = max(1.0, float(sensor_overload))
+    
+    final_rate = base_rate * anomaly_multiplier * alert_mult * age_factor * risk_multiplier * overload_multiplier
+    
+    if alert_level == "CRITICAL" or health_score < 50.0:
+        final_rate = max(1.8, final_rate)
+    elif alert_level == "WARNING" or health_score <= 74.0:
+        final_rate = max(0.5, final_rate)
+    else:
+        final_rate = max(0.05, final_rate)
     
     return {
         "daily_degradation_rate": round(final_rate, 3),
         "base_rate": base_rate,
         "anomaly_multiplier": round(anomaly_multiplier, 2),
         "alert_multiplier": alert_mult,
-        "age_factor": round(age_factor, 2)
+        "age_factor": round(age_factor, 2),
+        "risk_multiplier": round(risk_multiplier, 2),
+        "overload_multiplier": round(overload_multiplier, 2),
     }
 
 def predict_time_to_threshold(health_score: float, degradation_rate: float, 
@@ -214,8 +227,22 @@ def run_survival_analysis(bridge_id: int, bridge_name: str, sensor_data: dict) -
     anomaly_score = sensor_data.get("anomaly_score", 0)
     alert_level = sensor_data.get("alert_level", "NORMAL")
     
+    risk_score = sensor_data.get("risk_score", 0.0)
+    crack_gap = sensor_data.get("crack_gap", 0.0)
+    vibration = sensor_data.get("vibration", 0.0)
+    strain = sensor_data.get("strain", 0.0)
+    sensor_overload = max(
+        1.0,
+        crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
+        vibration / 1.2,
+        strain / 210.0
+    )
+
     # Calculate degradation
-    degradation = calculate_degradation_rate(health_score, anomaly_score, alert_level, bridge_id)
+    degradation = calculate_degradation_rate(
+        health_score, anomaly_score, alert_level, bridge_id,
+        risk_score=risk_score, sensor_overload=sensor_overload
+    )
     rate = degradation["daily_degradation_rate"]
     
     # Predict time to thresholds

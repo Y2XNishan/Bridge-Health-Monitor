@@ -1367,15 +1367,26 @@ async def survival_all(user=Depends(get_current_user)):
             anomaly_score = live.get("anomaly_score", 0.0)
             
             status_str = live.get("health_status", "").upper()
-            if status_str in ["CRITICAL", "FAIL"] or health_score < 60.0:
+            if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
                 alert_level = "CRITICAL"
-            elif status_str in ["WARNING", "POOR", "FAIR"] or health_score <= 80.0:
+            elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
                 alert_level = "WARNING"
             else:
                 alert_level = "NORMAL"
                 
+            risk_score = live.get("risk_score", 0.0)
+            crack_gap = live.get("crack_gap", 0.0)
+            vib = live.get("vibration", 0.0)
+            strain_val = live.get("strain", 0.0)
+            sensor_overload = max(
+                1.0,
+                crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
+                vib / SENSOR_THRESHOLDS["vibration"]["crit"],
+                strain_val / SENSOR_THRESHOLDS["strain"]["crit"],
+            )
             degradation = calculate_degradation_rate(
-                health_score, anomaly_score, alert_level, bridge_id
+                health_score, anomaly_score, alert_level, bridge_id,
+                risk_score=risk_score, sensor_overload=sensor_overload,
             )
             rate = degradation["daily_degradation_rate"]
             days_to_critical = predict_time_to_threshold(health_score, rate, 40.0)
@@ -1779,65 +1790,169 @@ def get_india_bridges():
 
 
 # ── MAINTENANCE FORECAST UTILITIES ──────────────────────────────────────────
-def predict_maintenance(bridge_id: int, mark_active: bool = True):
+def predict_maintenance(
+    bridge_id: int, 
+    mark_active: bool = True,
+    override_health: float = None,
+    override_risk: float = None,
+    override_anomaly: float = None,
+):
     from datetime import datetime, timedelta
     ensure_simulator_exists(bridge_id, mark_active=mark_active)
     if bridge_id not in _simulators:
         bridge_id = 1
     sim = _simulators[bridge_id]
+    
+    # 1. Fetch latest live telemetry state
+    live = dict(sim.latest_data or sim.get_data())
+    
+    current_health = float(override_health if override_health is not None else live.get("health_score", 100.0))
+    risk_score = float(override_risk if override_risk is not None else live.get("risk_score", 0.0))
+    anomaly_score = float(override_anomaly if override_anomaly is not None else live.get("anomaly_score", 0.0))
+    health_status = str(live.get("health_status", "Healthy"))
+    crack_gap = float(live.get("crack_gap", 0.0))
+    vibration = float(live.get("vibration", 0.0))
+    strain = float(live.get("strain", 0.0))
+    water_level = float(live.get("water_level", 0.0))
+
+    # Fallback anomaly score calculation if 0
+    if anomaly_score == 0.0:
+        try:
+            anom_df = pd.read_csv(PIPELINE_SCORES_PATH)
+            latest_anom = float(anom_df.iloc[-1]["combined_score"])
+            anom_factor = 1.3 if sim.scale_factor == 1.4 else 1.6 if sim.scale_factor == 1.7 else 1.0
+            anomaly_score = round(float(np.clip(latest_anom * anom_factor, 0.0, 1.0)), 4)
+        except Exception:
+            anomaly_score = 0.0824
+
+    # Synchronize effective risk score with RiskGauge calculation
+    if current_health < 50.0:
+        gauge_risk = (70.0 + (50.0 - current_health) * 0.6) / 100.0
+    elif current_health < 75.0:
+        gauge_risk = (40.0 + (75.0 - current_health) * 1.2) / 100.0
+    else:
+        gauge_risk = ((100.0 - current_health) * 1.6) / 100.0
+    
+    effective_risk = max(risk_score, gauge_risk)
+
+    # 2. Sensor and status breach evaluations
+    status_upper = health_status.upper()
+    is_critical_sensor = (
+        crack_gap > CRACK_GAP_LIMIT_MM
+        or vibration > SENSOR_THRESHOLDS["vibration"]["crit"]
+        or strain > SENSOR_THRESHOLDS["strain"]["crit"]
+        or water_level > SENSOR_THRESHOLDS["water_level"]["crit"]
+    )
+    is_warning_sensor = (
+        crack_gap > CRACK_GAP_WARN_MM
+        or vibration > SENSOR_THRESHOLDS["vibration"]["warn"]
+        or strain > SENSOR_THRESHOLDS["strain"]["warn"]
+        or water_level > SENSOR_THRESHOLDS["water_level"]["warn"]
+    )
+
+    is_critical = (
+        current_health < 50.0 
+        or status_upper in ["CRITICAL", "FAIL"] 
+        or effective_risk >= 0.70
+        or is_critical_sensor
+    )
+    is_warning = (
+        not is_critical and (
+            current_health <= 74.0 
+            or status_upper in ["WARNING", "MONITOR", "POOR", "FAIR"] 
+            or effective_risk >= 0.35
+            or is_warning_sensor
+        )
+    )
+
+    if is_critical:
+        alert_level = "CRITICAL"
+    elif is_warning:
+        alert_level = "WARNING"
+    else:
+        alert_level = "NORMAL"
+
+    # Compute sensor overload factor
+    sensor_overload = max(
+        1.0,
+        crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
+        vibration / SENSOR_THRESHOLDS["vibration"]["crit"],
+        strain / SENSOR_THRESHOLDS["strain"]["crit"]
+    )
+
+    # 3. Calculate physics & risk-based degradation rate
+    if calculate_degradation_rate:
+        deg = calculate_degradation_rate(
+            current_health, anomaly_score, alert_level, bridge_id,
+            risk_score=effective_risk, sensor_overload=sensor_overload
+        )
+        decline_rate_per_day = deg["daily_degradation_rate"]
+    else:
+        decline_rate_per_day = 0.25
+
+    # Also incorporate health history trend slope if available
     history = sim.health_history
-    n_readings = len(history)
-    
-    if n_readings < 2:
-        return {
-            "days_until_maintenance": 365,
-            "urgency": "GOOD",
-            "current_health": 95.0,
-            "decline_rate": 0.0,
-            "predicted_maintenance_date": (datetime.now() + timedelta(days=365)).strftime("%Y-%m-%d"),
-            "recommendation": "No action required. Maintain standard monthly inspection schedule.",
-            "confidence": "LOW"
-        }
-        
-    scores = [h["health_score"] for h in history]
-    x = np.arange(n_readings)
-    y = np.array(scores)
-    
-    # Fit y = m*x + c  (linear regression on health history)
-    slope, intercept = np.polyfit(x, y, 1)
-    current_health = float(scores[-1])
-    
-    # 1 reading ≈ 1 hour, so 24 readings per day
-    decline_rate_per_day = float(-slope * 24)
-    
-    if slope < -0.001:  # declining trend
-        points_to_lose = current_health - 40.0
-        if points_to_lose <= 0:
+    if len(history) >= 2:
+        scores = [h["health_score"] for h in history]
+        x = np.arange(len(scores))
+        y = np.array(scores)
+        slope, _ = np.polyfit(x, y, 1)
+        if slope < 0:
+            hist_rate = float(-slope * 24)
+            decline_rate_per_day = max(decline_rate_per_day, hist_rate)
+
+    # Enforce minimum decline rates per alert level
+    if is_critical:
+        decline_rate_per_day = max(1.8, decline_rate_per_day)
+    elif is_warning:
+        decline_rate_per_day = max(0.6, decline_rate_per_day)
+    else:
+        decline_rate_per_day = max(0.05, decline_rate_per_day)
+
+    # 4. Compute days until maintenance
+    maintenance_threshold = 40.0
+    points_to_maintenance = max(0.0, current_health - maintenance_threshold)
+
+    if is_critical:
+        # A Critical / High-risk bridge MUST NEVER show 300+ days or "no action required"
+        if current_health <= maintenance_threshold:
             days_until_maintenance = 0
         else:
-            days_until_maintenance = int(points_to_lose / decline_rate_per_day)
-    else:
-        decline_rate_per_day = max(0.0, float(-slope * 24))
-        days_until_maintenance = 365  # stable or improving
+            raw_days = points_to_maintenance / decline_rate_per_day
+            days_until_maintenance = max(1, min(7, int(raw_days)))
         
-    days_until_maintenance = max(0, min(365, days_until_maintenance))
-    
-    if days_until_maintenance <= 30:
         urgency = "IMMEDIATE"
-        recommendation = "Suspend bridge operations. Deploy emergency inspection team within 24 hours."
-    elif days_until_maintenance <= 90:
+        confidence = "HIGH"
+        if crack_gap > CRACK_GAP_LIMIT_MM:
+            recommendation = f"CRITICAL: Active crack breach ({crack_gap:.3f}mm > {CRACK_GAP_LIMIT_MM:.2f}mm). Suspend heavy traffic and deploy emergency structural repair team within 24 hours."
+        elif vibration > SENSOR_THRESHOLDS["vibration"]["crit"]:
+            recommendation = f"CRITICAL: Severe vibration breach ({vibration:.3f}g). Enforce immediate vehicle load limits and structural inspection within 24 hours."
+        elif strain > SENSOR_THRESHOLDS["strain"]["crit"]:
+            recommendation = f"CRITICAL: Girder overstrain breach ({strain:.1f} MPa). Restrict lane loading and dispatch emergency structural crew."
+        else:
+            recommendation = f"CRITICAL structural risk detected (Health: {current_health:.1f}/100, Risk: {effective_risk*100:.0f}%). Suspend bridge operations and deploy emergency team within 24 hours."
+
+    elif is_warning:
+        raw_days = points_to_maintenance / decline_rate_per_day
+        days_until_maintenance = max(7, min(45, int(raw_days)))
         urgency = "SOON"
-        recommendation = "Schedule full structural inspection within 2 weeks. Monitor sensors daily."
-    elif days_until_maintenance <= 180:
-        urgency = "SCHEDULED"
-        recommendation = "Include in next quarterly maintenance cycle. Continue regular monitoring."
+        confidence = "HIGH"
+        if crack_gap > CRACK_GAP_WARN_MM:
+            recommendation = f"Elevated crack gap ({crack_gap:.3f}mm). Schedule visual inspection and epoxy sealant injection within 14 days."
+        elif vibration > SENSOR_THRESHOLDS["vibration"]["warn"]:
+            recommendation = f"Elevated dynamic vibration ({vibration:.3f}g). Monitor heavy vehicle crossings and inspect deck bearings within 14 days."
+        else:
+            recommendation = f"Elevated structural risk ({effective_risk*100:.0f}%). Schedule detailed inspection within 14 days and increase sensor polling frequency."
+
     else:
-        urgency = "GOOD"
-        recommendation = "No action required. Maintain standard monthly inspection schedule."
-        
-    confidence = "HIGH" if n_readings >= 40 else "MEDIUM" if n_readings >= 15 else "LOW"
+        raw_days = points_to_maintenance / decline_rate_per_day
+        days_until_maintenance = max(90, min(365, int(raw_days)))
+        urgency = "GOOD" if days_until_maintenance >= 180 else "SCHEDULED"
+        confidence = "MEDIUM" if len(history) >= 20 else "LOW"
+        recommendation = "Operating within safe IRC parameters. Maintain standard annual NHAI inspection schedule."
+
     predicted_date = (datetime.now() + timedelta(days=days_until_maintenance)).strftime("%Y-%m-%d")
-    
+
     return {
         "days_until_maintenance": days_until_maintenance,
         "urgency": urgency,
@@ -1845,13 +1960,25 @@ def predict_maintenance(bridge_id: int, mark_active: bool = True):
         "decline_rate": round(decline_rate_per_day, 3),
         "predicted_maintenance_date": predicted_date,
         "recommendation": recommendation,
-        "confidence": confidence
+        "confidence": confidence,
+        "alert_level": alert_level,
+        "risk_score": round(effective_risk, 4),
     }
 
 @app.get("/api/maintenance")
-def get_maintenance(bridge_id: int = 1):
-    """Return maintenance prediction for a specific bridge."""
-    return predict_maintenance(bridge_id)
+def get_maintenance(
+    bridge_id: int = 1,
+    health_score: float = None,
+    risk_score: float = None,
+    anomaly_score: float = None,
+):
+    """Return maintenance prediction for a specific bridge based on live telemetry."""
+    return predict_maintenance(
+        bridge_id,
+        override_health=health_score,
+        override_risk=risk_score,
+        override_anomaly=anomaly_score,
+    )
 
 @app.get("/api/maintenance/all")
 def get_maintenance_all():

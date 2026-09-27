@@ -1283,7 +1283,7 @@ function InspectionModal({ bridge, token, onClose }) {
           {/* Section 3: Maintenance Forecast Predictions */}
           <div>
             <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Maintenance prediction & risk factors</h4>
-            <MaintenancePanel activeBridgeId={bridge.id} healthHistory={healthHistory} />
+            <MaintenancePanel activeBridgeId={bridge.id} healthHistory={healthHistory} liveData={liveData} />
           </div>
 
           {/* Section 4: Alert panel + Risk Gauge */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   LineChart,
   Line,
@@ -15,13 +15,15 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
+  const validItems = payload.filter((item) => item.value !== null && item.value !== undefined);
+  if (!validItems.length) return null;
   return (
     <div 
       className="rounded-[6px] px-3 py-2 bg-white border border-slate-200 text-[11px]"
       style={{ boxShadow: 'none' }}
     >
       <p className="font-mono text-slate-500 mb-1">{label}</p>
-      {payload.map((item, idx) => (
+      {validItems.map((item, idx) => (
         <p key={idx} style={{ color: item.color }} className="font-semibold m-0">
           {item.name}: {item.value?.toFixed(1)}%
         </p>
@@ -30,15 +32,26 @@ function CustomTooltip({ active, payload, label }) {
   );
 }
 
-export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHistory }) {
+export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHistory, liveData }) {
   const bid = bridgeId || activeBridgeId || 1;
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // ── Fetch maintenance prediction ──
-  const fetchPrediction = () => {
-    fetch(`${API_BASE}/api/maintenance?bridge_id=${bid}`)
+  // ── Fetch maintenance prediction with live telemetry parameters ──
+  const fetchPrediction = useCallback(() => {
+    const params = new URLSearchParams({ bridge_id: String(bid) });
+    if (liveData?.health_score !== undefined && liveData?.health_score !== null) {
+      params.append('health_score', String(liveData.health_score));
+    }
+    if (liveData?.risk_score !== undefined && liveData?.risk_score !== null) {
+      params.append('risk_score', String(liveData.risk_score));
+    }
+    if (liveData?.anomaly_score !== undefined && liveData?.anomaly_score !== null) {
+      params.append('anomaly_score', String(liveData.anomaly_score));
+    }
+
+    fetch(`${API_BASE}/api/maintenance?${params.toString()}`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         return res.json();
@@ -53,14 +66,16 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
         setError(err.message);
         setLoading(false);
       });
-  };
+  }, [bid, liveData?.health_score, liveData?.risk_score, liveData?.anomaly_score]);
 
   useEffect(() => {
-    setLoading(true);
     fetchPrediction();
-    const interval = setInterval(fetchPrediction, 30000);
+  }, [fetchPrediction]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchPrediction, 5000);
     return () => clearInterval(interval);
-  }, [bid]);
+  }, [fetchPrediction]);
 
   // Urgency color configurations using unified muted palette
   const urgencyColors = {
@@ -73,60 +88,47 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
   const currentUrgency = prediction?.urgency || 'GOOD';
   const uCfg = urgencyColors[currentUrgency] || urgencyColors.GOOD;
 
-  // ── Polyfit Linear Regression logic on the historical points ──
+  // ── Projected health trend line synchronized with live health & decline rate ──
   const regressionData = useMemo(() => {
-    if (!healthHistory || healthHistory.length < 2) return [];
-
-    const n = healthHistory.length;
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    for (let i = 0; i < n; i++) {
-      sumX += i;
-      sumY += healthHistory[i].health_score;
-      sumXY += i * healthHistory[i].health_score;
-      sumXX += i * i;
-    }
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const intercept = (sumY - slope * sumX) / n;
+    const currentHealth = liveData?.health_score ?? prediction?.current_health ?? 
+      (healthHistory && healthHistory.length > 0 ? healthHistory[healthHistory.length - 1].health_score : 100);
+    const declinePerDay = prediction?.decline_rate ?? 0.25;
+    const hourlyDecline = declinePerDay / 24.0;
 
     const chartData = [];
 
-    // 1. Historical actuals + fitted trend line
-    for (let i = 0; i < n; i++) {
-      const timeLabel = healthHistory[i].timestamp?.split('T')[1]?.slice(0, 5) || 
-                        healthHistory[i].timestamp?.split(' ')[1]?.slice(0, 5) || '';
-      chartData.push({
-        time: timeLabel,
-        health: healthHistory[i].health_score,
-        trend: Math.max(0, Math.min(100, slope * i + intercept)),
-        projected: null,
-      });
-    }
-
-    // 2. Projected points (next 30 hourly readings)
-    if (n > 0) {
-      const lastFit = chartData[n - 1].trend;
-      chartData.push({
-        time: 'Now',
-        health: null,
-        trend: null,
-        projected: lastFit,
-      });
-
-      for (let i = 1; i <= 30; i++) {
-        const idx = n - 1 + i;
-        const projVal = Math.max(0, Math.min(100, slope * idx + intercept));
+    // 1. Historical actuals
+    if (healthHistory && healthHistory.length > 0) {
+      for (let i = 0; i < healthHistory.length; i++) {
+        const timeLabel = healthHistory[i].timestamp?.split('T')[1]?.slice(0, 5) || 
+                          healthHistory[i].timestamp?.split(' ')[1]?.slice(0, 5) || '';
         chartData.push({
-          time: `+${i}h`,
-          health: null,
-          trend: null,
-          projected: projVal,
+          time: timeLabel,
+          health: Math.round(healthHistory[i].health_score * 10) / 10,
+          projected: null,
         });
       }
     }
 
+    // 2. Transition anchor at "Now" connecting actual & projected
+    chartData.push({
+      time: 'Now',
+      health: Math.round(currentHealth * 10) / 10,
+      projected: Math.round(currentHealth * 10) / 10,
+    });
+
+    // 3. Projected points (next 30 hourly readings based on live degradation rate)
+    for (let i = 1; i <= 30; i++) {
+      const projVal = Math.max(0, Math.min(100, Math.round((currentHealth - hourlyDecline * i) * 10) / 10));
+      chartData.push({
+        time: `+${i}h`,
+        health: null,
+        projected: projVal,
+      });
+    }
+
     return chartData;
-  }, [healthHistory]);
+  }, [healthHistory, liveData?.health_score, prediction?.current_health, prediction?.decline_rate]);
 
   if (loading && !prediction) {
     return (
@@ -174,9 +176,11 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
           {/* Countdown & Urgency Badges */}
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-slate-900 leading-tight m-0">
-              {prediction?.days_until_maintenance >= 365
+              {prediction?.days_until_maintenance <= 0
+                ? 'Immediate maintenance required'
+                : prediction?.days_until_maintenance >= 365
                 ? '365+ days until maintenance'
-                : `${prediction?.days_until_maintenance} days until maintenance`}
+                : `${prediction?.days_until_maintenance} day${prediction?.days_until_maintenance === 1 ? '' : 's'} until maintenance`}
             </h2>
 
             {/* Badges container */}
