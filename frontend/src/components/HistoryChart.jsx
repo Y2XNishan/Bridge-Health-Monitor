@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { History, RefreshCw } from 'lucide-react';
 import { fetchHistory } from '../api';
+import { WATER_LEVEL_LIMIT_M } from '../constants/thresholds';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -174,12 +175,12 @@ export default function HistoryChart({ historyData: externalData, activeBridgeId
             />
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine
-              y={5.5}
+              y={WATER_LEVEL_LIMIT_M}
               stroke="#991B1B"
               strokeDasharray="4 2"
               strokeWidth={1}
               label={{
-                value: 'Critical limit (5.5m)',
+                value: `Critical limit (${WATER_LEVEL_LIMIT_M}m)`,
                 position: 'right',
                 fill: '#991B1B',
                 fontSize: 10,

@@ -3,9 +3,21 @@ import json
 from groq import Groq
 
 try:
-    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from backend.constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 except ImportError:
-    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
@@ -31,7 +43,8 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
     str_warn = SENSOR_THRESHOLDS["strain"]["warn"]
     crk_crit = CRACK_GAP_LIMIT_MM
     crk_warn = CRACK_GAP_WARN_MM
-    wat_flood = SENSOR_THRESHOLDS["water_level"]["flood"]
+    wat_crit = WATER_LEVEL_LIMIT_M
+    wat_warn = WATER_LEVEL_WARN_M
 
     triggered_sensors = []
     if vibration > vib_crit:
@@ -49,8 +62,10 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
     elif crack_gap > crk_warn:
         triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (approaching safe limit of {crk_crit:.2f}mm)")
     
-    if water_level > wat_flood:
-        triggered_sensors.append(f"Water level {water_level:.2f}m (flood threshold: {wat_flood}m)")
+    if water_level > wat_crit:
+        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m) — CRITICAL breach")
+    elif water_level > wat_warn:
+        triggered_sensors.append(f"Water level {water_level:.2f}m (approaching flood danger limit of {wat_crit:.2f}m)")
     
     # Determine root cause context
     root_cause_hints = []
@@ -79,7 +94,7 @@ FULL SENSOR READINGS:
 - Vibration: {vibration:.3f}g (IRC:6-2017 threshold: {vib_crit}g)
 - Strain: {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.0f} MPa)  
 - Crack Gap: {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm)
-- Water Level: {water_level:.2f}m (flood threshold: {wat_flood}m)
+- Water Level: {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m)
 
 Generate an XAI explanation with exactly these 4 sections:
 
@@ -125,8 +140,10 @@ Generate an XAI explanation with exactly these 4 sections:
         elif crack_gap > crk_warn:
             rc_parts.append(f"Crack gap sensor shows progressive widening at {crack_gap:.3f}mm approaching the {crk_crit:.2f}mm limit.")
             
-        if water_level > wat_flood:
-            rc_parts.append(f"Water level has breached the flood threshold at {water_level:.2f}m.")
+        if water_level > wat_crit:
+            rc_parts.append(f"Water level has breached the IRC:6-2017 flood danger threshold at {water_level:.2f}m (critical limit: {wat_crit:.2f}m).")
+        elif water_level > wat_warn:
+            rc_parts.append(f"Water level is elevated at {water_level:.2f}m, approaching the flood danger limit of {wat_crit:.2f}m.")
 
         if not rc_parts:
             rc_parts.append(f"An anomaly was detected by the ML models due to pattern deviations in sensor correlations (Anomaly Score: {anomaly_score:.2f}).")
@@ -149,6 +166,8 @@ Generate an XAI explanation with exactly these 4 sections:
             irc_ref = f"IRC:6-2017 establishes live load vibration and dynamic allowance factor thresholds ({vib_crit}g)."
         elif crack_gap > crk_warn:
             irc_ref = f"IRC:112-2011 Table 12.1 and IRC:SP:44-1996 establish maximum crack width limits ({crk_crit:.2f}mm) for concrete bridges."
+        elif water_level > wat_warn:
+            irc_ref = f"IRC:6-2017 Clause 213 specifies design flood discharge and High Flood Level (HFL) safety limits ({wat_crit:.2f}m)."
         else:
             irc_ref = "IRC:SP:51-2015 guidelines specify structural health monitoring systems and sensor deployment."
 

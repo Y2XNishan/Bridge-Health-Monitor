@@ -6,16 +6,16 @@ Standards Reference:
 - Vibration: IRC:6-2017 Clause 204 / 219 (Dynamic allowance and vibration limits) -> 1.20 g
 - Strain: IRC:112-2011 Section 12 (Serviceability Limit State tensile strain) -> 210.0 MPa
 - Crack Gap: IRC:112-2011 Table 12.1 / IRC:SP:44-1996 (Crack control in RC structures) -> Safe limit: 0.30 mm, Watch: 0.20 mm
-- Water Level: NHAI / CWC Flood Warning Level -> Flood threshold: 4.50 m, Critical: 5.50 m
+- Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 5.50 m, Watch: 4.00 m
 """
 
 SENSOR_THRESHOLDS = {
     "water_level": {
         "warn": 4.0,
         "crit": 5.5,
-        "flood": 4.5,
+        "flood": 5.5,
         "unit": "m",
-        "standard": "Flood Threshold",
+        "standard": "IRC:6-2017 Cl. 213 / CWC",
     },
     "vibration": {
         "warn": 0.8,
@@ -39,6 +39,9 @@ SENSOR_THRESHOLDS = {
 
 CRACK_GAP_LIMIT_MM = SENSOR_THRESHOLDS["crack_gap"]["crit"]  # 0.30 mm
 CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS["crack_gap"]["warn"]   # 0.20 mm
+
+WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS["water_level"]["crit"]  # 5.50 m
+WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS["water_level"]["warn"]   # 4.00 m
 
 
 def get_sensor_status_label(sensor_name: str, value: float) -> str:

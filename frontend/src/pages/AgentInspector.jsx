@@ -536,9 +536,9 @@ export default function AgentInspector() {
                     name: 'Vibration',
                     val: inspectionResult.sensor_summary?.vibration,
                     unit: 'g',
-                    limit: '1.2g',
+                    limit: `${SENSOR_THRESHOLDS.vibration.crit}g`,
                     icon: Activity,
-                    alert: inspectionResult.sensor_summary?.vibration > 0.8
+                    alert: inspectionResult.sensor_summary?.vibration > SENSOR_THRESHOLDS.vibration.warn
                   },
                   {
                     name: 'Strain',
@@ -560,7 +560,7 @@ export default function AgentInspector() {
                     name: 'Water Level',
                     val: inspectionResult.sensor_summary?.water_level,
                     unit: 'm',
-                    limit: `${SENSOR_THRESHOLDS.water_level.warn}m`,
+                    limit: `${SENSOR_THRESHOLDS.water_level.crit}m`,
                     icon: Droplet,
                     alert: inspectionResult.sensor_summary?.water_level > SENSOR_THRESHOLDS.water_level.warn
                   }

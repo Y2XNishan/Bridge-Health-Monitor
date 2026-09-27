@@ -10,9 +10,21 @@ except ImportError:
     from rag import retrieve_context
 
 try:
-    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from backend.constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 except ImportError:
-    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
@@ -84,9 +96,15 @@ def analyze_sensors(live_data: dict) -> dict:
         issues.append(f"WARNING: Crack gap {crack_gap:.3f}mm requires monitoring (approaching {CRACK_GAP_LIMIT_MM:.2f}mm limit)")
         recommendations.append("Schedule crack repair within 30 days")
 
-    if water_level > 4.5:
-        issues.append(f"WARNING: Water level {water_level:.2f}m approaching flood threshold")
-        recommendations.append("Activate flood monitoring protocol")
+    if water_level > WATER_LEVEL_LIMIT_M:
+        issues.append(f"CRITICAL: Water level {water_level:.2f}m exceeds IRC:6-2017 flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
+        recommendations.append("Emergency bridge closure and scour assessment required per IRC:6-2017")
+        severity = "CRITICAL"
+    elif water_level > WATER_LEVEL_WARN_M:
+        issues.append(f"WARNING: Water level {water_level:.2f}m approaching flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
+        recommendations.append("Activate flood monitoring protocol and monitor pier scour daily")
+        if severity != "CRITICAL":
+            severity = "WARNING"
 
     if health_score < 40:
         severity = "CRITICAL"

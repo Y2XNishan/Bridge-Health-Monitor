@@ -397,11 +397,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     }
 
     // Water Level
-    if (bridge.water_level > 5.5) {
+    const waterCrit = SENSOR_THRESHOLDS.water_level.crit;
+    const waterWarn = SENSOR_THRESHOLDS.water_level.warn;
+    if (bridge.water_level > waterCrit) {
       sensorStatuses.push({ sensor: "Water Level", level: "CRITICAL", severity: 3 });
     } else if (bridge.water_level > 5.0) {
       sensorStatuses.push({ sensor: "Water Level", level: "WARNING", severity: 2 });
-    } else if (bridge.water_level > 4.0) {
+    } else if (bridge.water_level > waterWarn) {
       sensorStatuses.push({ sensor: "Water Level", level: "WATCH", severity: 1 });
     }
 

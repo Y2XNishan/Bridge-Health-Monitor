@@ -4,9 +4,9 @@ import numpy as np
 from groq import Groq
 
 try:
-    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM
+    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, WATER_LEVEL_LIMIT_M
 except ImportError:
-    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM
+    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, WATER_LEVEL_LIMIT_M
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
@@ -104,6 +104,19 @@ def predict_sensor_failure(sensor_data: dict, bridge_id: int) -> list:
             "usage_pct": round(crack_pct * 100, 1),
             "days_to_failure": days,
             "priority": "CRITICAL" if crack_pct > 0.9 else "HIGH"
+        })
+    
+    # Water level — at risk if > 70% of critical flood limit
+    water_pct = water_level / WATER_LEVEL_LIMIT_M
+    if water_pct > 0.7:
+        days = round(max(1, (1.0 - water_pct) * 25 * (200 / (bridge_id + 1))))
+        at_risk.append({
+            "sensor": "Water Level / Flood Gauge",
+            "current": f"{water_level:.2f}m",
+            "threshold": f"{WATER_LEVEL_LIMIT_M:.2f}m",
+            "usage_pct": round(water_pct * 100, 1),
+            "days_to_failure": days,
+            "priority": "CRITICAL" if water_pct >= 1.0 else "HIGH" if water_pct > 0.85 else "MEDIUM"
         })
     
     return at_risk
@@ -231,11 +244,13 @@ def run_survival_analysis(bridge_id: int, bridge_name: str, sensor_data: dict) -
     crack_gap = sensor_data.get("crack_gap", 0.0)
     vibration = sensor_data.get("vibration", 0.0)
     strain = sensor_data.get("strain", 0.0)
+    water_level = sensor_data.get("water_level", 0.0)
     sensor_overload = max(
         1.0,
         crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
+        water_level / WATER_LEVEL_LIMIT_M if WATER_LEVEL_LIMIT_M else 1.0,
         vibration / 1.2,
-        strain / 210.0
+        strain / 210.0,
     )
 
     # Calculate degradation

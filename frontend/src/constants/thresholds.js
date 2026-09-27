@@ -6,7 +6,7 @@
  * - Vibration: IRC:6-2017 Clause 204 / 219 (Live load vibration & dynamic limits) -> Limit: 1.20 g
  * - Strain: IRC:112-2011 Section 12 (Serviceability Limit State tensile strain) -> Limit: 210.0 MPa
  * - Crack Gap: IRC:112-2011 Table 12.1 / IRC:SP:44-1996 (Crack control in concrete bridges) -> Limit: 0.30 mm, Warn: 0.20 mm
- * - Water Level: NHAI / CWC Flood Warning (Flood threshold: 4.50 m, Critical: 5.50 m)
+ * - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 5.50 m, Watch: 4.00 m
  */
 
 export const SENSOR_THRESHOLDS = {
@@ -15,7 +15,7 @@ export const SENSOR_THRESHOLDS = {
     crit: 5.5,
     unit: 'm',
     label: 'Water level',
-    standard: 'Flood Threshold (4.50m / 5.50m)',
+    standard: 'IRC:6-2017 Cl. 213 / CWC (5.50m limit)',
   },
   vibration: {
     warn: 0.8,
@@ -39,6 +39,12 @@ export const SENSOR_THRESHOLDS = {
     standard: 'IRC:112-2011 Table 12.1 (0.30mm limit)',
   },
 };
+
+export const CRACK_GAP_LIMIT_MM = SENSOR_THRESHOLDS.crack_gap.crit; // 0.30 mm
+export const CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS.crack_gap.warn;  // 0.20 mm
+
+export const WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS.water_level.crit; // 5.50 m
+export const WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS.water_level.warn;  // 4.00 m
 
 /**
  * Returns standardized status string: 'Critical', 'Monitor', or 'Healthy'

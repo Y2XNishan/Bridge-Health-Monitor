@@ -280,9 +280,21 @@ except ImportError:
     predict_time_to_threshold = None
 
 try:
-    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from backend.constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 except ImportError:
-    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+    from constants import (
+        SENSOR_THRESHOLDS,
+        CRACK_GAP_LIMIT_MM,
+        CRACK_GAP_WARN_MM,
+        WATER_LEVEL_LIMIT_M,
+        WATER_LEVEL_WARN_M,
+    )
 
 _HISTORY_WINDOW = 1500  # enough rows for rolling-24h features
 _HEALTH_HISTORY_MAX = 50
@@ -317,11 +329,11 @@ def calculate_health_score(
     score = 100.0
 
     # Water level penalties
-    if water_level > 5.5:
+    if water_level > WATER_LEVEL_LIMIT_M:
         score -= 40
     elif water_level > 5.0:
         score -= 25
-    elif water_level > 4.0:
+    elif water_level > WATER_LEVEL_WARN_M:
         score -= 10
 
     # Vibration penalties
@@ -1876,8 +1888,9 @@ def predict_maintenance(
     sensor_overload = max(
         1.0,
         crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
+        water_level / WATER_LEVEL_LIMIT_M if WATER_LEVEL_LIMIT_M else 1.0,
         vibration / SENSOR_THRESHOLDS["vibration"]["crit"],
-        strain / SENSOR_THRESHOLDS["strain"]["crit"]
+        strain / SENSOR_THRESHOLDS["strain"]["crit"],
     )
 
     # 3. Calculate physics & risk-based degradation rate
@@ -1925,6 +1938,8 @@ def predict_maintenance(
         confidence = "HIGH"
         if crack_gap > CRACK_GAP_LIMIT_MM:
             recommendation = f"CRITICAL: Active crack breach ({crack_gap:.3f}mm > {CRACK_GAP_LIMIT_MM:.2f}mm). Suspend heavy traffic and deploy emergency structural repair team within 24 hours."
+        elif water_level > WATER_LEVEL_LIMIT_M:
+            recommendation = f"CRITICAL: High flood breach ({water_level:.2f}m > {WATER_LEVEL_LIMIT_M:.2f}m). Enforce emergency bridge closure and scour monitoring team deployment within 24 hours."
         elif vibration > SENSOR_THRESHOLDS["vibration"]["crit"]:
             recommendation = f"CRITICAL: Severe vibration breach ({vibration:.3f}g). Enforce immediate vehicle load limits and structural inspection within 24 hours."
         elif strain > SENSOR_THRESHOLDS["strain"]["crit"]:
@@ -1939,6 +1954,8 @@ def predict_maintenance(
         confidence = "HIGH"
         if crack_gap > CRACK_GAP_WARN_MM:
             recommendation = f"Elevated crack gap ({crack_gap:.3f}mm). Schedule visual inspection and epoxy sealant injection within 14 days."
+        elif water_level > WATER_LEVEL_WARN_M:
+            recommendation = f"Elevated flood stage ({water_level:.2f}m). Monitor pier scour and river discharge daily."
         elif vibration > SENSOR_THRESHOLDS["vibration"]["warn"]:
             recommendation = f"Elevated dynamic vibration ({vibration:.3f}g). Monitor heavy vehicle crossings and inspect deck bearings within 14 days."
         else:
@@ -2308,9 +2325,9 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
     
     def get_sensor_status(sensor_name, value):
         if sensor_name == "water_level":
-            if value > 5.5: return "Critical", "#DC2626"
+            if value > WATER_LEVEL_LIMIT_M: return "Critical", "#DC2626"
             if value > 5.0: return "Warning", "#EA580C"
-            if value > 4.0: return "Elevated", "#CA8A04"
+            if value > WATER_LEVEL_WARN_M: return "Elevated", "#CA8A04"
             return "Normal", "#16A34A"
         elif sensor_name == "vibration":
             if value > 1.2: return "Critical", "#DC2626"
@@ -2546,7 +2563,7 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
         [Paragraph("Pipeline Weights", table_cell_style), Paragraph("Random Forest: 40%  |  XGBoost: 60%", table_cell_style)],
         [Paragraph("Data Sampling Interval", table_cell_style), Paragraph("1 telemetry reading / minute", table_cell_style)],
         [Paragraph("FastAPI Server Core Engine", table_cell_style), Paragraph("Python 3.x, FastAPI, Uvicorn ASGI Server", table_cell_style)],
-        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph("Static Thresholds: Water &gt; 5.5m, Vib &gt; 1.2g, Strain &gt; 210MPa, Crack &gt; 0.65mm", table_cell_style)],
+        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph(f"Static Thresholds: Water &gt; {WATER_LEVEL_LIMIT_M:.1f}m, Vib &gt; {SENSOR_THRESHOLDS['vibration']['crit']}g, Strain &gt; {SENSOR_THRESHOLDS['strain']['crit']:.0f}MPa, Crack &gt; {CRACK_GAP_LIMIT_MM:.2f}mm", table_cell_style)],
         [Paragraph("Pipeline Processing Latency", table_cell_style), Paragraph("&lt; 15 ms / request (Model evaluation)", table_cell_style)],
         [Paragraph("Inference Confidence Index", table_cell_style), Paragraph(f"{maint['confidence']} (Based on {len(sim.health_history)} health records)", table_cell_style)],
     ]
@@ -3112,7 +3129,7 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
         elif name == "crack_gap":
             return "CRITICAL" if val > CRACK_GAP_LIMIT_MM else "WARNING" if val > CRACK_GAP_WARN_MM else "NORMAL"
         elif name == "water_level":
-            return "WARNING" if val > SENSOR_THRESHOLDS["water_level"]["flood"] else "NORMAL"
+            return "CRITICAL" if val > WATER_LEVEL_LIMIT_M else "WARNING" if val > WATER_LEVEL_WARN_M else "NORMAL"
         return "NORMAL"
         
     def get_status_color(lbl):
@@ -3123,7 +3140,7 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
         [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['vibration']['crit']:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
         [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['strain']['crit']:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
         [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
-        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['water_level']['flood']:.2f} m (Flood Threshold)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
+        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_LIMIT_M:.2f} m (IRC:6-2017 Flood Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
     ]
     
     sensor_table = Table(sensor_data, colWidths=[130, 130, 150, 110])
@@ -3436,12 +3453,12 @@ def get_bridge_pdf_report(bridge_id: int, user = Depends(get_current_user)):
             Paragraph(f"<font color='{check_color(check_sensor(strn, 210.0))}'><b>{check_sensor(strn, 210.0)}</b></font>", table_cell_style)
         ],
         [
-            Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph("0.650 mm (Safe Limit)", table_cell_style),
-            Paragraph(f"<font color='{check_color(check_sensor(crk, 0.65))}'><b>{check_sensor(crk, 0.65)}</b></font>", table_cell_style)
+            Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style),
+            Paragraph(f"<font color='{check_color(check_sensor(crk, CRACK_GAP_LIMIT_MM))}'><b>{check_sensor(crk, CRACK_GAP_LIMIT_MM)}</b></font>", table_cell_style)
         ],
         [
-            Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph("5.50 m (Flood Threshold)", table_cell_style),
-            Paragraph(f"<font color='{check_color(check_sensor(wat, 5.5))}'><b>{check_sensor(wat, 5.5)}</b></font>", table_cell_style)
+            Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_LIMIT_M:.2f} m (IRC:6-2017 Flood Limit)", table_cell_style),
+            Paragraph(f"<font color='{check_color(check_sensor(wat, WATER_LEVEL_LIMIT_M))}'><b>{check_sensor(wat, WATER_LEVEL_LIMIT_M)}</b></font>", table_cell_style)
         ]
     ]
     sensor_table = Table(sensor_data, colWidths=[130, 130, 150, 110])
