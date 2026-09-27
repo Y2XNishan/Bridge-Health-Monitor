@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { Bot, MapPin, AlertTriangle, X, Send, Camera, CheckCircle2 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -8,9 +9,9 @@ const MAX_HISTORY_MESSAGES = 10;
 const renderMarkdown = (text) => {
   if (!text) return '';
 
-  const redBadge = '<span style="background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid #EF4444; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 6px; display: inline-block;">SEVERE/CRITICAL</span>';
-  const yellowBadge = '<span style="background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid #F59E0B; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 6px; display: inline-block;">MODERATE</span>';
-  const greenBadge = '<span style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid #10B981; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 6px; display: inline-block;">MINOR/LOW</span>';
+  const redBadge = '<span style="background: #FDF2F2; color: #1C1F26; border: 1px solid #FECACA; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block;">Critical</span>';
+  const yellowBadge = '<span style="background: #FFFBEB; color: #1C1F26; border: 1px solid #FEF3C7; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block;">Monitor</span>';
+  const greenBadge = '<span style="background: #F0FDF4; color: #1C1F26; border: 1px solid #DCFCE7; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block;">Healthy</span>';
 
   let formatted = text
     .replace(/(severity(?:\s+assessment)?(?:\s+is)?(?:\s+rated\s+as)?(?:\s+level)?:?\s*)(severe\/critical|severe|critical|moderate|minor\/low|minor|low)/gi, (match, p1, p2) => {
@@ -26,7 +27,9 @@ const renderMarkdown = (text) => {
       return `${p1}${p2} ${badge}`;
     })
     .replace(/(DAMAGE TYPE|SEVERITY|RECOMMENDATIONS|ESTIMATED WIDTH|IRC REFERENCE|IMMEDIATE ACTION|MONITORING):?/gi, (match) => {
-      return `<div style="font-weight: bold; margin-top: 12px; margin-bottom: 4px; color: var(--color-text-primary);">${match.toUpperCase()}</div>`;
+      const title = match.replace(':', '').trim();
+      const sentenceTitle = title.charAt(0).toUpperCase() + title.slice(1).toLowerCase();
+      return `<div style="font-weight: 600; margin-top: 10px; margin-bottom: 3px; color: #1C1F26;">${sentenceTitle}</div>`;
     })
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -146,7 +149,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           const alertMessage = {
             role: 'assistant',
             isProactive: true,
-            content: `⚠️ ${userName}, ${nextAlertBridge.bridge_name} has crossed critical threshold. Health: ${healthVal}/100, Vibration: ${vibrationVal}g.\n\nWant me to automatically:\n• Run full AI inspection\n• Assign nearest available crew\n• Send Telegram alert`,
+            content: `${userName}, ${nextAlertBridge.bridge_name} has crossed the critical threshold. Health: ${healthVal}/100, Vibration: ${vibrationVal}g.\n\nRecommended protocol:\n• Run full AI inspection\n• Assign nearest available crew\n• Send dispatch alert`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           };
 
@@ -207,7 +210,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
       // Append user confirmation message
       const userMsg = {
         role: 'user',
-        content: 'Proceeding with inspection, crew assignment and Telegram alert...',
+        content: 'Proceeding with inspection, crew assignment and alert dispatch...',
         timestamp: timestampStr
       };
       setMessages((prev) => [...prev, userMsg].slice(-MAX_HISTORY_MESSAGES));
@@ -219,7 +222,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
         ...prev,
         {
           role: 'assistant',
-          content: '⚙️ Running autonomous actions...',
+          content: 'Running autonomous actions...',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ].slice(-MAX_HISTORY_MESSAGES));
@@ -230,7 +233,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           ...prev,
           {
             role: 'assistant',
-            content: '🔍 Step 1/3: Running AI inspection...',
+            content: 'Step 1/3: Running AI inspection...',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ].slice(-MAX_HISTORY_MESSAGES));
@@ -242,19 +245,19 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           ...prev,
           {
             role: 'assistant',
-            content: '👷 Step 2/3: Assigning nearest crew...',
+            content: 'Step 2/3: Assigning nearest crew...',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ].slice(-MAX_HISTORY_MESSAGES));
       }, 2000);
 
-      // Step 3: Send Telegram Alert
+      // Step 3: Send Alert
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: '📱 Step 3/3: Sending Telegram alert...',
+            content: 'Step 3/3: Dispatching notification alert...',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ].slice(-MAX_HISTORY_MESSAGES));
@@ -294,7 +297,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           ...prev,
           {
             role: 'assistant',
-            content: apiSummary || (apiError ? `❌ Error running autonomous actions: ${apiError}` : `✅ All actions completed for ${bridge_name}.`),
+            content: apiSummary || (apiError ? `Error running autonomous actions: ${apiError}` : `All actions completed for ${bridge_name}.`),
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ].slice(-MAX_HISTORY_MESSAGES));
@@ -360,7 +363,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           ...prev,
           {
             role: 'assistant',
-            content: '⚙️ Running autonomous actions...',
+            content: 'Running autonomous actions...',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
         ].slice(-MAX_HISTORY_MESSAGES));
@@ -371,7 +374,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
             ...prev,
             {
               role: 'assistant',
-              content: '🔍 Step 1/3: Running AI inspection...',
+              content: 'Step 1/3: Running AI inspection...',
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ].slice(-MAX_HISTORY_MESSAGES));
@@ -383,19 +386,19 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
             ...prev,
             {
               role: 'assistant',
-              content: '👷 Step 2/3: Assigning nearest crew...',
+              content: 'Step 2/3: Assigning nearest crew...',
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ].slice(-MAX_HISTORY_MESSAGES));
         }, 2000);
 
-        // Step 3: Send Telegram Alert
+        // Step 3: Send Alert
         setTimeout(() => {
           setMessages((prev) => [
             ...prev,
             {
               role: 'assistant',
-              content: '📱 Step 3/3: Sending Telegram alert...',
+              content: 'Step 3/3: Dispatching notification alert...',
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ].slice(-MAX_HISTORY_MESSAGES));
@@ -435,7 +438,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
             ...prev,
             {
               role: 'assistant',
-              content: apiSummary || (apiError ? `❌ Error running autonomous actions: ${apiError}` : `✅ All actions completed for ${bridge_name}.`),
+              content: apiSummary || (apiError ? `Error running autonomous actions: ${apiError}` : `All actions completed for ${bridge_name}.`),
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             }
           ].slice(-MAX_HISTORY_MESSAGES));
@@ -533,8 +536,8 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
   const healthScore = liveInfo?.health_score !== undefined ? liveInfo.health_score.toFixed(1) : '—';
   const rawHealth = liveInfo?.health_score;
   const alertLevel = rawHealth !== undefined && rawHealth !== null
-    ? (rawHealth >= 60 ? 'HEALTHY' : (rawHealth >= 40 ? 'MONITOR' : 'CRITICAL'))
-    : 'HEALTHY';
+    ? (rawHealth >= 75 ? 'Healthy' : (rawHealth >= 50 ? 'Monitor' : 'Critical'))
+    : 'Healthy';
 
   return (
     <>
@@ -543,123 +546,118 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
           display: inline-flex;
           gap: 4px;
           align-items: center;
-          background: var(--color-background-secondary);
-          border: 0.5px solid var(--color-border-tertiary);
-          border-radius: 0 8px 8px 8px;
-          padding: 10px 14px;
+          background: #F8FAFA;
+          border: 1px solid #E2E8F0;
+          border-radius: 6px;
+          padding: 8px 12px;
         }
         .typing-bubble span {
           display: inline-block;
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
-          background: #3b82f6;
+          background: #8B94A3;
           margin: 0 2px;
           animation: bounce 1.2s infinite;
         }
         .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
         .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
-        
-        @keyframes pulse-live {
-          0%, 100% {
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
-          }
-          50% {
-            box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
-          }
-        }
-        .animate-pulse-live {
-          animation: pulse-live 2s infinite;
-        }
       `}</style>
 
-      <div style={{
-        '--color-background-primary': 'var(--bg-primary)',
-        '--color-background-secondary': 'var(--bg-secondary)',
-        '--color-border-tertiary': 'var(--border-color)',
-        '--color-text-primary': 'var(--text-primary)',
-        '--color-text-secondary': 'var(--text-secondary)'
-      }}>
-        {/* open panel */}
+      <div>
+        {/* Open panel */}
         {isOpen && (
           <div style={{
             position: "fixed",
-            top: "60px",
-            left: "72px",
-            width: "420px",
-            height: "calc(100vh - 60px)",
-            background: "var(--bg-card, #ffffff)",
-            border: "none",
-            borderRight: "1px solid var(--border-color, #e2e8f0)",
-            boxShadow: "8px 0 30px rgba(0,0,0,0.1)",
+            top: 0,
+            left: "64px",
+            width: "410px",
+            height: "100vh",
+            background: "#FFFFFF",
+            borderRight: "1px solid #E2E8F0",
+            boxShadow: "none",
             display: "flex",
             flexDirection: "column",
-            zIndex: 999,
+            zIndex: 99,
             overflow: "hidden",
           }}>
             
-            {/* HEADER */}
+            {/* Header */}
             <div style={{
-              background: "linear-gradient(135deg, #3b82f6, #1e40af)",
+              background: "#1C1F26",
               padding: "16px 20px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              borderBottom: "1px solid #2A2E39",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <div style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "50%",
-                  background: "rgba(59,130,246,0.2)",
-                  border: "2px solid #3b82f6",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "6px",
+                  background: "#282D37",
+                  border: "1px solid #333945",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  color: "#FFFFFF"
                 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2">
-                    <path d="M12 2a10 10 0 1 0 10 10"/>
-                    <path d="M12 6v6l4 2"/>
-                  </svg>
+                  <Bot size={18} strokeWidth={1.8} />
                 </div>
                 <div>
-                  <div style={{ color: "white", fontWeight: "600", fontSize: "14px" }}>Bridge Assistant</div>
-                  <div style={{ color: "#94a3b8", fontSize: "11px" }}>{selectedImage ? 'LLaMA 4 Scout' : 'LLaMA 3B'} • Powered by BridgeIQ</div>
+                  <div style={{ color: "#FFFFFF", fontWeight: "600", fontSize: "13px" }}>Bridge assistant</div>
+                  <div style={{ color: "#8B94A3", fontSize: "11px" }}>{selectedImage ? 'Vision AI model' : 'SHM telemetry agent'}</div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981" }}></div>
-                <span style={{ color: "#10b981", fontSize: "11px" }}>Online</span>
-                <button onClick={() => setIsOpen(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px", marginLeft: "8px" }}>✕</button>
+                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#0F6E56" }} />
+                <span style={{ color: "#0F6E56", fontSize: "11px", fontWeight: "500" }}>Connected</span>
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  style={{ 
+                    background: "none", 
+                    border: "none", 
+                    color: "#8B94A3", 
+                    cursor: "pointer", 
+                    padding: "4px", 
+                    marginLeft: "8px",
+                    display: "flex",
+                    alignItems: "center"
+                  }}
+                  title="Close assistant"
+                >
+                  <X size={16} />
+                </button>
               </div>
             </div>
 
-            {/* CONTEXT BAR */}
+            {/* Context Bar */}
             <div style={{
-              background: 'var(--color-background-secondary)',
+              background: '#F8FAFA',
+              border: '1px solid #E2E8F0',
               borderRadius: '6px',
-              padding: '6px 10px',
-              margin: '8px 8px 0',
+              padding: '6px 12px',
+              margin: '12px 16px 0',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}>
-              <i className="ti-map-pin" style={{ color: '#3b82f6', fontSize: '12px' }} />
-              <span style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                {bridgeName} · Health {healthScore} · {alertLevel}
+              <MapPin size={13} color="#0F6E56" />
+              <span style={{ fontSize: '11px', color: '#475569', fontWeight: '500' }}>
+                {bridgeName} · Health: {healthScore} · {alertLevel}
               </span>
             </div>
 
-            {/* MESSAGES AREA */}
+            {/* Messages Area */}
             <div style={{
               flex: 1,
               overflowY: "auto",
-              padding: "16px 20px",
+              padding: "16px",
               display: "flex",
               flexDirection: "column",
               gap: "12px",
-              background: "var(--bg-secondary, #f8fafc)",
-              color: "var(--text-primary, inherit)",
+              background: "#FFFFFF",
             }}>
               {messages.length === 0 ? (
                 <div style={{
@@ -668,12 +666,12 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                   alignItems: 'center',
                   justifyContent: 'center',
                   textAlign: 'center',
-                  color: 'var(--color-text-secondary)',
-                  fontSize: '11px',
-                  lineHeight: '1.7',
-                  padding: '0 20px'
+                  color: '#8B94A3',
+                  fontSize: '12px',
+                  lineHeight: '1.6',
+                  padding: '0 24px'
                 }}>
-                  Ask about sensor readings, alerts, risk scores, or traffic data.
+                  Query bridge telemetry, vibration spikes, strain levels, active alerts, or upload crack imagery.
                 </div>
               ) : (
                 messages.map((m, i) => {
@@ -681,31 +679,32 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                   
                   if (m.role === 'user') {
                     return (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }} key={i}>
-                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '80%', alignItems: 'flex-end' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }} key={i}>
+                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '82%', alignItems: 'flex-end' }}>
                           <div style={{
-                            background: '#3b82f6',
-                            borderRadius: '8px 0 8px 8px',
-                            padding: '7px 10px'
+                            background: '#1C1F26',
+                            borderRadius: '6px',
+                            padding: '8px 12px',
+                            border: '1px solid #2A2E39'
                           }}>
                             {m.image && (
                               <img
                                 src={m.image}
-                                alt="Uploaded"
+                                alt="Uploaded crack"
                                 style={{
                                   maxWidth: '100%',
-                                  maxHeight: '150px',
-                                  borderRadius: '6px',
+                                  maxHeight: '140px',
+                                  borderRadius: '4px',
                                   marginBottom: '6px',
                                   display: 'block'
                                 }}
                               />
                             )}
-                            <div style={{ fontSize: '13px', color: 'white', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                            <div style={{ fontSize: '13px', color: '#FFFFFF', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                                {m.content}
                             </div>
                           </div>
-                          <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', marginTop: '3px' }}>
+                          <span style={{ fontSize: '10px', color: '#8B94A3', marginTop: '3px' }}>
                             {msgTime}
                           </span>
                         </div>
@@ -716,69 +715,75 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                     const containerStyle = {
                       display: 'flex',
                       gap: '8px',
-                      marginBottom: '12px',
+                      marginBottom: '8px',
                       alignItems: 'flex-start'
                     };
                     const iconStyle = {
-                      width: '22px',
-                      height: '22px',
-                      borderRadius: '50%',
-                      background: isProactive ? '#fee2e2' : '#dbeafe',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '4px',
+                      background: isProactive ? '#FDF2F2' : '#F1F5F9',
+                      border: isProactive ? '1px solid #FECACA' : '1px solid #E2E8F0',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      marginTop: '2px'
                     };
                     const bubbleStyle = isProactive ? {
-                      background: '#fff7ed',
-                      border: '1.5px solid #ffedd5',
-                      borderLeft: '3px solid #ef4444',
-                      borderRadius: '0 8px 8px 8px',
+                      background: '#FDF2F2',
+                      border: '1px solid #FECACA',
+                      borderLeft: '3px solid #991B1B',
+                      borderRadius: '6px',
                       padding: '10px 12px',
                     } : {
-                      background: 'var(--color-background-secondary)',
-                      border: '0.5px solid var(--color-border-tertiary)',
-                      borderRadius: '0 8px 8px 8px',
-                      padding: '7px 10px'
+                      background: '#F8FAFA',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '6px',
+                      padding: '8px 12px'
                     };
 
                     return (
                       <div style={containerStyle} key={i}>
                         <div style={iconStyle}>
                           {isProactive ? (
-                            <span style={{ fontSize: '12px' }}>⚠️</span>
+                            <AlertTriangle size={13} color="#991B1B" />
                           ) : (
-                            <i className="ti-robot" style={{ color: '#3b82f6', fontSize: '12px' }} />
+                            <Bot size={13} color="#1C1F26" />
                           )}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '80%' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '82%' }}>
                           <div style={bubbleStyle}>
                             {m.image && (
                               <img
                                 src={m.image}
-                                alt="Uploaded"
+                                alt="Inspection attachment"
                                 style={{
                                   maxWidth: '100%',
-                                  maxHeight: '150px',
-                                  borderRadius: '6px',
+                                  maxHeight: '140px',
+                                  borderRadius: '4px',
                                   marginBottom: '6px',
                                   display: 'block'
                                 }}
                               />
                             )}
                             <div 
-                              style={{ fontSize: '13px', color: 'var(--color-text-primary)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                              style={{ fontSize: '13px', color: '#1C1F26', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                               dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
                             />
                             {m.isProactive && pendingAction && i === messages.length - 1 && (
-                              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                                 <button 
                                   onClick={() => handleAlertResponse('yes')}
                                   style={{ 
-                                    background: '#ef4444', color: 'white', 
-                                    border: 'none', borderRadius: '6px', 
-                                    padding: '6px 16px', cursor: 'pointer',
-                                    fontSize: '13px', fontWeight: '500'
+                                    background: '#1C1F26', 
+                                    color: 'white', 
+                                    border: 'none', 
+                                    borderRadius: '6px', 
+                                    padding: '5px 12px', 
+                                    cursor: 'pointer',
+                                    fontSize: '12px', 
+                                    fontWeight: '500'
                                   }}
                                 >
                                   Yes, proceed
@@ -786,10 +791,13 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                                 <button 
                                   onClick={() => handleAlertResponse('no')}
                                   style={{ 
-                                    background: 'transparent', color: '#6b7280',
-                                    border: '1px solid #d1d5db', borderRadius: '6px',
-                                    padding: '6px 16px', cursor: 'pointer',
-                                    fontSize: '13px'
+                                    background: 'transparent', 
+                                    color: '#475569',
+                                    border: '1px solid #CBD5E1', 
+                                    borderRadius: '6px', 
+                                    padding: '5px 12px', 
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
                                   }}
                                 >
                                   Dismiss
@@ -797,7 +805,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                               </div>
                             )}
                           </div>
-                          <span style={{ fontSize: '10px', color: 'var(--color-text-secondary)', marginTop: '3px' }}>
+                          <span style={{ fontSize: '10px', color: '#8B94A3', marginTop: '3px' }}>
                             {msgTime}
                           </span>
                         </div>
@@ -808,18 +816,19 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
               )}
 
               {isLoading && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'flex-start' }}>
                   <div style={{
-                    width: '22px',
-                    height: '22px',
-                    borderRadius: '50%',
-                    background: '#dbeafe',
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '4px',
+                    background: '#F1F5F9',
+                    border: '1px solid #E2E8F0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0
                   }}>
-                    <i className="ti-robot" style={{ color: '#3b82f6', fontSize: '12px' }} />
+                    <Bot size={13} color="#1C1F26" />
                   </div>
                   <div className="typing-bubble">
                     <span></span>
@@ -831,15 +840,15 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
               <div ref={messagesEndRef} />
             </div>
 
-            {/* INPUT BAR */}
+            {/* Input Bar */}
             <div style={{
               padding: "12px 16px",
-              borderTop: "1px solid var(--border-color, #e2e8f0)",
-              background: "var(--bg-card, #ffffff)",
+              borderTop: "1px solid #E2E8F0",
+              background: "#FFFFFF",
               display: "flex",
               flexDirection: "column",
             }}>
-              {/* Image Preview container */}
+              {/* Image Preview Container */}
               {imagePreview && (
                 <div style={{
                   position: 'relative',
@@ -849,12 +858,12 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                 }}>
                   <img
                     src={imagePreview}
-                    alt="Selected"
+                    alt="Selected attachment"
                     style={{
-                      maxHeight: '80px',
-                      maxWidth: '120px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(59,130,246,0.3)'
+                      maxHeight: '70px',
+                      maxWidth: '110px',
+                      borderRadius: '4px',
+                      border: '1px solid #CBD5E1'
                     }}
                   />
                   <button
@@ -864,7 +873,7 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                       position: 'absolute',
                       top: '-6px',
                       right: '-6px',
-                      background: '#ef4444',
+                      background: '#1C1F26',
                       color: 'white',
                       border: 'none',
                       borderRadius: '50%',
@@ -880,34 +889,31 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                 </div>
               )}
 
-              {/* Photo upload row */}
+              {/* Photo Upload Row */}
               <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
                 <label style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 12px",
-                  background: "var(--bg-secondary, #f1f5f9)",
-                  border: "1px solid var(--border-color, #e2e8f0)",
-                  borderRadius: "8px",
+                  gap: "5px",
+                  padding: "4px 10px",
+                  background: "#F8FAFA",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "6px",
                   cursor: "pointer",
-                  fontSize: "12px",
-                  color: "var(--text-secondary, #475569)",
+                  fontSize: "11px",
+                  color: "#475569",
                   fontWeight: "500",
                 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  Upload Photo
+                  <Camera size={13} />
+                  Upload photo
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageSelect} disabled={isLoading} />
                 </label>
-                <span style={{ fontSize: "11px", color: "#94a3b8", alignSelf: "center" }}>
-                  Upload bridge crack photo for AI analysis
+                <span style={{ fontSize: "11px", color: "#8B94A3", alignSelf: "center" }}>
+                  Analyze surface cracks with vision AI
                 </span>
               </div>
 
-              {/* Text input row */}
+              {/* Text Input Row */}
               <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }}>
                 <textarea
                   ref={inputRef}
@@ -919,39 +925,38 @@ export default function ChatPanel({ bridgeId = 1, bridgeName = 'Selected Bridge'
                   disabled={isLoading}
                   style={{
                     flex: 1,
-                    border: "1px solid var(--border-color, #e2e8f0)",
-                    borderRadius: "10px",
-                    padding: "10px 14px",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "6px",
+                    padding: "8px 12px",
                     fontSize: "13px",
                     outline: "none",
                     resize: "none",
                     fontFamily: "inherit",
-                    maxHeight: "80px",
-                    background: "transparent",
-                    color: "var(--text-primary, inherit)",
+                    maxHeight: "72px",
+                    background: "#FFFFFF",
+                    color: "#1C1F26",
                   }}
                 />
                 <button
                   disabled={isLoading || (!inputValue.trim() && !selectedImage)}
                   onClick={sendMessage}
+                  aria-label="Send message"
                   style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "10px",
-                    background: "#1e40af",
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "6px",
+                    background: "#1C1F26",
                     border: "none",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
-                    opacity: (isLoading || (!inputValue.trim() && !selectedImage)) ? 0.5 : 1,
+                    opacity: (isLoading || (!inputValue.trim() && !selectedImage)) ? 0.4 : 1,
+                    transition: "background-color 0.15s ease"
                   }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                  </svg>
+                  <Send size={15} color="white" />
                 </button>
               </div>
             </div>
