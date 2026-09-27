@@ -2,13 +2,13 @@ import { useAuth } from '../context/AuthContext';
 import { 
   LayoutGrid, 
   MapPin, 
-  Cpu, 
-  Camera, 
-  Wrench, 
   Brain, 
   Shield,
   Bot,
-  Clock
+  Clock,
+  Camera,
+  Wrench,
+  MessageSquare
 } from 'lucide-react';
 
 export default function NavBar({ currentPage, setCurrentPage, isChatOpen, setIsChatOpen, unreadAlertsCount = 0 }) {
@@ -17,176 +17,197 @@ export default function NavBar({ currentPage, setCurrentPage, isChatOpen, setIsC
   const menuItems = [
     { id: 'dashboard', label: 'Live dashboard', icon: LayoutGrid },
     { id: 'network', label: 'India network', icon: MapPin },
-    { id: 'aiops', label: 'AI Intelligence Center', icon: Brain },
+    { id: 'aiops', label: 'AI intelligence center', icon: Brain },
   ];
 
   if ((isEngineer && isEngineer()) || (isAdmin && isAdmin())) {
-    menuItems.push({ id: 'ai-inspector', label: 'AI Inspector', icon: Bot });
-    menuItems.push({ id: 'predictive', label: 'Predictive', icon: Clock });
+    menuItems.push({ id: 'ai-inspector', label: 'AI inspector', icon: Bot });
+    menuItems.push({ id: 'predictive', label: 'Predictive maintenance', icon: Clock });
   }
 
   if (isEngineer && isEngineer()) {
     menuItems.push({ id: 'crack-detection', label: 'Crack detection', icon: Camera });
-    menuItems.push({ id: 'maintenance', label: 'Maintenance', icon: Wrench });
+    menuItems.push({ id: 'maintenance', label: 'Maintenance assignments', icon: Wrench });
   }
 
   if (isAdmin && isAdmin()) {
-    menuItems.push({ id: 'admin', label: 'Admin Panel', icon: Shield });
+    menuItems.push({ id: 'admin', label: 'Admin panel', icon: Shield });
   }
 
   return (
-    <div 
+    <aside 
       style={{ 
-        width: '72px', 
-        backgroundColor: '#0c1524', // Dark side navbar background
+        width: '64px', 
+        backgroundColor: '#1C1F26',
         display: 'flex', 
         flexDirection: 'column', 
         alignItems: 'center', 
-        paddingTop: '24px', 
-        paddingBottom: '24px', 
+        paddingTop: '18px', 
+        paddingBottom: '20px', 
         height: '100vh', 
         position: 'sticky', 
         top: 0, 
         zIndex: 50, 
-        borderRight: '1px solid #1e293b',
+        borderRight: '1px solid #2A2E39',
         boxSizing: 'border-box',
         flexShrink: 0
       }}
     >
-      {/* Brand Bridge Logo at the top */}
-      <div 
+      {/* Brand Bridge Logo */}
+      <button 
         style={{ 
-          width: '44px', 
-          height: '44px', 
-          borderRadius: '10px', 
-          backgroundColor: '#2563eb', // Blue square background
+          width: '38px', 
+          height: '38px', 
+          borderRadius: '8px', 
+          backgroundColor: '#0F6E56', 
+          border: '1px solid rgba(255, 255, 255, 0.1)',
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center', 
-          marginBottom: '28px', 
-          boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-          cursor: 'pointer'
+          marginBottom: '24px', 
+          boxShadow: 'none',
+          cursor: 'pointer',
+          padding: 0
         }}
         onClick={() => setCurrentPage('dashboard')}
-        title="Bridge Health Monitor logo"
+        title="Bridge health monitor"
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M4 18h16" />
           <path d="M4 18L8 8" />
           <path d="M20 18L16 8" />
           <path d="M8 8h8" />
         </svg>
-      </div>
+      </button>
 
       {/* Nav Menu Items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1, width: '100%', alignItems: 'center' }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, width: '100%', alignItems: 'center' }}>
         {menuItems.map((item) => {
           const isActive = currentPage === item.id;
           const IconComponent = item.icon;
 
           return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentPage(item.id)}
-              title={item.label}
-              style={{
-                width: '44px',
-                height: '44px',
-                borderRadius: '10px',
-                border: 'none',
-                background: isActive ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'transparent',
-                color: isActive ? '#ffffff' : '#475569',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                boxShadow: isActive ? '0 4px 12px rgba(59,130,246,0.35)' : 'none'
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = '#ffffff';
-                  e.currentTarget.style.backgroundColor = '#1e293b';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.color = '#475569';
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              {IconComponent && <IconComponent size={20} />}
-            </button>
+            <div key={item.id} style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
+              {isActive && (
+                <div 
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: '8px',
+                    bottom: '8px',
+                    width: '3px',
+                    backgroundColor: '#0F6E56',
+                    borderRadius: '0 2px 2px 0'
+                  }}
+                />
+              )}
+              <button
+                onClick={() => setCurrentPage(item.id)}
+                title={item.label}
+                aria-label={item.label}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: isActive ? '#282D37' : 'transparent',
+                  color: isActive ? '#FFFFFF' : '#8B94A3',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease, color 0.15s ease',
+                  boxShadow: 'none'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.color = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = '#252932';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.color = '#8B94A3';
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                {IconComponent && <IconComponent size={19} strokeWidth={1.8} />}
+              </button>
+            </div>
           );
         })}
-      </div>
+      </nav>
 
-      {/* Live Pulsing Dot at the bottom left */}
-      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
+      {/* Bottom controls: Chat & Status */}
+      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
         {/* Chat Assistant Button */}
         <button
           onClick={() => setIsChatOpen(!isChatOpen)}
-          title="Bridge Assistant"
+          title="Bridge assistant"
+          aria-label="Bridge assistant"
           style={{
             position: 'relative',
-            width: '44px',
-            height: '44px',
-            borderRadius: '10px',
-            border: 'none',
-            background: isChatOpen ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'rgba(59,130,246,0.1)',
-            color: isChatOpen ? '#ffffff' : '#3b82f6',
+            width: '40px',
+            height: '40px',
+            borderRadius: '6px',
+            border: isChatOpen ? '1px solid #0F6E56' : '1px solid #2A2E39',
+            backgroundColor: isChatOpen ? '#282D37' : 'transparent',
+            color: isChatOpen ? '#0F6E56' : '#8B94A3',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: isChatOpen ? '0 4px 12px rgba(59,130,246,0.35)' : 'none',
-            border: '1px solid rgba(59,130,246,0.2)'
+            transition: 'all 0.15s ease',
+            boxShadow: 'none'
           }}
           onMouseEnter={(e) => {
             if (!isChatOpen) {
-              e.currentTarget.style.color = '#ffffff';
-              e.currentTarget.style.backgroundColor = '#1e293b';
+              e.currentTarget.style.color = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = '#252932';
             }
           }}
           onMouseLeave={(e) => {
             if (!isChatOpen) {
-              e.currentTarget.style.color = '#3b82f6';
-              e.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.1)';
+              e.currentTarget.style.color = '#8B94A3';
+              e.currentTarget.style.backgroundColor = 'transparent';
             }
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
+          <MessageSquare size={18} strokeWidth={1.8} />
           {unreadAlertsCount > 0 && !isChatOpen && (
             <span style={{
               position: 'absolute',
-              top: '-4px',
-              right: '-4px',
-              backgroundColor: '#ef4444',
+              top: '-3px',
+              right: '-3px',
+              backgroundColor: '#991B1B',
               color: 'white',
               fontSize: '9px',
-              fontWeight: 'bold',
-              borderRadius: '50%',
+              fontWeight: '600',
+              borderRadius: '9999px',
               width: '16px',
               height: '16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: '2px solid #0c1524'
+              border: '1.5px solid #1C1F26'
             }}>
               {unreadAlertsCount}
             </span>
           )}
         </button>
 
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-        </span>
+        {/* Live Status indicator */}
+        <div 
+          title="Telemetry feed connected" 
+          style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            backgroundColor: '#0F6E56' 
+          }} 
+        />
       </div>
-    </div>
+    </aside>
   );
 }
