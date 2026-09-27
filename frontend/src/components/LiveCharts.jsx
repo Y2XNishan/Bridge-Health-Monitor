@@ -7,22 +7,23 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { Activity } from 'lucide-react';
 
 const CHART_CONFIG = {
-  water_level: { label: 'Water Level', unit: 'm',   color: 'var(--accent-blue-light)', gradientId: 'wl' },
-  vibration:   { label: 'Vibration',   unit: 'g',   color: 'var(--accent-purple)', gradientId: 'vb' },
-  strain:      { label: 'Strain',      unit: 'MPa', color: 'var(--accent-yellow-light)', gradientId: 'st' },
-  crack_gap:   { label: 'Crack Gap',   unit: 'mm',  color: 'var(--accent-red-light)', gradientId: 'cg' },
+  water_level: { label: 'Water level', unit: 'm',   color: '#0F6E56' },
+  vibration:   { label: 'Vibration',   unit: 'g',   color: '#475569' },
+  strain:      { label: 'Strain',      unit: 'MPa', color: '#D97706' },
+  crack_gap:   { label: 'Crack gap',   unit: 'mm',  color: '#991B1B' },
 };
 
 function CustomTooltip({ active, payload, label, sensor }) {
   if (!active || !payload?.length) return null;
   const cfg = CHART_CONFIG[sensor];
   return (
-    <div className="rounded-lg px-3 py-2 shadow-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}>
-      <p className="text-[10px] mb-1" style={{ color: 'var(--text-secondary)' }}>{label}</p>
-      <p className="text-sm font-bold" style={{ color: cfg.color }}>
-        {payload[0].value?.toFixed(4)} <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>{cfg.unit}</span>
+    <div className="rounded-[6px] px-3 py-2 bg-white border border-slate-200" style={{ boxShadow: 'none' }}>
+      <p className="text-[10px] text-slate-500 mb-0.5">{label}</p>
+      <p className="text-xs font-bold text-slate-900 m-0">
+        {payload[0].value?.toFixed(4)} <span className="font-normal text-[11px] text-slate-400">{cfg.unit}</span>
       </p>
     </div>
   );
@@ -31,48 +32,40 @@ function CustomTooltip({ active, payload, label, sensor }) {
 function SensorChart({ sensor, data }) {
   const cfg = CHART_CONFIG[sensor];
 
-  console.log('chart data:', data);
-
   if (!data || data.length === 0) {
     return (
-      <div style={{width:'100%', height:'180px',
-        display:'flex', alignItems:'center',
-        justifyContent:'center',
-        color: 'var(--text-muted)', fontSize:'12px'}}>
-        Waiting for sensor data...
+      <div 
+        className="p-4 bg-white border border-slate-200 rounded-[8px] flex items-center justify-center text-xs text-slate-400"
+        style={{ width: '100%', height: '180px', boxShadow: 'none' }}
+      >
+        Waiting for telemetry stream...
       </div>
     );
   }
 
   return (
-    <div className="p-4" id={`chart-${sensor}`} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px' }}>
+    <div className="p-4 bg-white border border-slate-200 rounded-[8px]" id={`chart-${sensor}`} style={{ boxShadow: 'none' }}>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+        <h3 className="text-xs font-semibold text-slate-700 m-0">
           {cfg.label}
         </h3>
-        <span className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
-          {data.length} pts
+        <span className="text-[10px] font-mono text-slate-400">
+          {data.length} telemetry points
         </span>
       </div>
-      <div style={{ width: '100%', height: '180px' }}>
+      <div style={{ width: '100%', height: '160px' }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-            <defs>
-              <linearGradient id={cfg.gradientId} x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor={cfg.color} stopOpacity={0.4} />
-                <stop offset="100%" stopColor={cfg.color} stopOpacity={1} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+            <CartesianGrid strokeDasharray="2 2" stroke="#E2E8F0" />
             <XAxis
               dataKey="time"
-              tick={{ fontSize: 9 }}
+              tick={{ fontSize: 9, fill: '#8B94A3' }}
               interval="preserveStartEnd"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              tick={{ fontSize: 9 }}
+              tick={{ fontSize: 9, fill: '#8B94A3' }}
               tickLine={false}
               axisLine={false}
               domain={['auto', 'auto']}
@@ -81,10 +74,10 @@ function SensorChart({ sensor, data }) {
             <Line
               type="monotone"
               dataKey="value"
-              stroke={`url(#${cfg.gradientId})`}
-              strokeWidth={2}
+              stroke={cfg.color}
+              strokeWidth={1.5}
               dot={false}
-              activeDot={{ r: 4, fill: cfg.color, stroke: '#050810', strokeWidth: 2 }}
+              activeDot={{ r: 3, fill: cfg.color }}
               isAnimationActive={false}
             />
           </LineChart>
@@ -99,7 +92,10 @@ export default function LiveCharts({ chartData }) {
 
   return (
     <div>
-      <p className="section-title">📊 Live Sensor Trends</p>
+      <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+        <Activity size={15} color="#1C1F26" />
+        <h4 className="text-xs font-semibold text-slate-900 m-0">Live sensor trends</h4>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {sensors.map((sensor) => (
           <SensorChart key={sensor} sensor={sensor} data={chartData[sensor] || []} />
