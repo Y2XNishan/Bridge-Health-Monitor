@@ -591,7 +591,7 @@ def main():
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
             added += 1
 
-    print(f"✅ Added {added} diversity examples to {OUTPUT_PATH}")
+    print(f"[BridgeIQ] Added {added} diversity examples to {OUTPUT_PATH}")
     print(f"   Total lines now: {sum(1 for _ in open(OUTPUT_PATH, encoding='utf-8'))}")
     print("\nCategory breakdown:")
     print(f"  Informal English:       {len(informal_english())}")

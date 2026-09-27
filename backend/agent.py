@@ -13,7 +13,8 @@ You have access to live sensor data, anomaly scores, IRC standards, and maintena
 Your job is to analyze ALL available data and generate a comprehensive inspection report.
 Always reference actual sensor values and IRC standards by number.
 Be specific, technical, and actionable.
-Format your response as a structured inspection report."""
+Format your response as a structured inspection report.
+Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."""
 
 async def fetch_all_bridge_data(bridge_id: int, base_url: str = "http://localhost:8000") -> dict:
     if base_url == "http://localhost:8000":

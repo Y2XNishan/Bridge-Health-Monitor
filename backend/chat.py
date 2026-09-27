@@ -19,7 +19,8 @@ SYSTEM_PROMPT = (
     "Answer engineers' questions concisely and technically.\n"
     "Always reference actual numbers from the provided data.\n"
     "If something is critical, say so clearly.\n"
-    "Always respond in clear natural language. Never output raw JSON, feature names, or technical data dumps."
+    "Always respond in clear natural language. Never output raw JSON, feature names, or technical data dumps.\n"
+    "Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
 )
 
 DEFAULT_BRIDGEIQ_REPLY = (
@@ -98,9 +99,9 @@ def _load_local_model():
         _local_model = PeftModel.from_pretrained(base_model, str(LORA_MODEL_PATH))
         _local_model.eval()
         _use_local_model = True
-        print("✅ BridgeIQ fine-tuned model loaded successfully!")
+        print("[BridgeIQ] Fine-tuned model loaded successfully.")
     except Exception as e:
-        print(f"⚠️ Could not load local model, falling back to Groq: {e}")
+        print(f"[BridgeIQ] Could not load local model, falling back to Groq: {e}")
         _use_local_model = False
 
 # Try loading local model asynchronously in the background so it does not block server startup
@@ -468,7 +469,7 @@ async def run_autonomous_action(bridge_id: int, bridge_name: str, action_confirm
     # Step 3: Send Telegram alert
     try:
         from telegram_alerts import send_telegram_alert
-        msg = (f"🚨 AUTONOMOUS ACTION TRIGGERED\n"
+        msg = (f"[ALERT] AUTONOMOUS ACTION TRIGGERED\n"
                f"Bridge: {bridge_name}\n"
                f"Action by: {user_name}\n"
                f"Crew assigned: {results.get('crew_assignment', {}).get('crew', 'N/A')}\n"
@@ -483,10 +484,10 @@ async def run_autonomous_action(bridge_id: int, bridge_name: str, action_confirm
         "status": "completed",
         "actions_taken": results,
         "summary": (
-            f"✅ All actions completed for {bridge_name}: "
+            f"All actions completed for {bridge_name}: "
             f"Inspection done, "
             f"{results.get('crew_assignment', {}).get('crew', 'Team')} "
-            f"assigned (ETA 2hrs), Telegram alert sent."
+            f"assigned (ETA 2hrs), alert notification dispatched."
         )
     }
 

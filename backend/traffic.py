@@ -10,7 +10,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 2,  "max_strain_delta": 8,
         "typical_tonnes": 0.3,
         "overload_threshold": None,
-        "icon": "🏍️"
+        "icon": ""
     },
     {
         "type": "Car / SUV",
@@ -19,7 +19,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 5,  "max_strain_delta": 18,
         "typical_tonnes": 1.8,
         "overload_threshold": None,
-        "icon": "🚗"
+        "icon": ""
     },
     {
         "type": "Bus",
@@ -28,7 +28,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 15, "max_strain_delta": 32,
         "typical_tonnes": 12.0,
         "overload_threshold": None,
-        "icon": "🚌"
+        "icon": ""
     },
     {
         "type": "Light Truck",
@@ -37,7 +37,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 25, "max_strain_delta": 42,
         "typical_tonnes": 8.0,
         "overload_threshold": 10.0,
-        "icon": "🛻"
+        "icon": ""
     },
     {
         "type": "Heavy Truck",
@@ -46,7 +46,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 35, "max_strain_delta": 58,
         "typical_tonnes": 25.0,
         "overload_threshold": 40.0,
-        "icon": "🚚"
+        "icon": ""
     },
     {
         "type": "Overloaded Truck",
@@ -55,7 +55,7 @@ VEHICLE_TYPES = [
         "min_strain_delta": 55, "max_strain_delta": 95,
         "typical_tonnes": 55.0,
         "overload_threshold": 40.0,
-        "icon": "🚛"
+        "icon": ""
     },
 ]
 

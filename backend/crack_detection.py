@@ -80,7 +80,8 @@ Respond ONLY with a valid JSON object in this exact format:
   "additional_observations": "any other structural concerns visible"
 }
 
-If no crack is detected, set crack_detected to false and severity to "hairline" with estimated_width_mm to 0."""
+If no crack is detected, set crack_detected to false and severity to "hairline" with estimated_width_mm to 0.
+Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."""
 
             response = client.chat.completions.create(
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
@@ -112,7 +113,7 @@ If no crack is detected, set crack_detected to false and severity to "hairline" 
             if json_match:
                 return json.loads(json_match.group())
         except Exception as e:
-            print(f"⚠️ Groq API failed for crack analysis, falling back to rule-based mock: {e}")
+            print(f"[CrackDetection] Groq API failed for crack analysis, falling back to rule-based mock: {e}")
 
     # Fallback mock analysis when GROQ_API_KEY is not set or fails
     return {

@@ -2754,7 +2754,7 @@ def _extract_critical_bridges(bridges):
 async def test_telegram_alert(user = Depends(require_role(["admin"]))):
     from backend.telegram_alerts import send_telegram_message
     await send_telegram_message(
-        "🧪 <b>BridgeIQ Test Alert</b>\n"
+        "<b>[TEST] BridgeIQ Test Alert</b>\n"
         "Telegram integration is working correctly!\n"
         "You will receive real-time bridge health alerts here."
     )
@@ -2922,7 +2922,7 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
     story = []
     
     # 1. Header Banner
-    story.append(Paragraph("🤖 RAG + Llama 3.3 Agentic Bridge Inspection Report", title_style))
+    story.append(Paragraph("RAG + Llama 3.3 Agentic Bridge Inspection Report", title_style))
     story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Bridge Health Monitor Platform", subtitle_style))
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#CBD5E1'), spaceAfter=15))
@@ -3436,7 +3436,7 @@ def get_network_pdf_report(user = Depends(get_current_user)):
             status = "Critical"
             
         # 3-tier count split:
-        if bid >= 41 or health_score < 50.0:
+        if health_score < 50.0:
             num_critical += 1
         elif health_score < 75.0:
             num_monitor += 1
@@ -3488,7 +3488,7 @@ def get_network_pdf_report(user = Depends(get_current_user)):
     deferred_cost_per_day = 15000
     repair_per_bridge = 200000
     
-    # warning bridges are those with id >= 41 or health < 50 (Critical split)
+    # warning bridges are those with health < 50 (Critical split)
     num_warning = num_critical
     
     deferred_risk_val = num_warning * deferred_cost_per_day * 30
@@ -4362,7 +4362,7 @@ async def autonomous_action(req: dict,
     # Step 3: Send Telegram alert
     try:
         from telegram_alerts import send_telegram_alert
-        msg = f"🚨 AUTONOMOUS ACTION\nBridge: {bridge_name}\nCrew: {crew}\nInspection: COMPLETE"
+        msg = f"[ACTION] AUTONOMOUS ACTION\nBridge: {bridge_name}\nCrew: {crew}\nInspection: COMPLETE"
         await send_telegram_alert(msg)
         results["telegram"] = "sent"
     except Exception as e:
@@ -4370,7 +4370,7 @@ async def autonomous_action(req: dict,
     
     return {
         "status": "completed",
-        "summary": f"✅ Inspection done, {crew} assigned (ETA 2hrs), Telegram sent.",
+        "summary": f"Inspection done, {crew} assigned (ETA 2hrs), alert notification dispatched.",
         "actions_taken": results
     }
 

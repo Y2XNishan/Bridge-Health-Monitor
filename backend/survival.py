@@ -135,7 +135,7 @@ Be specific with sensor names, IRC standards, and timeframes. Keep each point to
             completion = client.chat.completions.create(
                 model=GROQ_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a structural engineering maintenance planner for Indian bridges. Be specific, technical, and actionable."},
+                    {"role": "system", "content": "You are a structural engineering maintenance planner for Indian bridges. Be specific, technical, and actionable. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=600,
@@ -146,7 +146,7 @@ Be specific with sensor names, IRC standards, and timeframes. Keep each point to
             if res and res.strip():
                 return res
         except Exception as e:
-            print(f"⚠️ Groq API failed for maintenance schedule generation, falling back to rule-based generation: {e}")
+            print(f"[SurvivalAnalysis] Groq API failed for maintenance schedule generation, falling back to rule-based generation: {e}")
 
     # Fallback rule-based maintenance generator
     immediate_items = []

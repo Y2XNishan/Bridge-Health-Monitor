@@ -8,7 +8,8 @@ XAI_SYSTEM_PROMPT = """You are an expert structural engineering AI for Indian br
 Your job is to explain anomalies in plain, technical language that a field engineer can act on.
 Always cite specific sensor values, thresholds, and IRC standard numbers.
 Be concise — max 4-5 sentences per explanation.
-Never say "I think" or "possibly" — be direct and confident."""
+Never say "I think" or "possibly" — be direct and confident.
+Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."""
 
 def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, alert_level: str) -> dict:
     vibration = sensor_data.get("vibration", 0)
@@ -91,7 +92,7 @@ Generate an XAI explanation with exactly these 4 sections:
             )
             explanation = completion.choices[0].message.content
         except Exception as e:
-            print(f"⚠️ Groq API failed for anomaly explanation, falling back to rule-based generation: {e}")
+            print(f"[XAI] Groq API failed for anomaly explanation, falling back to rule-based generation: {e}")
 
     if not explanation or not explanation.strip():
         # Fallback explanation generator
