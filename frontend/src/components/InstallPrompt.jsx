@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Smartphone } from 'lucide-react';
 
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -55,32 +56,32 @@ export default function InstallPrompt() {
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-slide-in">
       <div 
-        className="rounded-2xl p-4 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-md"
+        className="rounded-xl p-4 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
       >
         <div className="flex items-center gap-3">
-          <span className="text-2xl">📲</span>
+          <Smartphone size={24} color="#0F6E56" className="shrink-0" />
           <div>
-            <p className="text-sm font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Install Bridge Health Monitor</p>
+            <p className="text-sm font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Install Bridge Health Monitor</p>
             <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--text-secondary)' }}>
-              Add Bridge Health Monitor as an app on your home screen for quick structural telemetry monitoring.
+              Add Bridge Health Monitor to your home screen for quick structural telemetry monitoring.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 justify-end">
           <button
             onClick={handleDismissClick}
-            className="px-4 py-2 text-xs font-bold transition-colors hover:text-white"
+            className="px-3 py-1.5 text-xs font-semibold transition-colors hover:text-slate-900"
             style={{ color: 'var(--text-secondary)' }}
           >
             Later
           </button>
           <button
             onClick={handleInstallClick}
-            className="px-4 py-2 text-xs font-black rounded-xl shadow-md transition-colors hover:opacity-90"
-            style={{ background: 'var(--accent-blue-light)', color: '#ffffff' }}
+            className="px-4 py-2 text-xs font-semibold rounded-lg transition-colors hover:opacity-90"
+            style={{ background: '#1C1F26', color: '#ffffff' }}
           >
-            Install Now
+            Install now
           </button>
         </div>
       </div>

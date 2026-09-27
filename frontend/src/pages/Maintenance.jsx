@@ -20,17 +20,17 @@ const TASK_TYPES = [
 ];
 
 const PRIORITY_STYLES = {
-  CRITICAL: { background: '#fef2f2', color: 'var(--accent-red-light)', border: '1px solid #fca5a5' },
-  HIGH: { background: '#fff7ed', color: '#ea580c', border: '1px solid #fdba74' },
-  MEDIUM: { background: '#fef9c3', color: 'var(--accent-yellow-light)', border: '1px solid #fde68a' },
-  LOW: { background: '#001016', color: 'var(--accent-blue-light)', border: '1px solid rgba(88,166,255,0.45)' },
+  CRITICAL: { background: '#FDF2F2', color: '#991B1B', border: '1px solid #FECACA' },
+  HIGH: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FEF3C7' },
+  MEDIUM: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FEF3C7' },
+  LOW: { background: '#F0FDF4', color: '#0F6E56', border: '1px solid #DCFCE7' },
 };
 
 const STATUS_STYLES = {
   PENDING: { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' },
-  IN_PROGRESS: { background: '#001016', color: 'var(--accent-blue-light)', border: '1px solid rgba(88,166,255,0.45)' },
-  COMPLETED: { background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' },
-  CANCELLED: { background: '#fef2f2', color: 'var(--accent-red-light)', border: '1px solid #fecaca' },
+  IN_PROGRESS: { background: '#F8FAFA', color: '#1C1F26', border: '1px solid var(--border-subtle)' },
+  COMPLETED: { background: '#F0FDF4', color: '#0F6E56', border: '1px solid #DCFCE7' },
+  CANCELLED: { background: '#FDF2F2', color: '#991B1B', border: '1px solid #FECACA' },
 };
 
 const EMPTY_FORM = {
@@ -196,7 +196,7 @@ export default function Maintenance() {
           }}
         >
           <span>
-            ⚡ Redirected from Predictive Maintenance — {location.state.preselectedBridge.name} requires urgent crew assignment
+            Redirected from predictive maintenance — {location.state.preselectedBridge.name} requires urgent crew assignment
           </span>
           <button 
             type="button" 
