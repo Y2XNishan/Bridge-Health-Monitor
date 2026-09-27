@@ -210,16 +210,15 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ position: 'relative', minHeight: '100vh' }}>
-        <AuroraBackground />
+      <div style={{ position: 'relative', minHeight: '100vh', background: '#F8FAFA' }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div 
-            className="min-h-screen flex flex-col items-center justify-center space-y-4"
-            style={{ color: 'var(--text-primary)' }}
+            className="min-h-screen flex flex-col items-center justify-center space-y-3"
+            style={{ color: '#1C1F26' }}
           >
-            <div className="w-10 h-10 rounded-full border-4 border-t-2 animate-spin" style={{ borderColor: '#3b82f6', borderTopColor: '#3b82f6' }} />
-            <p className="text-xs uppercase tracking-widest font-bold font-mono" style={{ color: 'var(--text-secondary)' }}>
-              Decrypting Security Database...
+            <div className="w-8 h-8 rounded-full border-2 border-slate-200 border-t-[#0F6E56] animate-spin" />
+            <p className="text-xs font-medium text-slate-500">
+              Loading platform data...
             </p>
           </div>
           {floatingTools}
@@ -229,35 +228,23 @@ export default function App() {
   }
 
   if (!token) {
-    return (
-      <div style={{ position: 'relative', minHeight: '100vh' }}>
-        <AuroraBackground />
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <Login />
-          {floatingTools}
-        </div>
-      </div>
-    );
+    return <Login />;
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', position: 'relative' }}>
-      <AuroraBackground />
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFA', position: 'relative' }}>
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', width: '100%', minHeight: '100vh' }}>
         {/* Toast Notification */}
         {showToast && toastMessage && (
           <div 
-            className="fixed top-4 right-4 z-50 px-5 py-3 rounded-xl border flex items-center gap-3 animate-fade-in-up"
+            className="fixed top-4 right-4 z-50 px-4 py-2.5 rounded-[6px] border flex items-center gap-2.5 animate-fade-in-up bg-white text-slate-900"
             style={{ 
-              background: '#0e1610', 
-              borderColor: '#3fb950', 
-              color: 'var(--accent-green-light)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              borderLeft: '4px solid #3fb950',
+              borderColor: '#E2E8F0', 
+              borderLeft: '3px solid #0F6E56',
+              boxShadow: 'none',
             }}
           >
-            <span style={{ fontSize: '16px', fontWeight: 'bold' }}>✓</span>
-            <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>{toastMessage.replace('✓ ', '')}</span>
+            <span style={{ fontSize: '13px', fontWeight: '500', color: '#1C1F26' }}>{toastMessage.replace('✓ ', '')}</span>
           </div>
         )}
 
@@ -281,10 +268,10 @@ export default function App() {
           {connectionStatus === 'error' && (
             <div 
               className="px-8 py-2 flex items-center gap-2"
-              style={{ background: 'rgba(255, 123, 114, 0.1)', borderBottom: '1px solid #ff7b72' }}
+              style={{ background: '#FDF2F2', borderBottom: '1px solid #FECACA' }}
             >
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#ff7b72' }} />
-              <span className="text-xs font-medium" style={{ color: '#ff7b72' }}>
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: '#991B1B' }} />
+              <span className="text-xs font-medium" style={{ color: '#991B1B' }}>
                 Connection lost — retrying every 2s…
               </span>
             </div>
