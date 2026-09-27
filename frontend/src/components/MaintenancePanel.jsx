@@ -1,6 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import {
   LineChart,
   Line,
@@ -11,17 +9,20 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import { Calendar, Wrench, AlertTriangle, TrendingUp } from 'lucide-react';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
     <div 
-      className="rounded-lg px-3 py-2 shadow-xl text-[10px]"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      className="rounded-[6px] px-3 py-2 bg-white border border-slate-200 text-[11px]"
+      style={{ boxShadow: 'none' }}
     >
-      <p className="font-mono mb-1" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+      <p className="font-mono text-slate-500 mb-1">{label}</p>
       {payload.map((item, idx) => (
-        <p key={idx} style={{ color: item.color }} className="font-bold">
+        <p key={idx} style={{ color: item.color }} className="font-semibold m-0">
           {item.name}: {item.value?.toFixed(1)}%
         </p>
       ))}
@@ -61,12 +62,12 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
     return () => clearInterval(interval);
   }, [bid]);
 
-  // Urgency color configurations using theme tokens
+  // Urgency color configurations using unified muted palette
   const urgencyColors = {
-    IMMEDIATE: { text: '#ff7b72', bg: 'rgba(255,123,114,0.1)', border: '#ff7b72', color: 'var(--accent-red-light)' },
-    SOON: { text: '#e3b341', bg: 'rgba(227,179,65,0.1)', border: '#e3b341', color: '#e3b341' },
-    SCHEDULED: { text: '#58a6ff', bg: 'rgba(88,166,255,0.1)', border: '#58a6ff', color: '#58a6ff' },
-    GOOD: { text: '#3fb950', bg: 'rgba(63,185,80,0.1)', border: '#3fb950', color: '#3fb950' },
+    IMMEDIATE: { text: '#991B1B', bg: '#FDF2F2', border: '#FECACA' },
+    SOON:      { text: '#D97706', bg: '#FFFBEB', border: '#FEF3C7' },
+    SCHEDULED: { text: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' },
+    GOOD:      { text: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' },
   };
 
   const currentUrgency = prediction?.urgency || 'GOOD';
@@ -104,7 +105,6 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
 
     // 2. Projected points (next 30 hourly readings)
     if (n > 0) {
-      // Connect first projected point to the last fit point
       const lastFit = chartData[n - 1].trend;
       chartData.push({
         time: 'Now',
@@ -131,10 +131,10 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
   if (loading && !prediction) {
     return (
       <div 
-        className="animate-shimmer min-h-[160px] flex items-center justify-center"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px' }}
+        className="min-h-[160px] flex items-center justify-center bg-white border border-slate-200 rounded-[8px]"
+        style={{ boxShadow: 'none' }}
       >
-        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Generating maintenance forecast...</span>
+        <span className="text-xs text-slate-400">Generating maintenance forecast...</span>
       </div>
     );
   }
@@ -142,118 +142,109 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
   if (error) {
     return (
       <div 
-        className="p-5 text-center"
-        style={{ background: 'rgba(255,123,114,0.05)', border: '1px solid rgba(255,123,114,0.2)', borderRadius: '12px' }}
+        className="p-5 text-center bg-white border border-slate-200 rounded-[8px]"
+        style={{ boxShadow: 'none' }}
       >
-        <p className="text-xs font-bold" style={{ color: 'var(--accent-red-light)' }}>⚠️ Maintenance Forecast Offline</p>
-        <p className="text-[10px] mt-1" style={{ color: 'var(--text-secondary)' }}>{error}</p>
+        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
+          <AlertTriangle size={14} color="#991B1B" />
+          Maintenance forecast offline
+        </div>
+        <p className="text-[11px] mt-1 text-slate-400 m-0">{error}</p>
       </div>
     );
   }
 
   return (
     <div 
-      className="p-5 flex flex-col lg:flex-row gap-6 items-stretch"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px' }}
+      className="p-5 flex flex-col lg:flex-row gap-6 items-stretch bg-white border border-slate-200 rounded-[8px]"
+      style={{ boxShadow: 'none' }}
       id="maintenance-prediction"
     >
       {/* Visual Prediction Panel */}
       <div className="lg:w-[45%] flex flex-col justify-between space-y-4">
         <div>
           {/* Header Title with Calendar icon */}
-          <div className="flex items-center gap-2 mb-3">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#58a6ff"
-              strokeWidth="2.5"
-              className="shrink-0"
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <p className="text-[10px] uppercase font-bold tracking-widest !mb-0" style={{ color: 'var(--text-secondary)' }}>
-              Maintenance Forecast
-            </p>
+          <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-100">
+            <Calendar size={14} color="#1C1F26" />
+            <h4 className="text-xs font-semibold text-slate-900 m-0">
+              Maintenance forecast
+            </h4>
           </div>
 
           {/* Countdown & Urgency Badges */}
           <div className="space-y-2">
-            <h2 className="text-2xl font-black font-sans leading-tight" style={{ color: uCfg.text }}>
+            <h2 className="text-2xl font-bold text-slate-900 leading-tight m-0">
               {prediction?.days_until_maintenance >= 365
-                ? '365+ Days until maintenance'
-                : `${prediction?.days_until_maintenance} Days until maintenance`}
+                ? '365+ days until maintenance'
+                : `${prediction?.days_until_maintenance} days until maintenance`}
             </h2>
 
             {/* Badges container */}
-            <div className="flex flex-wrap gap-2 text-[8px] font-bold tracking-wider font-mono">
+            <div className="flex flex-wrap gap-2 text-[10px] font-medium">
               <span 
-                className="px-2 py-0.5 rounded uppercase"
-                style={{ background: uCfg.bg, border: `1px solid ${uCfg.text}`, color: uCfg.text }}
+                className="px-2 py-0.5 rounded-[4px] border"
+                style={{ background: uCfg.bg, borderColor: uCfg.border, color: uCfg.text }}
               >
-                Urgency: {currentUrgency}
+                Urgency: {currentUrgency.toLowerCase()}
               </span>
               <span 
-                className="px-2 py-0.5 rounded"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+                className="px-2 py-0.5 rounded-[4px] bg-slate-50 border border-slate-200 text-slate-600"
               >
-                Confidence: {prediction?.confidence || 'MEDIUM'}
+                Confidence: {(prediction?.confidence || 'medium').toLowerCase()}
               </span>
               <span 
-                className="px-2 py-0.5 rounded"
-                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+                className="px-2 py-0.5 rounded-[4px] bg-slate-50 border border-slate-200 text-slate-600"
               >
                 Decline: {prediction?.decline_rate} pts/day
               </span>
             </div>
 
-            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-xs text-slate-500 m-0">
               Predicted maintenance deadline:{' '}
-              <strong className="font-mono" style={{ color: 'var(--text-primary)' }}>{prediction?.predicted_maintenance_date}</strong>
+              <strong className="font-mono text-slate-800">{prediction?.predicted_maintenance_date}</strong>
             </p>
           </div>
         </div>
 
         {/* Highlighted Recommendation Box */}
         <div 
-          className="p-3 rounded-lg text-[10px] leading-relaxed"
-          style={{ background: uCfg.bg, border: '1px solid #21262d' }}
+          className="p-3 rounded-[6px] text-xs leading-relaxed border border-slate-200 bg-slate-50"
         >
-          <p className="font-extrabold uppercase tracking-wider mb-1 flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-            🔧 RECOMMENDATION
-          </p>
-          <p className="font-sans" style={{ color: 'var(--text-secondary)' }}>{prediction?.recommendation}</p>
+          <div className="font-semibold text-slate-900 mb-1 flex items-center gap-1.5">
+            <Wrench size={13} color="#0F6E56" />
+            Recommendation
+          </div>
+          <p className="text-slate-600 m-0 text-[11px]">{prediction?.recommendation}</p>
         </div>
       </div>
 
       {/* Regression Forecast Line Chart */}
       <div className="flex-1 min-h-[200px] flex flex-col justify-between">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[9px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>
-            📈 Projected Health Trend & Threshold Forecast (Next 30 Hours)
-          </p>
-          <span className="text-[8px] font-mono px-2 py-0.5 rounded" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>
-            y=40 maintenance trigger limit
+        <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={13} color="#1C1F26" />
+            <h4 className="text-xs font-semibold text-slate-900 m-0">
+              Projected health trend & threshold forecast (next 30 hours)
+            </h4>
+          </div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded-[4px] bg-slate-100 text-slate-500">
+            Threshold: 40%
           </span>
         </div>
 
         <div className="flex-1 min-h-[160px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={regressionData} margin={{ top: 5, right: 10, bottom: -10, left: -25 }}>
-              <CartesianGrid stroke="var(--border-subtle)" strokeDasharray="3 3" />
+              <CartesianGrid stroke="#E2E8F0" strokeDasharray="2 2" />
               <XAxis
                 dataKey="time"
-                tick={{ fontSize: 8, fill: '#8b949e' }}
+                tick={{ fontSize: 8, fill: '#8B94A3' }}
                 tickLine={false}
                 axisLine={false}
                 interval={14}
               />
               <YAxis
-                tick={{ fontSize: 8, fill: '#8b949e' }}
+                tick={{ fontSize: 8, fill: '#8B94A3' }}
                 tickLine={false}
                 axisLine={false}
                 domain={[0, 100]}
@@ -263,15 +254,15 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
               {/* Red Maintenance Threshold trigger line at y=40 */}
               <ReferenceLine
                 y={40}
-                stroke="#ff7b72"
-                strokeWidth={1.2}
-                strokeDasharray="4 4"
+                stroke="#991B1B"
+                strokeWidth={1}
+                strokeDasharray="4 2"
                 label={{
                   value: 'Threshold (40%)',
                   position: 'insideBottomLeft',
-                  fill: '#ff7b72',
-                  fontSize: 7,
-                  fontWeight: 700,
+                  fill: '#991B1B',
+                  fontSize: 8,
+                  fontWeight: 500,
                   offset: 5,
                 }}
               />
@@ -280,11 +271,11 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
               <Line
                 type="monotone"
                 dataKey="health"
-                name="Actual Health"
-                stroke="#58a6ff"
-                strokeWidth={2}
+                name="Actual health"
+                stroke="#0F6E56"
+                strokeWidth={1.5}
                 dot={false}
-                activeDot={{ r: 4 }}
+                activeDot={{ r: 3 }}
                 connectNulls
               />
 
@@ -292,10 +283,10 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
               <Line
                 type="monotone"
                 dataKey="projected"
-                name="Projected Forecast"
-                stroke={uCfg.color}
+                name="Projected forecast"
+                stroke="#D97706"
                 strokeWidth={1.5}
-                strokeDasharray="5 5"
+                strokeDasharray="4 4"
                 dot={false}
                 connectNulls
               />
@@ -306,4 +297,3 @@ export default function MaintenancePanel({ bridgeId, activeBridgeId, healthHisto
     </div>
   );
 }
-
