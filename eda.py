@@ -31,7 +31,7 @@ UNITS = {
 THRESHOLDS = {
     "water_level": 5.5,
     "vibration": 1.2,
-    "crack_gap": 0.65,
+    "crack_gap": 0.30,
 }
 
 

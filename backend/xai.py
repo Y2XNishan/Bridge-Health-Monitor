@@ -2,6 +2,11 @@ import os
 import json
 from groq import Groq
 
+try:
+    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+except ImportError:
+    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 XAI_SYSTEM_PROMPT = """You are an expert structural engineering AI for Indian bridges.
@@ -19,25 +24,33 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
     health_score = sensor_data.get("health_score", 100)
     anomaly_score = sensor_data.get("anomaly_score", 0)
     
-    # Identify which sensors are breaching thresholds
+    # Identify which sensors are breaching thresholds per IRC standards
+    vib_crit = SENSOR_THRESHOLDS["vibration"]["crit"]
+    vib_warn = SENSOR_THRESHOLDS["vibration"]["warn"]
+    str_crit = SENSOR_THRESHOLDS["strain"]["crit"]
+    str_warn = SENSOR_THRESHOLDS["strain"]["warn"]
+    crk_crit = CRACK_GAP_LIMIT_MM
+    crk_warn = CRACK_GAP_WARN_MM
+    wat_flood = SENSOR_THRESHOLDS["water_level"]["flood"]
+
     triggered_sensors = []
-    if vibration > 1.2:
-        triggered_sensors.append(f"Vibration {vibration:.3f}g (threshold: 1.2g) — CRITICAL breach")
-    elif vibration > 0.8:
-        triggered_sensors.append(f"Vibration {vibration:.3f}g (approaching threshold of 1.2g)")
+    if vibration > vib_crit:
+        triggered_sensors.append(f"Vibration {vibration:.3f}g (IRC:6-2017 threshold: {vib_crit}g) — CRITICAL breach")
+    elif vibration > vib_warn:
+        triggered_sensors.append(f"Vibration {vibration:.3f}g (approaching threshold of {vib_crit}g)")
     
-    if strain > 210:
-        triggered_sensors.append(f"Strain {strain:.1f} MPa (limit: 210 MPa) — CRITICAL breach")
-    elif strain > 180:
-        triggered_sensors.append(f"Strain {strain:.1f} MPa (approaching IRC:112 limit of 210 MPa)")
+    if strain > str_crit:
+        triggered_sensors.append(f"Strain {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.0f} MPa) — CRITICAL breach")
+    elif strain > str_warn:
+        triggered_sensors.append(f"Strain {strain:.1f} MPa (approaching IRC:112 limit of {str_crit:.0f} MPa)")
     
-    if crack_gap > 0.3:
-        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (limit: 0.3mm) — CRITICAL breach")
-    elif crack_gap > 0.2:
-        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (approaching safe limit of 0.3mm)")
+    if crack_gap > crk_crit:
+        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm) — CRITICAL breach")
+    elif crack_gap > crk_warn:
+        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (approaching safe limit of {crk_crit:.2f}mm)")
     
-    if water_level > 4.5:
-        triggered_sensors.append(f"Water level {water_level:.2f}m (flood threshold: 4.5m)")
+    if water_level > wat_flood:
+        triggered_sensors.append(f"Water level {water_level:.2f}m (flood threshold: {wat_flood}m)")
     
     # Determine root cause context
     root_cause_hints = []
@@ -63,10 +76,10 @@ ROOT CAUSE INDICATORS:
 {chr(10).join(root_cause_hints) if root_cause_hints else 'Single-sensor anomaly — no compound cause detected'}
 
 FULL SENSOR READINGS:
-- Vibration: {vibration:.3f}g (IRC:6-2017 threshold: 1.2g)
-- Strain: {strain:.1f} MPa (IRC:112-2011 limit: 210 MPa)  
-- Crack Gap: {crack_gap:.3f}mm (NHAI limit: 0.3mm)
-- Water Level: {water_level:.2f}m (flood threshold: 4.5m)
+- Vibration: {vibration:.3f}g (IRC:6-2017 threshold: {vib_crit}g)
+- Strain: {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.0f} MPa)  
+- Crack Gap: {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm)
+- Water Level: {water_level:.2f}m (flood threshold: {wat_flood}m)
 
 Generate an XAI explanation with exactly these 4 sections:
 
@@ -97,22 +110,22 @@ Generate an XAI explanation with exactly these 4 sections:
     if not explanation or not explanation.strip():
         # Fallback explanation generator
         rc_parts = []
-        if vibration > 1.2:
-            rc_parts.append(f"Vibration levels have reached {vibration:.3f}g, exceeding the critical safety limit.")
-        elif vibration > 0.8:
+        if vibration > vib_crit:
+            rc_parts.append(f"Vibration levels have reached {vibration:.3f}g, exceeding the IRC:6-2017 critical limit of {vib_crit}g.")
+        elif vibration > vib_warn:
             rc_parts.append(f"Vibration levels are elevated at {vibration:.3f}g, approaching critical safety limits.")
             
-        if strain > 210:
-            rc_parts.append(f"Strain readings have breached the ultimate limit state at {strain:.1f} MPa.")
-        elif strain > 180:
+        if strain > str_crit:
+            rc_parts.append(f"Strain readings have breached the IRC:112-2011 ultimate limit state at {strain:.1f} MPa (limit: {str_crit:.0f} MPa).")
+        elif strain > str_warn:
             rc_parts.append(f"Strain readings are highly elevated at {strain:.1f} MPa.")
             
-        if crack_gap > 0.3:
-            rc_parts.append(f"Crack gap sensor reports critical widening of {crack_gap:.3f}mm.")
-        elif crack_gap > 0.2:
-            rc_parts.append(f"Crack gap sensor shows progressive widening at {crack_gap:.3f}mm.")
+        if crack_gap > crk_crit:
+            rc_parts.append(f"Crack gap sensor reports critical widening of {crack_gap:.3f}mm exceeding the IRC:112-2011 limit of {crk_crit:.2f}mm.")
+        elif crack_gap > crk_warn:
+            rc_parts.append(f"Crack gap sensor shows progressive widening at {crack_gap:.3f}mm approaching the {crk_crit:.2f}mm limit.")
             
-        if water_level > 4.5:
+        if water_level > wat_flood:
             rc_parts.append(f"Water level has breached the flood threshold at {water_level:.2f}m.")
 
         if not rc_parts:
@@ -120,9 +133,9 @@ Generate an XAI explanation with exactly these 4 sections:
 
         root_cause = " ".join(rc_parts[:2])
 
-        if vibration > 0.8 and strain > 180:
+        if vibration > vib_warn and strain > str_warn:
             correlation = f"High vibration ({vibration:.3f}g) and high strain ({strain:.1f} MPa) correlate directly, suggesting heavy overloading."
-        elif crack_gap > 0.2 and strain > 170:
+        elif crack_gap > crk_warn and strain > 170:
             correlation = f"Crack widening ({crack_gap:.3f}mm) correlating with high strain ({strain:.1f} MPa) indicates structural fatigue under load."
         elif water_level > 3.5 and vibration > 0.6:
             correlation = f"Elevated water level ({water_level:.2f}m) combined with increased vibrations suggests fluid-structure interaction or scour."
@@ -130,12 +143,12 @@ Generate an XAI explanation with exactly these 4 sections:
             correlation = f"Sensor correlation confirms an anomaly deviation score of {anomaly_score:.2f} compared to historical baseline signatures."
 
         # IRC reference
-        if strain > 180:
-            irc_ref = "IRC:112-2011 limits concrete tensile strain and dictates maximum allowable stress values."
-        elif vibration > 0.8:
-            irc_ref = "IRC:6-2017 establishes live load vibration and dynamic allowance factor thresholds."
-        elif crack_gap > 0.2:
-            irc_ref = "IRC:SP:44-1996 guidelines govern the inspection and repair of cracks in concrete bridges."
+        if strain > str_warn:
+            irc_ref = f"IRC:112-2011 limits concrete tensile strain ({str_crit:.0f} MPa) and dictates maximum allowable stress values."
+        elif vibration > vib_warn:
+            irc_ref = f"IRC:6-2017 establishes live load vibration and dynamic allowance factor thresholds ({vib_crit}g)."
+        elif crack_gap > crk_warn:
+            irc_ref = f"IRC:112-2011 Table 12.1 and IRC:SP:44-1996 establish maximum crack width limits ({crk_crit:.2f}mm) for concrete bridges."
         else:
             irc_ref = "IRC:SP:51-2015 guidelines specify structural health monitoring systems and sensor deployment."
 

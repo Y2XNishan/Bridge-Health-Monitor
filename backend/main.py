@@ -279,6 +279,11 @@ except ImportError:
     calculate_degradation_rate = None
     predict_time_to_threshold = None
 
+try:
+    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+except ImportError:
+    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+
 _HISTORY_WINDOW = 1500  # enough rows for rolling-24h features
 _HEALTH_HISTORY_MAX = 50
 
@@ -335,12 +340,15 @@ def calculate_health_score(
     elif strain > 170:
         score -= 10
 
-    # Crack gap penalties
-    if crack_gap > 0.65:
+    # Crack gap penalties per IRC:112-2011 Table 12.1
+    crack_crit = CRACK_GAP_LIMIT_MM      # 0.30 mm
+    crack_warn = CRACK_GAP_WARN_MM      # 0.20 mm
+    crack_mid = (crack_crit + crack_warn) / 2  # 0.25 mm
+    if crack_gap > crack_crit:
         score -= 40
-    elif crack_gap > 0.55:
+    elif crack_gap > crack_mid:
         score -= 25
-    elif crack_gap > 0.4:
+    elif crack_gap > crack_warn:
         score -= 10
 
     # Pipeline A penalty (anomaly score × 20)
@@ -1300,9 +1308,9 @@ async def xai_explain(bridge_id: int = 1, user=Depends(get_current_user)):
     bridge_name = sim.name
     status_str = live.get("health_status", "").upper()
     health_score = live.get("health_score", 100.0)
-    if status_str in ["CRITICAL", "FAIL"] or health_score < 60.0:
+    if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
         alert_level = "CRITICAL"
-    elif status_str in ["WARNING", "POOR", "FAIR"] or health_score <= 80.0:
+    elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
         alert_level = "WARNING"
     else:
         alert_level = "NORMAL"
@@ -1327,9 +1335,9 @@ async def survival_predict(bridge_id: int = 1, user=Depends(get_current_user)):
     bridge_name = sim.name
     status_str = live.get("health_status", "").upper()
     health_score = live.get("health_score", 100.0)
-    if status_str in ["CRITICAL", "FAIL"] or health_score < 60.0:
+    if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
         alert_level = "CRITICAL"
-    elif status_str in ["WARNING", "POOR", "FAIR"] or health_score <= 80.0:
+    elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
         alert_level = "WARNING"
     else:
         alert_level = "NORMAL"
@@ -2188,9 +2196,12 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
             if value > 170: return "Elevated", "#CA8A04"
             return "Normal", "#16A34A"
         elif sensor_name == "crack_gap":
-            if value > 0.65: return "Critical", "#DC2626"
-            if value > 0.55: return "Warning", "#EA580C"
-            if value > 0.40: return "Elevated", "#CA8A04"
+            crack_crit = CRACK_GAP_LIMIT_MM      # 0.30 mm
+            crack_warn = CRACK_GAP_WARN_MM      # 0.20 mm
+            crack_mid = (crack_crit + crack_warn) / 2  # 0.25 mm
+            if value > crack_crit: return "Critical", "#DC2626"
+            if value > crack_mid: return "Warning", "#EA580C"
+            if value > crack_warn: return "Elevated", "#CA8A04"
             return "Normal", "#16A34A"
         return "Unknown", "#6B7280"
 
@@ -2968,13 +2979,13 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
     
     def get_status_label(name, val):
         if name == "vibration":
-            return "CRITICAL" if val > 1.2 else "WARNING" if val > 0.8 else "NORMAL"
+            return "CRITICAL" if val > SENSOR_THRESHOLDS["vibration"]["crit"] else "WARNING" if val > SENSOR_THRESHOLDS["vibration"]["warn"] else "NORMAL"
         elif name == "strain":
-            return "CRITICAL" if val > 210 else "WARNING" if val > 180 else "NORMAL"
+            return "CRITICAL" if val > SENSOR_THRESHOLDS["strain"]["crit"] else "WARNING" if val > SENSOR_THRESHOLDS["strain"]["warn"] else "NORMAL"
         elif name == "crack_gap":
-            return "CRITICAL" if val > 0.3 else "WARNING" if val > 0.2 else "NORMAL"
+            return "CRITICAL" if val > CRACK_GAP_LIMIT_MM else "WARNING" if val > CRACK_GAP_WARN_MM else "NORMAL"
         elif name == "water_level":
-            return "WARNING" if val > 4.5 else "NORMAL"
+            return "WARNING" if val > SENSOR_THRESHOLDS["water_level"]["flood"] else "NORMAL"
         return "NORMAL"
         
     def get_status_color(lbl):
@@ -2982,10 +2993,10 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
 
     sensor_data = [
         [Paragraph("Sensor Type", table_header_style), Paragraph("Current Reading", table_header_style), Paragraph("Safe Limit Threshold", table_header_style), Paragraph("Status", table_header_style)],
-        [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph("1.200 g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
-        [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph("210.0 MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
-        [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph("0.300 mm (Safe Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
-        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph("4.50 m (Flood Threshold)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
+        [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['vibration']['crit']:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
+        [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['strain']['crit']:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
+        [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
+        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['water_level']['flood']:.2f} m (Flood Threshold)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
     ]
     
     sensor_table = Table(sensor_data, colWidths=[130, 130, 150, 110])
@@ -4062,10 +4073,10 @@ def get_chat_pdf_report(request: ChatReportRequest, user = Depends(get_current_u
         wat = b.get("water_level", 0.0)
         
         ratios = [
-            {"name": "Seismic/Traffic Vibration", "ratio": vib / 1.2 if vib else 0.0, "value": f"{vib:.2f} g"},
-            {"name": "Structural Strain", "ratio": strn / 210.0 if strn else 0.0, "value": f"{strn:.1f} MPa"},
-            {"name": "Concrete Crack Expansion", "ratio": crk / 0.65 if crk else 0.0, "value": f"{crk:.2f} mm"},
-            {"name": "Hydrodynamic Water Level", "ratio": wat / 5.5 if wat else 0.0, "value": f"{wat:.2f} m"}
+            {"name": "Seismic/Traffic Vibration", "ratio": vib / SENSOR_THRESHOLDS["vibration"]["crit"] if vib else 0.0, "value": f"{vib:.2f} g"},
+            {"name": "Structural Strain", "ratio": strn / SENSOR_THRESHOLDS["strain"]["crit"] if strn else 0.0, "value": f"{strn:.1f} MPa"},
+            {"name": "Concrete Crack Expansion", "ratio": crk / CRACK_GAP_LIMIT_MM if crk else 0.0, "value": f"{crk:.2f} mm"},
+            {"name": "Hydrodynamic Water Level", "ratio": wat / SENSOR_THRESHOLDS["water_level"]["crit"] if wat else 0.0, "value": f"{wat:.2f} m"}
         ]
         ratios.sort(key=lambda x: x["ratio"], reverse=True)
         top_sensor = ratios[0]

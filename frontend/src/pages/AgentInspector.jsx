@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import ReactMarkdown from 'react-markdown';
@@ -309,9 +310,9 @@ export default function AgentInspector() {
   const anom = selectedBridge?.anomaly_score ?? 0;
 
   const hasExceeded = 
-    vib > 1.2 ||
-    str > 210 ||
-    crk > 0.3 ||
+    vib > SENSOR_THRESHOLDS.vibration.crit ||
+    str > SENSOR_THRESHOLDS.strain.crit ||
+    crk > SENSOR_THRESHOLDS.crack_gap.crit ||
     anom > 0.5;
 
   const displayIssues = [];
@@ -319,13 +320,13 @@ export default function AgentInspector() {
     if (anom > 0.5) {
       displayIssues.push(`Anomaly score ${anom} detected — further investigation required`);
     }
-    if (vib > 1.2) {
+    if (vib > SENSOR_THRESHOLDS.vibration.crit) {
       displayIssues.push(`Vibration exceeds threshold: ${vib}g`);
     }
-    if (str > 210) {
+    if (str > SENSOR_THRESHOLDS.strain.crit) {
       displayIssues.push(`Strain exceeds threshold: ${str}MPa`);
     }
-    if (crk > 0.3) {
+    if (crk > SENSOR_THRESHOLDS.crack_gap.crit) {
       displayIssues.push(`Crack gap exceeds threshold: ${crk}mm`);
     }
   }
@@ -543,25 +544,25 @@ export default function AgentInspector() {
                     name: 'Strain',
                     val: inspectionResult.sensor_summary?.strain,
                     unit: 'MPa',
-                    limit: '210MPa',
+                    limit: `${SENSOR_THRESHOLDS.strain.crit}MPa`,
                     icon: Bot,
-                    alert: inspectionResult.sensor_summary?.strain > 180
+                    alert: inspectionResult.sensor_summary?.strain > SENSOR_THRESHOLDS.strain.warn
                   },
                   {
                     name: 'Crack Gap',
                     val: inspectionResult.sensor_summary?.crack_gap,
                     unit: 'mm',
-                    limit: '0.3mm',
+                    limit: `${SENSOR_THRESHOLDS.crack_gap.crit}mm`,
                     icon: AlertTriangle,
-                    alert: inspectionResult.sensor_summary?.crack_gap > 0.2
+                    alert: inspectionResult.sensor_summary?.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn
                   },
                   {
                     name: 'Water Level',
                     val: inspectionResult.sensor_summary?.water_level,
                     unit: 'm',
-                    limit: '4.5m',
+                    limit: `${SENSOR_THRESHOLDS.water_level.warn}m`,
                     icon: Droplet,
-                    alert: inspectionResult.sensor_summary?.water_level > 4.5
+                    alert: inspectionResult.sensor_summary?.water_level > SENSOR_THRESHOLDS.water_level.warn
                   }
                 ].map((sensor) => {
                   const Icon = sensor.icon;

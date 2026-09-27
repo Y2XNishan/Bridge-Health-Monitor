@@ -4,7 +4,15 @@ import httpx
 import asyncio
 from pathlib import Path
 from groq import Groq
-from rag import retrieve_context
+try:
+    from backend.rag import retrieve_context
+except ImportError:
+    from rag import retrieve_context
+
+try:
+    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
+except ImportError:
+    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, CRACK_GAP_WARN_MM
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
@@ -68,12 +76,12 @@ def analyze_sensors(live_data: dict) -> dict:
         issues.append(f"WARNING: Strain {strain:.1f} MPa approaching design limit")
         recommendations.append("Schedule structural inspection within 7 days")
 
-    if crack_gap > 0.3:
-        issues.append(f"CRITICAL: Crack gap {crack_gap:.3f}mm exceeds safe limit of 0.3mm")
-        recommendations.append("Emergency crack sealing required per NHAI inspection manual")
+    if crack_gap > CRACK_GAP_LIMIT_MM:
+        issues.append(f"CRITICAL: Crack gap {crack_gap:.3f}mm exceeds IRC:112-2011 safe limit of {CRACK_GAP_LIMIT_MM:.2f}mm")
+        recommendations.append("Emergency crack sealing required per IRC:112-2011 and NHAI inspection manual")
         severity = "CRITICAL"
-    elif crack_gap > 0.2:
-        issues.append(f"WARNING: Crack gap {crack_gap:.3f}mm requires monitoring")
+    elif crack_gap > CRACK_GAP_WARN_MM:
+        issues.append(f"WARNING: Crack gap {crack_gap:.3f}mm requires monitoring (approaching {CRACK_GAP_LIMIT_MM:.2f}mm limit)")
         recommendations.append("Schedule crack repair within 30 days")
 
     if water_level > 4.5:
@@ -121,7 +129,7 @@ Bridge Inspection Request:
 SENSOR READINGS:
 - Vibration: {live_data.get('vibration', 'N/A')}g (threshold: 1.2g)
 - Strain: {live_data.get('strain', 'N/A')} MPa (limit: 210 MPa)  
-- Crack Gap: {live_data.get('crack_gap', 'N/A')}mm (limit: 0.3mm)
+- Crack Gap: {live_data.get('crack_gap', 'N/A')}mm (IRC:112-2011 limit: {CRACK_GAP_LIMIT_MM:.2f}mm)
 - Water Level: {live_data.get('water_level', 'N/A')}m
 - Anomaly Score: {live_data.get('anomaly_score', 'N/A')}
 

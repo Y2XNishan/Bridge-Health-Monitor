@@ -1,26 +1,15 @@
 import { Waves, Activity, Gauge, ScanLine } from 'lucide-react';
+import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
 
-const THRESHOLDS = {
-  water_level: { warn: 4.0, crit: 5.5 },
-  vibration:   { warn: 0.8, crit: 1.2 },
-  strain:      { warn: 180, crit: 210 },
-  crack_gap:   { warn: 0.4, crit: 0.65 },
-};
+const THRESHOLDS = SENSOR_THRESHOLDS;
+const getStatus = getSensorStatus;
 
 const SENSOR_META = {
-  water_level: { label: 'Water level', unit: 'm',   icon: Waves },
-  vibration:   { label: 'Vibration',   unit: 'g',   icon: Activity },
-  strain:      { label: 'Strain',      unit: 'MPa', icon: Gauge },
-  crack_gap:   { label: 'Crack gap',   unit: 'mm',  icon: ScanLine },
+  water_level: { label: SENSOR_THRESHOLDS.water_level.label, unit: SENSOR_THRESHOLDS.water_level.unit, icon: Waves },
+  vibration:   { label: SENSOR_THRESHOLDS.vibration.label,   unit: SENSOR_THRESHOLDS.vibration.unit,   icon: Activity },
+  strain:      { label: SENSOR_THRESHOLDS.strain.label,      unit: SENSOR_THRESHOLDS.strain.unit,      icon: Gauge },
+  crack_gap:   { label: SENSOR_THRESHOLDS.crack_gap.label,   unit: SENSOR_THRESHOLDS.crack_gap.unit,   icon: ScanLine },
 };
-
-function getStatus(sensor, value) {
-  if (value == null) return 'Offline';
-  const t = THRESHOLDS[sensor];
-  if (value >= t.crit) return 'Critical';
-  if (value >= t.warn) return 'Monitor';
-  return 'Healthy';
-}
 
 function StatusBadge({ status }) {
   const isCritical = status === 'Critical';

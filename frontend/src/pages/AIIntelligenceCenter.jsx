@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import {
   LineChart,
   Line,
@@ -742,11 +743,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     const score = anomalyMap[targetId]?.combined_score ?? anomalyMap[targetId]?.anomaly_score ?? 0;
     const highAnomaly = score > 0.5;
 
-    // Correct thresholds aligned with backend simulate.py
+    // Correct thresholds aligned with IRC standards
     const thresholds = {
-      vibration: 1.2,  // g (was 1.8)
-      strain: 210,     // MPa (was 190)
-      crack_gap: 0.65, // mm (was 2.0)
+      vibration: SENSOR_THRESHOLDS.vibration.crit,   // 1.2 g (IRC:6-2017)
+      strain: SENSOR_THRESHOLDS.strain.crit,          // 210 MPa (IRC:112-2011)
+      crack_gap: SENSOR_THRESHOLDS.crack_gap.crit,    // 0.30 mm (IRC:112-2011)
     };
 
     // Health score color helper
@@ -1582,10 +1583,10 @@ function BridgeIntelligenceTab() {
   // Get top sensor for a bridge
   const getTopSensor = (b) => {
     const sensors = [
-      { name: 'Vibration', value: b.vibration, unit: 'g', threshold: 0.08 },
-      { name: 'Strain', value: b.strain, unit: 'MPa', threshold: 250 },
-      { name: 'Crack Gap', value: b.crack_gap, unit: 'mm', threshold: 1.5 },
-      { name: 'Water Level', value: b.water_level, unit: 'm', threshold: 6 },
+      { name: 'Vibration', value: b.vibration, unit: 'g', threshold: SENSOR_THRESHOLDS.vibration.crit },
+      { name: 'Strain', value: b.strain, unit: 'MPa', threshold: SENSOR_THRESHOLDS.strain.crit },
+      { name: 'Crack Gap', value: b.crack_gap, unit: 'mm', threshold: SENSOR_THRESHOLDS.crack_gap.crit },
+      { name: 'Water Level', value: b.water_level, unit: 'm', threshold: SENSOR_THRESHOLDS.water_level.crit },
     ];
     // Return the sensor with the highest ratio to its threshold
     let top = sensors[0];

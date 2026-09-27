@@ -20,12 +20,21 @@ LAGS = {
     "lag30": 30,
 }
 
-ALERT_THRESHOLDS = {
-    "water_level": 4.0,
-    "vibration": 0.8,
-    "strain": 180.0,
-    "crack_gap": 0.4,
-}
+try:
+    from backend.constants import SENSOR_THRESHOLDS
+    ALERT_THRESHOLDS = {
+        "water_level": SENSOR_THRESHOLDS["water_level"]["warn"],
+        "vibration": SENSOR_THRESHOLDS["vibration"]["warn"],
+        "strain": SENSOR_THRESHOLDS["strain"]["warn"],
+        "crack_gap": SENSOR_THRESHOLDS["crack_gap"]["warn"],
+    }
+except ImportError:
+    ALERT_THRESHOLDS = {
+        "water_level": 4.0,
+        "vibration": 0.8,
+        "strain": 180.0,
+        "crack_gap": 0.20,
+    }
 
 try:
     __import__("sys").stdout.reconfigure(encoding="utf-8")

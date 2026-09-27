@@ -3,6 +3,11 @@ import json
 import numpy as np
 from groq import Groq
 
+try:
+    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM
+except ImportError:
+    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM
+
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
 def calculate_degradation_rate(health_score: float, anomaly_score: float, 
@@ -76,13 +81,13 @@ def predict_sensor_failure(sensor_data: dict, bridge_id: int) -> list:
         })
     
     # Crack gap — at risk if > 60% of threshold
-    crack_pct = crack_gap / 0.3
+    crack_pct = crack_gap / CRACK_GAP_LIMIT_MM
     if crack_pct > 0.6:
         days = round(max(2, (1.0 - crack_pct) * 20 * (200 / (bridge_id + 1))))
         at_risk.append({
             "sensor": "Crack Gap Monitor",
             "current": f"{crack_gap:.3f}mm",
-            "threshold": "0.3mm",
+            "threshold": f"{CRACK_GAP_LIMIT_MM:.2f}mm",
             "usage_pct": round(crack_pct * 100, 1),
             "days_to_failure": days,
             "priority": "CRITICAL" if crack_pct > 0.9 else "HIGH"

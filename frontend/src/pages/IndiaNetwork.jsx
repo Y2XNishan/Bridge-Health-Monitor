@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MapPin, Activity, AlertTriangle } from 'lucide-react';
+import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -383,12 +384,15 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
       sensorStatuses.push({ sensor: "Strain", level: "WATCH", severity: 1 });
     }
 
-    // Crack Gap
-    if (bridge.crack_gap > 0.65) {
+    // Crack Gap per IRC:112-2011 Table 12.1
+    const crackCrit = SENSOR_THRESHOLDS.crack_gap.crit; // 0.30 mm
+    const crackWarn = SENSOR_THRESHOLDS.crack_gap.warn; // 0.20 mm
+    const crackMid = (crackCrit + crackWarn) / 2;       // 0.25 mm
+    if (bridge.crack_gap > crackCrit) {
       sensorStatuses.push({ sensor: "Crack Gap", level: "CRITICAL", severity: 3 });
-    } else if (bridge.crack_gap > 0.55) {
+    } else if (bridge.crack_gap > crackMid) {
       sensorStatuses.push({ sensor: "Crack Gap", level: "WARNING", severity: 2 });
-    } else if (bridge.crack_gap > 0.40) {
+    } else if (bridge.crack_gap > crackWarn) {
       sensorStatuses.push({ sensor: "Crack Gap", level: "WATCH", severity: 1 });
     }
 
@@ -409,10 +413,10 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
 
     // Fallback based on relative threshold ratio if alert_count > 0
     const ratios = [
-      { name: "Vibration", ratio: (bridge.vibration || 0) / 1.2 },
-      { name: "Strain", ratio: (bridge.strain || 0) / 210 },
-      { name: "Crack Gap", ratio: (bridge.crack_gap || 0) / 0.65 },
-      { name: "Water Level", ratio: (bridge.water_level || 0) / 5.5 }
+      { name: "Vibration", ratio: (bridge.vibration || 0) / SENSOR_THRESHOLDS.vibration.crit },
+      { name: "Strain", ratio: (bridge.strain || 0) / SENSOR_THRESHOLDS.strain.crit },
+      { name: "Crack Gap", ratio: (bridge.crack_gap || 0) / SENSOR_THRESHOLDS.crack_gap.crit },
+      { name: "Water Level", ratio: (bridge.water_level || 0) / SENSOR_THRESHOLDS.water_level.crit }
     ];
     ratios.sort((a, b) => b.ratio - a.ratio);
 

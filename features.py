@@ -24,7 +24,7 @@ ALERT_THRESHOLDS = {
     "water_level": 4.0,
     "vibration": 0.8,
     "strain": 180.0,
-    "crack_gap": 0.4,
+    "crack_gap": 0.20,
 }
 
 try:
