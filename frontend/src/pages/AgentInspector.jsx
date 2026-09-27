@@ -19,16 +19,16 @@ import {
 
 
 const STAGES = [
-  { id: 'fetch', label: '🔍 Fetching live sensor data...' },
-  { id: 'anomaly', label: '📊 Analyzing anomaly scores...' },
-  { id: 'rag', label: '📚 Searching IRC standards...' },
-  { id: 'llm', label: '🤖 Generating inspection report...' }
+  { id: 'fetch', label: 'Fetching live sensor data...' },
+  { id: 'anomaly', label: 'Analyzing anomaly scores...' },
+  { id: 'rag', label: 'Searching IRC standards...' },
+  { id: 'llm', label: 'Generating inspection report...' }
 ];
 
 const SEVERITY_CONFIG = {
-  CRITICAL: { label: 'CRITICAL', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: '#EF4444' },
-  MONITOR: { label: 'MONITOR', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: '#F59E0B' },
-  HEALTHY: { label: 'HEALTHY', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: '#10B981' }
+  CRITICAL: { label: 'Critical', color: '#991B1B', bg: '#FDF2F2', border: '#FECACA' },
+  MONITOR: { label: 'Monitor', color: '#D97706', bg: '#FFFBEB', border: '#FEF3C7' },
+  HEALTHY: { label: 'Healthy', color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' }
 };
 
 const markdownComponents = {
@@ -335,8 +335,9 @@ export default function AgentInspector() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-lg font-black tracking-tight flex items-center gap-2">
-            🤖 Agentic Bridge Inspector
+          <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
+            <Bot size={20} color="#0F6E56" />
+            Agentic bridge inspector
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
             AI-powered automatic inspection using RAG + Llama 3.3
@@ -355,7 +356,7 @@ export default function AgentInspector() {
               value={selectedBridgeId}
               onChange={handleBridgeChange}
               disabled={loading}
-              className="flex-1 h-11 rounded-xl px-4 text-xs font-semibold focus:outline-none focus:border-[var(--accent-blue-light)] cursor-pointer transition"
+              className="flex-1 h-11 rounded-lg px-4 text-xs font-semibold focus:outline-none focus:border-[var(--accent-teal)] cursor-pointer transition"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
               {bridges.map((b) => (
@@ -368,9 +369,9 @@ export default function AgentInspector() {
             <button
               onClick={handleRunInspection}
               disabled={loading || !selectedBridge}
-              className="h-11 px-6 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-lg hover:shadow-cyan-500/10"
+              className="h-11 px-6 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               style={{
-                background: 'linear-gradient(135deg, var(--accent-blue-light) 0%, #0284c7 100%)',
+                background: '#1C1F26',
                 color: 'white',
                 border: 'none',
               }}
@@ -667,7 +668,8 @@ export default function AgentInspector() {
               {inspectionResult.recommendations?.length > 0 && (
                 <div className="mt-6 border-t border-[var(--border-subtle)] pt-4 space-y-3">
                   <h3 className="text-xs uppercase tracking-wider font-bold flex items-center gap-2 text-[var(--text-primary)]">
-                    <span>📋</span> Recommendations & Actions Summary
+                    <FileText size={14} className="text-slate-600" />
+                    Recommendations and actions summary
                   </h3>
                   <div className="grid grid-cols-1 gap-2.5">
                     {inspectionResult.recommendations.map((rec, i) => (
