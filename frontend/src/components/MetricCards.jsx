@@ -1,3 +1,5 @@
+import { Waves, Activity, Gauge, ScanLine } from 'lucide-react';
+
 const THRESHOLDS = {
   water_level: { warn: 4.0, crit: 5.5 },
   vibration:   { warn: 0.8, crit: 1.2 },
@@ -6,36 +8,36 @@ const THRESHOLDS = {
 };
 
 const SENSOR_META = {
-  water_level: { label: 'Water Level', unit: 'm',   icon: '💧', accent: '#3b82f6' },
-  vibration:   { label: 'Vibration',   unit: 'g',   icon: '📳', accent: '#8b5cf6' },
-  strain:      { label: 'Strain',      unit: 'MPa', icon: '⚡', accent: '#d97706' },
-  crack_gap:   { label: 'Crack Gap',   unit: 'mm',  icon: '🔍', accent: '#dc2626' },
+  water_level: { label: 'Water level', unit: 'm',   icon: Waves },
+  vibration:   { label: 'Vibration',   unit: 'g',   icon: Activity },
+  strain:      { label: 'Strain',      unit: 'MPa', icon: Gauge },
+  crack_gap:   { label: 'Crack gap',   unit: 'mm',  icon: ScanLine },
 };
 
 function getStatus(sensor, value) {
-  if (value == null) return 'OFFLINE';
+  if (value == null) return 'Offline';
   const t = THRESHOLDS[sensor];
-  if (value >= t.crit) return 'CRITICAL';
-  if (value >= t.warn) return 'WARNING';
-  return 'NORMAL';
+  if (value >= t.crit) return 'Critical';
+  if (value >= t.warn) return 'Monitor';
+  return 'Healthy';
 }
 
 function StatusBadge({ status }) {
-  const cls =
-    status === 'CRITICAL'
-      ? 'badge badge-critical'
-      : status === 'WARNING'
-        ? 'badge badge-warning'
-        : 'badge badge-normal';
+  const isCritical = status === 'Critical';
+  const isMonitor = status === 'Monitor';
 
-  const dotColor =
-    status === 'CRITICAL' ? '#dc2626' : status === 'WARNING' ? '#d97706' : '#16a34a';
+  const badgeBg = isCritical ? '#FDF2F2' : isMonitor ? '#FFFBEB' : '#F0FDF4';
+  const badgeBorder = isCritical ? '#FECACA' : isMonitor ? '#FEF3C7' : '#DCFCE7';
+  const badgeDot = isCritical ? '#991B1B' : isMonitor ? '#D97706' : '#0F6E56';
 
   return (
-    <span className={cls}>
+    <span 
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border"
+      style={{ backgroundColor: badgeBg, borderColor: badgeBorder, color: '#1C1F26' }}
+    >
       <span
         className="w-1.5 h-1.5 rounded-full"
-        style={{ backgroundColor: dotColor }}
+        style={{ backgroundColor: badgeDot }}
       />
       {status}
     </span>
@@ -47,55 +49,56 @@ export default function MetricCards({ liveData }) {
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {sensors.map((sensor, i) => {
+      {sensors.map((sensor) => {
         const meta = SENSOR_META[sensor];
+        const IconComponent = meta.icon;
         const value = liveData?.[sensor];
         const status = getStatus(sensor, value);
 
         const barColor =
-          status === 'CRITICAL' ? '#dc2626' : status === 'WARNING' ? '#d97706' : '#16a34a';
+          status === 'Critical' ? '#991B1B' : status === 'Monitor' ? '#D97706' : '#0F6E56';
 
         return (
           <div
             key={sensor}
-            className="p-4 sm:p-5 animate-fade-in-up relative overflow-hidden group"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px', animationDelay: `${i * 80}ms` }}
+            className="p-4 sm:p-5 bg-white border border-slate-200 rounded-[8px]"
+            style={{ boxShadow: 'none' }}
             id={`metric-card-${sensor}`}
           >
-            <div className="flex items-start justify-between mb-3 relative z-10">
+            <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{meta.icon}</span>
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                <IconComponent size={15} color="#8B94A3" />
+                <span className="text-xs font-semibold text-slate-700">
                   {meta.label}
                 </span>
               </div>
               <StatusBadge status={status} />
             </div>
 
-            <div className="relative z-10">
-              <span className="text-3xl font-extrabold tracking-tight" style={{ color: meta.accent }}>
+            <div>
+              <span className="text-2xl font-bold tracking-tight text-slate-900">
                 {value != null ? value.toFixed(2) : '—'}
               </span>
-              <span className="text-sm font-medium ml-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <span className="text-xs font-medium text-slate-500 ml-1">
                 {meta.unit}
               </span>
             </div>
 
             {/* Threshold bar */}
-            <div className="mt-3 relative z-10">
-              <div className="h-[2px] w-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+            <div className="mt-3">
+              <div className="h-[2px] w-full overflow-hidden bg-slate-100">
                 <div
-                  className="h-full transition-all duration-700 ease-out"
+                  className="h-full transition-all duration-500 ease-out"
                   style={{
                     width: `${Math.min(100, (value / THRESHOLDS[sensor].crit) * 100)}%`,
                     background: barColor,
                   }}
                 />
               </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>0</span>
-                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  {THRESHOLDS[sensor].crit} {meta.unit}
+              <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-mono">
+                <span>0</span>
+                <span>
+                  {THRESHOLDS[sensor].crit} {meta.unit} threshold
                 </span>
               </div>
             </div>
