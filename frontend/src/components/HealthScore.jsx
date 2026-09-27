@@ -6,13 +6,14 @@ import {
   Tooltip,
   YAxis,
 } from 'recharts';
+import { Activity } from 'lucide-react';
 
 const GRADE_CONFIG = {
-  A: { color: 'var(--accent-green-light)', bg: '#dcfce7', border: '#bbf7d0' },
-  B: { color: 'var(--accent-green-light)', bg: '#dcfce7', border: '#bbf7d0' },
-  C: { color: 'var(--accent-yellow-light)', bg: '#fef3c7', border: '#fde68a' },
-  D: { color: 'var(--accent-red-light)', bg: '#fee2e2', border: '#fecaca' },
-  F: { color: 'var(--accent-red-light)', bg: '#fee2e2', border: '#fecaca' },
+  A: { color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' },
+  B: { color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' },
+  C: { color: '#D97706', bg: '#FFFBEB', border: '#FEF3C7' },
+  D: { color: '#991B1B', bg: '#FDF2F2', border: '#FECACA' },
+  F: { color: '#991B1B', bg: '#FDF2F2', border: '#FECACA' },
 };
 
 function SparkTooltip({ active, payload }) {
@@ -80,7 +81,10 @@ export default function HealthScore({ liveData, healthHistory }) {
       id="health-score-panel"
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px' }}
     >
-      <p className="section-title relative z-10">🏗️ Bridge Health Score</p>
+      <p className="section-title relative z-10 flex items-center gap-2">
+        <Activity size={16} color="#0F6E56" />
+        Bridge health score
+      </p>
 
       <div className="flex flex-col lg:flex-row items-center gap-8 relative z-10">
         {/* === Circular Progress Ring === */}
