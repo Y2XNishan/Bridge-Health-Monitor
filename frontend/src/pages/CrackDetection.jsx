@@ -1,15 +1,25 @@
 import { useState, useRef } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-import { Upload, AlertTriangle, CheckCircle, XCircle, ZoomIn, FileText, Camera } from "lucide-react";
+import { 
+  Upload, 
+  AlertTriangle, 
+  CheckCircle, 
+  AlertCircle, 
+  FileText, 
+  Camera, 
+  MapPin, 
+  Wrench,
+  DollarSign
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const SEVERITY_CONFIG = {
-  hairline: { color: "#22c55e", bg: "rgba(34,197,94,0.1)", label: "HAIRLINE", icon: "✅" },
-  minor: { color: "#84cc16", bg: "rgba(132,204,22,0.1)", label: "MINOR", icon: "⚠️" },
-  moderate: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)", label: "MODERATE", icon: "🔶" },
-  severe: { color: "#ef4444", bg: "rgba(239,68,68,0.1)", label: "SEVERE", icon: "🚨" },
-  critical: { color: "#7c3aed", bg: "rgba(124,58,237,0.1)", label: "CRITICAL", icon: "💀" },
+  hairline: { color: "#0F6E56", bg: "#F0FDF4", border: "#DCFCE7", label: "Hairline", icon: CheckCircle },
+  minor: { color: "#0F6E56", bg: "#F0FDF4", border: "#DCFCE7", label: "Minor", icon: CheckCircle },
+  moderate: { color: "#D97706", bg: "#FFFBEB", border: "#FEF3C7", label: "Moderate", icon: AlertTriangle },
+  severe: { color: "#991B1B", bg: "#FDF2F2", border: "#FECACA", label: "Severe", icon: AlertTriangle },
+  critical: { color: "#991B1B", bg: "#FDF2F2", border: "#FECACA", label: "Critical", icon: AlertTriangle },
 };
 
 export default function CrackDetection() {
@@ -69,28 +79,31 @@ export default function CrackDetection() {
   };
 
   const cfg = result ? SEVERITY_CONFIG[result.severity] || SEVERITY_CONFIG.hairline : null;
+  const SeverityIcon = cfg ? cfg.icon : null;
 
   return (
     <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "32px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-          <Camera size={28} color="#3b82f6" />
-          <h1 style={{ fontSize: "28px", fontWeight: "700", color: 'var(--text-primary)', margin: 0 }}>
-            AI Crack Detection
+      <div style={{ marginBottom: "28px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+          <Camera size={22} color="#1C1F26" />
+          <h1 style={{ fontSize: "20px", fontWeight: "700", color: 'var(--text-primary)', margin: 0 }}>
+            AI crack detection
           </h1>
-          <span style={{ background: "rgba(59,130,246,0.2)", color: 'var(--accent-blue-light)', padding: "2px 10px", borderRadius: "12px", fontSize: "12px", fontWeight: "600" }}>
-            VISION AI
+          <span style={{ background: "var(--bg-secondary)", color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)', padding: "2px 8px", borderRadius: "6px", fontSize: "11px", fontWeight: "600" }}>
+            Vision AI
           </span>
         </div>
-        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: "13px", margin: 0 }}>
           Upload a bridge photo — AI analyzes crack severity, estimates width, and recommends repair action per IRC:112-2011
         </p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: result ? "1fr 1fr" : "1fr", gap: "24px" }}>
         <div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "12px", padding: "20px", marginBottom: "16px" }}>
-            <h3 style={{ color: 'var(--text-primary)', margin: "0 0 16px 0", fontSize: "14px" }}>Bridge Information</h3>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "8px", padding: "16px", marginBottom: "16px" }}>
+            <h3 style={{ color: 'var(--text-primary)', margin: "0 0 14px 0", fontSize: "13px", fontWeight: "600" }}>
+              Bridge information
+            </h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <div>
                 <label style={{ color: 'var(--text-secondary)', fontSize: "12px", display: "block", marginBottom: "6px" }}>Bridge ID</label>
@@ -98,16 +111,16 @@ export default function CrackDetection() {
                   type="number"
                   value={bridgeId}
                   onChange={(e) => setBridgeId(Number(e.target.value))}
-                  style={{ width: "100%", background: 'var(--bg-secondary, #f8fafc)', border: "1px solid var(--border-color, #cbd5e1)", borderRadius: "8px", padding: "8px 12px", color: 'var(--text-primary)', fontSize: "14px", boxSizing: "border-box" }}
+                  style={{ width: "100%", background: 'var(--bg-secondary)', border: "1px solid var(--border-subtle)", borderRadius: "6px", padding: "8px 12px", color: 'var(--text-primary)', fontSize: "13px", boxSizing: "border-box", outline: "none" }}
                 />
               </div>
               <div>
-                <label style={{ color: 'var(--text-secondary)', fontSize: "12px", display: "block", marginBottom: "6px" }}>Bridge Name</label>
+                <label style={{ color: 'var(--text-secondary)', fontSize: "12px", display: "block", marginBottom: "6px" }}>Bridge name</label>
                 <input
                   type="text"
                   value={bridgeName}
                   onChange={(e) => setBridgeName(e.target.value)}
-                  style={{ width: "100%", background: 'var(--bg-secondary, #f8fafc)', border: "1px solid var(--border-color, #cbd5e1)", borderRadius: "8px", padding: "8px 12px", color: 'var(--text-primary)', fontSize: "14px", boxSizing: "border-box" }}
+                  style={{ width: "100%", background: 'var(--bg-secondary)', border: "1px solid var(--border-subtle)", borderRadius: "6px", padding: "8px 12px", color: 'var(--text-primary)', fontSize: "13px", boxSizing: "border-box", outline: "none" }}
                 />
               </div>
             </div>
@@ -118,31 +131,36 @@ export default function CrackDetection() {
             onDragOver={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
             style={{
-              border: `2px dashed ${preview ? "#3b82f6" : "var(--border-color, #cbd5e1)"}`,
-              borderRadius: "12px",
+              border: `1px dashed ${preview ? "#0F6E56" : "var(--border-subtle)"}`,
+              borderRadius: "8px",
               padding: "32px",
               textAlign: "center",
               cursor: "pointer",
-              background: preview ? "rgba(59,130,246,0.05)" : "var(--bg-secondary, #f8fafc)",
-              transition: "all 0.2s",
+              background: preview ? "rgba(15,110,86,0.03)" : "var(--bg-secondary)",
+              transition: "border-color 0.2s ease",
               marginBottom: "16px"
             }}
           >
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => handleFileSelect(e.target.files[0])} />
             {preview ? (
-              <img src={preview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "300px", borderRadius: "8px", objectFit: "contain" }} />
+              <img src={preview} alt="Preview" style={{ maxWidth: "100%", maxHeight: "280px", borderRadius: "6px", objectFit: "contain" }} />
             ) : (
               <>
-                <Upload size={40} color="#475569" style={{ marginBottom: "12px" }} />
-                <p style={{ color: 'var(--text-secondary)', margin: "0 0 8px 0" }}>Drag & drop bridge photo here</p>
-                <p style={{ color: 'var(--text-secondary)', fontSize: "12px", margin: 0 }}>or click to browse • JPG, PNG, WEBP • Max 10MB</p>
+                <Upload size={32} color="#475569" style={{ margin: "0 auto 10px auto" }} />
+                <p style={{ color: 'var(--text-primary)', fontSize: "13px", fontWeight: "500", margin: "0 0 4px 0" }}>
+                  Drag and drop bridge photo here
+                </p>
+                <p style={{ color: 'var(--text-secondary)', fontSize: "12px", margin: 0 }}>
+                  or click to browse • JPG, PNG, WEBP • Max 10MB
+                </p>
               </>
             )}
           </div>
 
           {error && (
-            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "8px", padding: "12px", color: "#ef4444", marginBottom: "16px", fontSize: "14px" }}>
-              ⚠️ {error}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#FDF2F2", border: "1px solid #FECACA", borderRadius: "6px", padding: "10px 14px", color: "#991B1B", marginBottom: "16px", fontSize: "13px" }}>
+              <AlertCircle size={16} color="#991B1B" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -150,77 +168,86 @@ export default function CrackDetection() {
             onClick={handleAnalyze}
             disabled={!selectedFile || loading}
             style={{
-              width: "100%", padding: "14px", borderRadius: "10px", border: "none",
-              background: selectedFile && !loading ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "#e2e8f0",
-              color: selectedFile && !loading ? "#fff" : "#94a3b8",
-              fontSize: "15px", fontWeight: "600", cursor: selectedFile && !loading ? "pointer" : "not-allowed",
-              transition: "all 0.2s"
+              width: "100%", padding: "11px 16px", borderRadius: "6px", border: "none",
+              background: selectedFile && !loading ? "#1C1F26" : "#E2E8F0",
+              color: selectedFile && !loading ? "#ffffff" : "#8B94A3",
+              fontSize: "13px", fontWeight: "600", cursor: selectedFile && !loading ? "pointer" : "not-allowed",
+              transition: "background-color 0.15s ease"
             }}
           >
-            {loading ? "🔍 Analyzing with AI Vision..." : "🔍 Analyze Crack"}
+            {loading ? "Analyzing image..." : "Analyze crack"}
           </button>
         </div>
 
         {result && cfg && (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ background: cfg.bg, border: `1px solid ${cfg.color}40`, borderRadius: "12px", padding: "20px" }}>
+            <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: "8px", padding: "18px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "16px" }}>
-                <span style={{ fontSize: "32px" }}>{cfg.icon}</span>
+                {SeverityIcon && <SeverityIcon size={24} color={cfg.color} />}
                 <div>
-                  <div style={{ fontSize: "22px", fontWeight: "700", color: cfg.color }}>{cfg.label} CRACK</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: "13px" }}>Report ID: {result.report_id}</div>
+                  <div style={{ fontSize: "16px", fontWeight: "700", color: cfg.color }}>{cfg.label} crack</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: "12px" }}>Report ID: {result.report_id}</div>
                 </div>
                 <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: "12px" }}>AI Confidence</div>
-                  <div style={{ color: cfg.color, fontSize: "20px", fontWeight: "700" }}>{result.confidence_percent}%</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: "11px" }}>AI confidence</div>
+                  <div style={{ color: cfg.color, fontSize: "18px", fontWeight: "700" }}>{result.confidence_percent}%</div>
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
                 {[
-                  { label: "Estimated Width", value: `~${result.estimated_width_mm} mm` },
-                  { label: "Width Range", value: result.width_range },
-                  { label: "Crack Type", value: result.crack_type },
+                  { label: "Estimated width", value: `~${result.estimated_width_mm} mm` },
+                  { label: "Width range", value: result.width_range },
+                  { label: "Crack type", value: result.crack_type },
                   { label: "Length", value: result.length_estimate },
                   { label: "Material", value: result.material },
-                  { label: "Cracks Found", value: result.crack_count },
+                  { label: "Cracks found", value: result.crack_count },
                 ].map((item) => (
-                  <div key={item.label} style={{ background: 'var(--bg-tertiary)', borderRadius: "8px", padding: "12px" }}>
-                    <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "4px" }}>{item.label}</div>
-                    <div style={{ color: 'var(--text-primary)', fontSize: "14px", fontWeight: "600", textTransform: "capitalize" }}>{item.value}</div>
+                  <div key={item.label} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "6px", padding: "10px 12px" }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "2px" }}>{item.label}</div>
+                    <div style={{ color: 'var(--text-primary)', fontSize: "13px", fontWeight: "600", textTransform: "capitalize" }}>{item.value}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ background: 'var(--bg-tertiary)', borderRadius: "8px", padding: "16px", marginBottom: "12px" }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: "12px", marginBottom: "8px" }}>📍 Location</div>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "6px", padding: "12px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: 'var(--text-secondary)', fontSize: "11px", fontWeight: "600", marginBottom: "4px" }}>
+                  <MapPin size={13} color="var(--text-secondary)" />
+                  <span>Location</span>
+                </div>
                 <div style={{ color: 'var(--text-primary)', fontSize: "13px" }}>{result.location_description}</div>
               </div>
 
-              <div style={{ background: `rgba(${cfg.color === '#ef4444' ? '239,68,68' : cfg.color === '#f59e0b' ? '245,158,11' : '34,197,94'},0.1)`, borderRadius: "8px", padding: "16px", marginBottom: "12px" }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: "12px", marginBottom: "8px" }}>🔧 Recommended Action</div>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "6px", padding: "12px", marginBottom: "10px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: 'var(--text-secondary)', fontSize: "11px", fontWeight: "600", marginBottom: "4px" }}>
+                  <Wrench size={13} color="var(--text-secondary)" />
+                  <span>Recommended action</span>
+                </div>
                 <div style={{ color: 'var(--text-primary)', fontSize: "13px" }}>{result.recommended_action}</div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                <div style={{ background: 'var(--bg-tertiary)', borderRadius: "8px", padding: "12px" }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "4px" }}>💰 Estimated Repair Cost</div>
-                  <div style={{ color: "#10b981", fontSize: "13px", fontWeight: "600" }}>{result.estimated_repair_cost}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "6px", padding: "10px 12px" }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "2px" }}>Estimated repair cost</div>
+                  <div style={{ color: "#0F6E56", fontSize: "13px", fontWeight: "600" }}>{result.estimated_repair_cost}</div>
                 </div>
-                <div style={{ background: 'var(--bg-tertiary)', borderRadius: "8px", padding: "12px" }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "4px" }}>📋 IRC Reference</div>
-                  <div style={{ color: 'var(--accent-blue-light)', fontSize: "12px" }}>{result.irc_reference}</div>
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "6px", padding: "10px 12px" }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: "11px", marginBottom: "2px" }}>IRC reference</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: "12px", fontWeight: "500" }}>{result.irc_reference}</div>
                 </div>
               </div>
             </div>
 
             {result.annotated_image_base64 && (
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "12px", padding: "16px" }}>
-                <div style={{ color: 'var(--text-secondary)', fontSize: "13px", marginBottom: "12px" }}>🖼️ Annotated Image</div>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: "8px", padding: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", color: 'var(--text-secondary)', fontSize: "12px", fontWeight: "600", marginBottom: "10px" }}>
+                  <Camera size={14} color="var(--text-secondary)" />
+                  <span>Annotated image</span>
+                </div>
                 <img
                   src={`data:image/jpeg;base64,${result.annotated_image_base64}`}
-                  alt="Annotated"
-                  style={{ width: "100%", borderRadius: "8px", objectFit: "contain" }}
+                  alt="Annotated crack visual"
+                  style={{ width: "100%", borderRadius: "6px", objectFit: "contain" }}
                 />
               </div>
             )}
