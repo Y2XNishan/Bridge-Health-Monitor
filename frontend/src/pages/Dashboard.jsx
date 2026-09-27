@@ -11,7 +11,7 @@ import {
   downloadReport
 } from '../api';
 
-import { CheckCircle2, AlertTriangle, AlertCircle, Loader2, Search, List, Activity, Bell } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, AlertCircle, Loader2, Search, List, Activity, Bell, X } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -131,20 +131,21 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
     return () => clearInterval(id);
   }, [token]);
 
-  // Helper to categorize bridge status into NORMAL, WARNING, CRITICAL
+  // Helper to categorize bridge status into HEALTHY, MONITOR, CRITICAL (<50 = Critical, 50-74 = Monitor, >=75 = Healthy)
   const getAlertLevel = (bridge) => {
-    const h = bridge.health_score;
-    if (bridge.id >= 41 || h < 50) return 'CRITICAL';
-    if (h < 75) return 'WARNING';
-    return 'NORMAL';
+    const h = bridge?.health_score;
+    if (h === null || h === undefined) return 'HEALTHY';
+    if (h < 50) return 'CRITICAL';
+    if (h < 75) return 'MONITOR';
+    return 'HEALTHY';
   };
 
-  // Color helper for health score
+  // Color helper for health score (<50 = Critical #991B1B, 50-74 = Monitor #D97706, >=75 = Healthy #0F6E56)
   const getHealthColor = (score) => {
-    if (score >= 80) return '#22c55e';
-    if (score >= 60) return '#f59e0b';
-    if (score >= 40) return '#f97316';
-    return '#ef4444';
+    if (score === null || score === undefined) return '#8B94A3';
+    if (score >= 75) return '#0F6E56'; // Healthy
+    if (score >= 50) return '#D97706'; // Monitor
+    return '#991B1B';                  // Critical
   };
 
   // Cache for bridge alert messages fetched from API
@@ -154,7 +155,7 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
   useEffect(() => {
     if (bridges.length === 0) return;
     const warningCritical = bridges.filter(
-      b => getAlertLevel(b) === 'CRITICAL' || getAlertLevel(b) === 'WARNING'
+      b => getAlertLevel(b) === 'CRITICAL' || getAlertLevel(b) === 'MONITOR' || getAlertLevel(b) === 'WARNING'
     );
     
     warningCritical.forEach(async (b) => {
@@ -186,7 +187,7 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
   const criticalCount = bridges.filter(b => getAlertLevel(b) === 'CRITICAL').length;
 
   const normalBridgesCount = bridges.length > 0
-    ? bridges.reduce((acc, b) => acc + (getAlertLevel(b) === 'NORMAL' ? 1 : 0), 0)
+    ? bridges.reduce((acc, b) => acc + (getAlertLevel(b) === 'HEALTHY' || getAlertLevel(b) === 'NORMAL' ? 1 : 0), 0)
     : 38;
 
   const networkHealthPct = bridges.length > 0 
@@ -197,9 +198,9 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
     ? (bridges.reduce((sum, b) => sum + b.health_score, 0) / bridges.length) - initialAvgHealth
     : 0.0;
   const diffStr = diffVal > 0 ? `+${diffVal.toFixed(1)}%` : diffVal < 0 ? `${diffVal.toFixed(1)}%` : `0.0%`;
-  const trendColor = diffVal >= 0 ? '#16a34a' : '#ef4444';
-  const trendIcon = diffVal >= 0 ? '📈' : '📉';
-  const trendLabel = `${diffStr} since start`;
+  const trendColor = diffVal >= 0 ? '#0F6E56' : '#991B1B';
+  const trendIcon = diffVal >= 0 ? '↑' : '↓';
+  const trendLabel = `${trendIcon} ${diffStr} since start`;
 
   const activeSensorsCount = bridges.length > 0
     ? bridges.length * 4
@@ -210,9 +211,9 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
   const tierHealthy = bridges.filter(b => b.health_score >= 75).length;
 
   const healthData = [
-    { name: 'Critical (<50)', count: tierCritical, color: '#EF4444' },
-    { name: 'Monitor (50-74)', count: tierMonitor, color: '#F59E0B' },
-    { name: 'Healthy (≥75)', count: tierHealthy, color: '#10B981' }
+    { name: 'Critical (<50)', count: tierCritical, color: '#991B1B' },
+    { name: 'Monitor (50–74)', count: tierMonitor, color: '#D97706' },
+    { name: 'Healthy (≥75)', count: tierHealthy, color: '#0F6E56' }
   ];
 
   // ── Filters & Search ──────────────────────────────────────────────────────
@@ -227,7 +228,13 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
 
     // 2. Status filter
     const alertLvl = getAlertLevel(bridge);
-    const matchesStatus = statusFilter === 'ALL' || alertLvl === statusFilter;
+    const matchesStatus =
+      statusFilter === 'ALL' ||
+      alertLvl === statusFilter ||
+      (statusFilter === 'HEALTHY' && (alertLvl === 'HEALTHY' || alertLvl === 'NORMAL')) ||
+      (statusFilter === 'NORMAL' && (alertLvl === 'HEALTHY' || alertLvl === 'NORMAL')) ||
+      (statusFilter === 'MONITOR' && (alertLvl === 'MONITOR' || alertLvl === 'WARNING')) ||
+      (statusFilter === 'WARNING' && (alertLvl === 'MONITOR' || alertLvl === 'WARNING'));
 
     return matchesSearch && matchesStatus;
   });
@@ -252,8 +259,9 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
       valA = anomalyA;
       valB = anomalyB;
     } else if (sortBy === 'status') {
-      valA = getAlertLevel(a);
-      valB = getAlertLevel(b);
+      const rank = { 'CRITICAL': 0, 'MONITOR': 1, 'WARNING': 1, 'HEALTHY': 2, 'NORMAL': 2 };
+      valA = rank[getAlertLevel(a)] ?? 9;
+      valB = rank[getAlertLevel(b)] ?? 9;
     } else {
       return 0;
     }
@@ -335,62 +343,62 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         {/* Total Bridges */}
-        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderTop: '4px solid #3b82f6', borderRadius: '12px', height: '140px' }}>
+        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', height: '140px', boxShadow: 'none' }}>
           <div>
-            <p className="text-slate-500 font-semibold" style={{ fontSize: '13px', margin: 0 }}>
+            <p className="text-slate-500 font-medium" style={{ fontSize: '13px', margin: 0 }}>
               Monitored bridges
             </p>
-            <h2 className="text-[32px] font-black tracking-tight leading-none text-slate-900 mt-2.5" style={{ margin: 0 }}>
+            <h2 className="text-[32px] font-bold tracking-tight leading-none text-slate-900 mt-2.5" style={{ margin: 0 }}>
               {totalBridgesCount}
             </h2>
           </div>
-          <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: '#16a34a', margin: 0 }}>
-            <span>📈 2 added recently</span>
+          <p className="text-xs font-medium" style={{ color: '#0F6E56', margin: 0 }}>
+            <span>2 added recently</span>
           </p>
         </div>
 
         {/* Critical Alerts */}
-        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderTop: '4px solid #ef4444', borderRadius: '12px', height: '140px' }}>
+        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderTop: '2px solid #0F6E56', borderRadius: '8px', height: '140px', boxShadow: 'none' }}>
           <div>
-            <p className="text-slate-500 font-semibold" style={{ fontSize: '13px', margin: 0 }}>
+            <p className="text-slate-500 font-medium" style={{ fontSize: '13px', margin: 0 }}>
               Critical alerts
             </p>
-            <h2 className="text-[32px] font-black tracking-tight leading-none text-red-600 mt-2.5" style={{ margin: 0 }}>
+            <h2 className="text-[32px] font-bold tracking-tight leading-none mt-2.5" style={{ margin: 0, color: '#991B1B' }}>
               {criticalCount}
             </h2>
           </div>
-          <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: '#d97706', margin: 0 }}>
-            <span>⚠️ Action required</span>
+          <p className="text-xs font-medium" style={{ color: '#991B1B', margin: 0 }}>
+            <span>Action required</span>
           </p>
         </div>
 
         {/* Network Health */}
-        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderTop: '4px solid #22c55e', borderRadius: '12px', height: '140px' }}>
+        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', height: '140px', boxShadow: 'none' }}>
           <div>
-            <p className="text-slate-500 font-semibold" style={{ fontSize: '13px', margin: 0 }}>
-              Avg Health
+            <p className="text-slate-500 font-medium" style={{ fontSize: '13px', margin: 0 }}>
+              Avg health
             </p>
-            <h2 className="text-[32px] font-black tracking-tight leading-none text-green-600 mt-2.5" style={{ margin: 0 }}>
+            <h2 className="text-[32px] font-bold tracking-tight leading-none text-slate-900 mt-2.5" style={{ margin: 0 }}>
               {networkHealthPct}%
             </h2>
           </div>
-          <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: trendColor, margin: 0 }}>
-            <span>{trendIcon} {trendLabel}</span>
+          <p className="text-xs font-medium" style={{ color: trendColor, margin: 0 }}>
+            <span>{trendLabel}</span>
           </p>
         </div>
 
         {/* Active Sensors */}
-        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderTop: '4px solid #a855f7', borderRadius: '12px', height: '140px' }}>
+        <div className="p-5 flex flex-col justify-between bg-white" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', height: '140px', boxShadow: 'none' }}>
           <div>
-            <p className="text-slate-500 font-semibold" style={{ fontSize: '13px', margin: 0 }}>
+            <p className="text-slate-500 font-medium" style={{ fontSize: '13px', margin: 0 }}>
               Sensor channels
             </p>
-            <h2 className="text-[32px] font-black tracking-tight leading-none text-slate-900 mt-2.5" style={{ margin: 0 }}>
+            <h2 className="text-[32px] font-bold tracking-tight leading-none text-slate-900 mt-2.5" style={{ margin: 0 }}>
               {activeSensorsCount}
             </h2>
           </div>
-          <p className="text-xs font-bold flex items-center gap-1.5" style={{ color: '#16a34a', margin: 0 }}>
-            <span>✔ 100% calibrated</span>
+          <p className="text-xs font-medium" style={{ color: '#0F6E56', margin: 0 }}>
+            <span>100% calibrated</span>
           </p>
         </div>
 
@@ -401,7 +409,7 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
         
         {/* Left Column: Bridge list network table */}
         <div id="bridge-table" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: 'none', overflow: 'hidden' }}>
             
             {/* Controls Header */}
             <div className="p-5 border-b flex flex-col sm:flex-row items-center justify-between gap-4" style={{ borderColor: '#f1f5f9' }}>
@@ -409,24 +417,24 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
               {/* Left Side: Title + Filters */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
                 <div className="flex items-center gap-2">
-                  <List size={18} className="text-blue-500" />
-                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
+                  <List size={18} color="#1C1F26" />
+                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#1C1F26', margin: 0 }}>
                     Bridge network
                   </h3>
                 </div>
                 <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                  {['ALL', 'NORMAL', 'WARNING', 'CRITICAL'].map((f) => {
-                    const label = f.charAt(0) + f.slice(1).toLowerCase();
-                    const isSelected = statusFilter === f;
+                  {['ALL', 'HEALTHY', 'MONITOR', 'CRITICAL'].map((f) => {
+                    const label = f === 'ALL' ? 'All' : f === 'HEALTHY' ? 'Healthy' : f === 'MONITOR' ? 'Monitor' : 'Critical';
+                    const isSelected = statusFilter === f || (statusFilter === 'NORMAL' && f === 'HEALTHY') || (statusFilter === 'WARNING' && f === 'MONITOR');
                     const btnStyle = isSelected
-                      ? { backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb' }
+                      ? { backgroundColor: '#F8FAFA', border: '1px solid #1C1F26', color: '#1C1F26' }
                       : { backgroundColor: '#ffffff', border: '1px solid #e2e8f0', color: '#64748b' };
 
                     return (
                       <button
                         key={f}
                         onClick={() => handleFilterChange(f)}
-                        className="rounded-full px-3 py-1 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap"
+                        className="rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer whitespace-nowrap"
                         style={btnStyle}
                       >
                         {label}
@@ -440,9 +448,9 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto shrink-0">
                 <button
                   onClick={exportCSV}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors shrink-0 cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-medium bg-white text-[#1C1F26] border border-[#8B94A3] hover:bg-[#F8FAFA] transition-colors shrink-0 cursor-pointer"
                 >
-                  📥 Export CSV
+                  Export CSV
                 </button>
                 <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
                   <Search 
@@ -545,15 +553,21 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           {/* Health score with custom underline */}
                           <td className="px-6 py-4">
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <span className="font-mono text-base font-black" style={{ color: healthColor, fontSize: '15px' }}>
-                                {bridge.health_score ? bridge.health_score.toFixed(1) : '—'}
+                              <span
+                                className="font-mono text-base font-bold"
+                                style={{
+                                  color: healthColor,
+                                  fontSize: '15px',
+                                }}
+                              >
+                                {bridge.health_score !== null && bridge.health_score !== undefined ? bridge.health_score.toFixed(1) : '—'}
                               </span>
                               <div 
                                 style={{ 
-                                  width: '32px', 
-                                  height: '3.5px', 
+                                  width: '28px', 
+                                  height: '2px', 
                                   backgroundColor: healthColor, 
-                                  borderRadius: '2px', 
+                                  borderRadius: '1px', 
                                   marginTop: '4px' 
                                 }} 
                               />
@@ -568,39 +582,42 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           {/* Status badge */}
                           <td className="px-6 py-4">
                             {alertLvl === 'CRITICAL' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border" style={{ background: '#fef2f2', color: '#ef4444', borderColor: '#fee2e2' }}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#ef4444]" />
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#FDF2F2', color: '#1C1F26', borderColor: '#FECACA' }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#991B1B' }} />
                                 Critical
                               </span>
-                            ) : alertLvl === 'WARNING' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border" style={{ background: '#fffbeb', color: '#d97706', borderColor: '#fef3c7' }}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#d97706]" />
-                                Warning
+                            ) : (alertLvl === 'MONITOR' || alertLvl === 'WARNING') ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#FFFBEB', color: '#1C1F26', borderColor: '#FEF3C7' }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D97706' }} />
+                                Monitor
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border" style={{ background: '#f0fdf4', color: '#16a34a', borderColor: '#bbf7d0' }}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a]" />
-                                Normal
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#F0FDF4', color: '#1C1F26', borderColor: '#DCFCE7' }}>
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#0F6E56' }} />
+                                Healthy
                               </span>
                             )}
                           </td>
 
                           {/* Action links */}
                           <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-3 font-semibold text-xs">
-                              {(alertLvl === 'WARNING' || alertLvl === 'CRITICAL') && (
+                            <div className="flex items-center justify-end gap-2 text-xs font-medium">
+                              {(alertLvl === 'MONITOR' || alertLvl === 'WARNING' || alertLvl === 'CRITICAL') && (
                                 <button
                                   onClick={() => setXaiBridge(bridge)}
-                                  className="px-3 py-1 rounded-lg text-xs font-bold border transition-colors cursor-pointer bg-white"
+                                  className="px-2.5 py-1 rounded-[6px] text-xs font-medium border transition-colors cursor-pointer bg-white"
                                   style={{
-                                    color: alertLvl === 'CRITICAL' ? '#ef4444' : '#d97706',
-                                    borderColor: alertLvl === 'CRITICAL' ? '#fee2e2' : '#fef3c7',
+                                    color: '#0F6E56',
+                                    borderColor: 'rgba(15, 110, 86, 0.4)',
+                                    boxShadow: 'none',
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = alertLvl === 'CRITICAL' ? '#fef2f2' : '#fffbeb';
+                                    e.currentTarget.style.backgroundColor = '#F0FDF4';
+                                    e.currentTarget.style.borderColor = '#0F6E56';
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#ffffff';
+                                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                    e.currentTarget.style.borderColor = 'rgba(15, 110, 86, 0.4)';
                                   }}
                                 >
                                   Why?
@@ -608,13 +625,39 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                               )}
                               <button
                                 onClick={() => setSelectedBridge(bridge)}
-                                className="px-3 py-1 rounded-lg border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 transition-colors cursor-pointer bg-white"
+                                className="px-2.5 py-1 rounded-[6px] border text-xs font-medium transition-colors cursor-pointer bg-white"
+                                style={{
+                                  color: '#0F6E56',
+                                  borderColor: 'rgba(15, 110, 86, 0.4)',
+                                  boxShadow: 'none',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#F0FDF4';
+                                  e.currentTarget.style.borderColor = '#0F6E56';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                  e.currentTarget.style.borderColor = 'rgba(15, 110, 86, 0.4)';
+                                }}
                               >
                                 View
                               </button>
                               <button
                                 onClick={() => handleInspectBridge(bridge)}
-                                className="px-3 py-1 rounded-lg border border-slate-200 text-slate-500 font-bold hover:bg-slate-50 transition-colors cursor-pointer bg-white"
+                                className="px-2.5 py-1 rounded-[6px] border text-xs font-medium transition-colors cursor-pointer bg-white"
+                                style={{
+                                  color: '#0F6E56',
+                                  borderColor: 'rgba(15, 110, 86, 0.4)',
+                                  boxShadow: 'none',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#F0FDF4';
+                                  e.currentTarget.style.borderColor = '#0F6E56';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                  e.currentTarget.style.borderColor = 'rgba(15, 110, 86, 0.4)';
+                                }}
                               >
                                 Inspect
                               </button>
@@ -677,16 +720,16 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
           </div>
 
           {/* Network Health Distribution Chart */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: 'none' }}>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
-                <Activity size={18} className="text-blue-500" />
-                <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
-                  National Bridge Health Distribution
+                <Activity size={18} color="#0F6E56" />
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1C1F26', margin: 0 }}>
+                  National bridge health distribution
                 </h3>
               </div>
-              <span className="text-xs text-slate-500 font-semibold">
-                All {bridges.length} Monitored Bridges
+              <span className="text-xs text-slate-500 font-medium">
+                All {bridges.length} monitored bridges
               </span>
             </div>
             
@@ -698,12 +741,12 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                     dataKey="name" 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
+                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                   />
                   <YAxis 
                     axisLine={false} 
                     tickLine={false} 
-                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 600 }}
+                    tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                     allowDecimals={false}
                   />
                   <Tooltip 
@@ -712,9 +755,9 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                       if (!active || !payload?.length) return null;
                       const data = payload[0].payload;
                       return (
-                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 600, color: '#64748b' }}>{data.name}</p>
-                          <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: 800, color: data.color }}>
+                        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px 12px', boxShadow: 'none' }}>
+                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 500, color: '#64748b' }}>{data.name}</p>
+                          <p style={{ margin: '4px 0 0 0', fontSize: '14px', fontWeight: 700, color: data.color }}>
                             {data.count} {data.count === 1 ? 'bridge' : 'bridges'}
                           </p>
                         </div>
@@ -736,11 +779,11 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
         <div style={{ width: '320px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Network Health Card */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: 'none' }}>
             <div className="flex items-center gap-2 mb-6">
-              <Activity size={18} className="text-blue-500" />
-              <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
-                Avg Health
+              <Activity size={18} color="#0F6E56" />
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1C1F26', margin: 0 }}>
+                Avg health
               </h3>
             </div>
             
@@ -750,10 +793,10 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
           </div>
 
           {/* Recent Alerts Card */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '24px', boxShadow: 'none' }}>
             <div className="flex items-center gap-2 mb-6">
-              <Bell size={18} className="text-red-500 animate-pulse" />
-              <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: 0 }}>
+              <Bell size={16} color="#1C1F26" />
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#1C1F26', margin: 0 }}>
                 Recent alerts
               </h3>
             </div>
@@ -777,7 +820,7 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           width: '8px', 
                           height: '8px', 
                           borderRadius: '50%', 
-                          backgroundColor: alert.severity === 'critical' ? '#ef4444' : '#f97316',
+                          backgroundColor: alert.severity === 'critical' ? '#991B1B' : '#D97706',
                           marginTop: '5px',
                           flexShrink: 0
                         }} 
@@ -820,19 +863,19 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                   width: '100%',
                   fontSize: '12px',
                   fontWeight: '600',
-                  color: '#3b82f6',
+                  color: '#0F6E56',
                   transition: 'color 0.15s',
                 }}
-                onMouseEnter={e => e.currentTarget.style.color = '#2563eb'}
-                onMouseLeave={e => e.currentTarget.style.color = '#3b82f6'}
+                onMouseEnter={e => e.currentTarget.style.color = '#0b5341'}
+                onMouseLeave={e => e.currentTarget.style.color = '#0F6E56'}
               >
                 View all alerts
                 {alertOverflowCount > 0 && (
                   <span style={{
                     fontSize: '10px',
                     fontWeight: '700',
-                    background: '#eff6ff',
-                    color: '#3b82f6',
+                    background: '#F0FDF4',
+                    color: '#0F6E56',
                     padding: '1px 6px',
                     borderRadius: '9999px',
                   }}>
@@ -869,11 +912,11 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
       {/* ── ALL ALERTS MODAL ───────────────────────────────────────────────── */}
       {showAllAlerts && (() => {
         const criticalBridges = bridges
-          .filter(b => b.health_score < 40)
+          .filter(b => b.health_score < 50)
           .sort((a, b) => a.health_score - b.health_score);
 
         const monitorBridges = bridges
-          .filter(b => b.health_score >= 40 && b.health_score <= 60)
+          .filter(b => b.health_score >= 50 && b.health_score < 75)
           .sort((a, b) => a.health_score - b.health_score);
 
         const totalAlertsCount = criticalBridges.length + monitorBridges.length;
@@ -896,13 +939,14 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
           >
             <div style={{
               background: 'white',
-              borderRadius: '12px',
+              borderRadius: '8px',
               padding: '24px',
               width: '100%',
               maxWidth: '600px',
               maxHeight: '80vh',
               overflowY: 'auto',
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+              border: '1px solid #e2e8f0',
+              boxShadow: 'none',
               display: 'flex',
               flexDirection: 'column',
               gap: '20px'
@@ -915,8 +959,8 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                 borderBottom: '1px solid #f1f5f9',
                 paddingBottom: '16px'
               }}>
-                <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
-                  All Active Alerts ({totalAlertsCount})
+                <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#1C1F26', margin: 0 }}>
+                  All active alerts ({totalAlertsCount})
                 </h2>
                 <button 
                   onClick={() => setShowAllAlerts(false)}
@@ -925,30 +969,32 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                     border: 'none', 
                     fontSize: '20px',
                     cursor: 'pointer',
-                    color: '#94a3b8',
+                    color: '#8B94A3',
                     padding: '4px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     lineHeight: 1
                   }}
-                >✕</button>
+                  aria-label="Close"
+                ><X size={16} /></button>
               </div>
 
               {/* Scrollable Content */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                {/* CRITICAL Section */}
+                {/* Critical Section */}
                 <div>
                   <div style={{ display: 'flex', marginBottom: '8px' }}>
                     <span style={{
-                      background: '#fee2e2',
-                      color: '#ef4444',
+                      background: '#FDF2F2',
+                      color: '#1C1F26',
+                      border: '1px solid #FECACA',
                       padding: '2px 8px',
                       borderRadius: '4px',
                       fontSize: '11px',
                       fontWeight: '700',
-                      letterSpacing: '0.05em'
-                    }}>CRITICAL</span>
+                      letterSpacing: '0.02em'
+                    }}>Critical</span>
                   </div>
                   {criticalBridges.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -961,28 +1007,27 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           alignItems: 'center'
                         }}>
                           <div>
-                            <p style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', margin: 0 }}>
+                            <p style={{ fontWeight: '700', fontSize: '14px', color: '#1C1F26', margin: 0 }}>
                               {bridge.name}
                             </p>
                             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                              Health score: <span style={{ fontWeight: '600', color: '#ef4444' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
+                              Health score: <span style={{ fontWeight: '600', color: '#991B1B' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
                             </p>
                           </div>
                           <span style={{
-                            background: '#fef2f2',
-                            color: '#ef4444',
+                            background: '#FDF2F2',
+                            color: '#1C1F26',
                             padding: '4px 10px',
                             borderRadius: '99px',
                             fontSize: '11px',
-                            fontWeight: '700',
-                            border: '1px solid #fee2e2',
-                            textTransform: 'uppercase',
+                            fontWeight: '600',
+                            border: '1px solid #FECACA',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px'
                           }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-                            CRITICAL
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#991B1B' }} />
+                            Critical
                           </span>
                         </div>
                       ))}
@@ -994,18 +1039,19 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                   )}
                 </div>
 
-                {/* MONITOR Section */}
+                {/* Monitor Section */}
                 <div>
                   <div style={{ display: 'flex', marginBottom: '8px' }}>
                     <span style={{
-                      background: '#fef3c7',
-                      color: '#d97706',
+                      background: '#FFFBEB',
+                      color: '#1C1F26',
+                      border: '1px solid #FEF3C7',
                       padding: '2px 8px',
                       borderRadius: '4px',
                       fontSize: '11px',
                       fontWeight: '700',
-                      letterSpacing: '0.05em'
-                    }}>MONITOR</span>
+                      letterSpacing: '0.02em'
+                    }}>Monitor</span>
                   </div>
                   {monitorBridges.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -1018,28 +1064,27 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           alignItems: 'center'
                         }}>
                           <div>
-                            <p style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', margin: 0 }}>
+                            <p style={{ fontWeight: '700', fontSize: '14px', color: '#1C1F26', margin: 0 }}>
                               {bridge.name}
                             </p>
                             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                              Health score: <span style={{ fontWeight: '600', color: '#d97706' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
+                              Health score: <span style={{ fontWeight: '600', color: '#D97706' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
                             </p>
                           </div>
                           <span style={{
-                            background: '#fffbeb',
-                            color: '#d97706',
+                            background: '#FFFBEB',
+                            color: '#1C1F26',
                             padding: '4px 10px',
                             borderRadius: '99px',
                             fontSize: '11px',
-                            fontWeight: '700',
-                            border: '1px solid #fef3c7',
-                            textTransform: 'uppercase',
+                            fontWeight: '600',
+                            border: '1px solid #FEF3C7',
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: '6px'
                           }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#d97706' }} />
-                            MONITOR
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#D97706' }} />
+                            Monitor
                           </span>
                         </div>
                       ))}
@@ -1085,13 +1130,13 @@ function NetworkHealthDial({ allBridges }) {
             stroke="#f1f5f9"
             strokeWidth={stroke}
           />
-          {/* Green progress arc */}
+          {/* Teal progress arc */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="#22c55e"
+            stroke="#0F6E56"
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={circ}
@@ -1107,17 +1152,17 @@ function NetworkHealthDial({ allBridges }) {
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <span style={{ fontSize: '32px', fontWeight: '800', color: '#22c55e', lineHeight: 1 }}>
+          <span style={{ fontSize: '32px', fontWeight: '700', color: '#0F6E56', lineHeight: 1 }}>
             {networkHealth}%
           </span>
-          <span style={{ fontSize: '12px', fontWeight: '600', color: '#22c55e', marginTop: '4px' }}>
-            Avg Health
+          <span style={{ fontSize: '12px', fontWeight: '500', color: '#8B94A3', marginTop: '4px' }}>
+            Avg health
           </span>
         </div>
       </div>
       <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span style={{ fontSize: '13px', fontWeight: '850', color: '#16a34a' }}>
-          {networkHealth} avg — {allBridges.length} bridges
+        <span style={{ fontSize: '13px', fontWeight: '600', color: '#0F6E56' }}>
+          {networkHealth}% avg — {allBridges.length} bridges
         </span>
       </div>
     </div>
@@ -1188,32 +1233,32 @@ function InspectionModal({ bridge, token, onClose }) {
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div 
-        className="w-full max-w-6xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] border animate-fade-in-up"
-        style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-subtle)' }}
+        className="w-full max-w-6xl rounded-lg flex flex-col max-h-[90vh] border animate-fade-in-up"
+        style={{ background: '#FFFFFF', borderColor: '#8B94A3', boxShadow: 'none' }}
       >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest block" style={{ color: 'var(--text-muted)' }}>
-              Bridge Inspector profile #{bridge.id}
+            <span className="text-[10px] font-medium tracking-wider block" style={{ color: 'var(--text-muted)' }}>
+              Bridge inspector profile #{bridge.id}
             </span>
             <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-              {bridge.name} — Live Telemetry
+              {bridge.name} — Live telemetry
             </h3>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={handleExportPDF}
               disabled={isExporting}
-              className="px-3 py-1.5 text-xs font-bold text-white rounded-lg flex items-center gap-1 cursor-pointer transition hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'var(--accent-blue-light)' }}
+              className="px-3 py-1.5 text-xs font-medium text-white rounded-[6px] flex items-center gap-1 cursor-pointer transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: '#0F6E56', boxShadow: 'none' }}
             >
-              {isExporting ? 'Exporting...' : 'Export PDF Report'}
+              {isExporting ? 'Exporting...' : 'Export PDF report'}
             </button>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold border transition hover:bg-[var(--bg-secondary)] cursor-pointer"
-              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              className="w-8 h-8 rounded-[6px] flex items-center justify-center text-lg font-bold border transition hover:bg-[var(--bg-secondary)] cursor-pointer"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', boxShadow: 'none' }}
             >
               ×
             </button>
@@ -1225,26 +1270,26 @@ function InspectionModal({ bridge, token, onClose }) {
           
           {/* Section 1: Metric Cards */}
           <div>
-            <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>⚡ Real-Time Sensor Telemetry</h4>
+            <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Real-time sensor telemetry</h4>
             <MetricCards liveData={liveData} />
           </div>
 
           {/* Section 2: Live Scrolling Charts */}
           <div>
-            <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>📈 Dynamic Telemetry Timelines</h4>
+            <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Dynamic telemetry timelines</h4>
             <LiveCharts chartData={chartData} />
           </div>
 
           {/* Section 3: Maintenance Forecast Predictions */}
           <div>
-            <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>🔮 Maintenance Prediction & Risk Factors</h4>
+            <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Maintenance prediction & risk factors</h4>
             <MaintenancePanel activeBridgeId={bridge.id} healthHistory={healthHistory} />
           </div>
 
           {/* Section 4: Alert panel + Risk Gauge */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <div className="lg:col-span-2">
-              <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>🛡️ AI Structural Risk</h4>
+              <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>AI structural risk</h4>
               {(() => {
                 const h = liveData?.health_score ?? bridge.health_score ?? 100;
                 let rScore = 0.0;
@@ -1259,14 +1304,14 @@ function InspectionModal({ bridge, token, onClose }) {
               })()}
             </div>
             <div className="lg:col-span-3">
-              <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>🚨 Dynamic Alarm Log</h4>
+              <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Dynamic alarm log</h4>
               <AlertPanel alerts={alerts} />
             </div>
           </div>
 
           {/* Section 5: History Chart */}
           <div>
-            <h4 className="text-xs uppercase font-bold tracking-wider mb-3" style={{ color: 'var(--text-secondary)' }}>📊 Recent Sensor History</h4>
+            <h4 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-secondary)' }}>Recent sensor history</h4>
             <HistoryChart historyData={historyData} activeBridgeId={bridge.id} />
           </div>
 
@@ -1353,23 +1398,23 @@ function XaiExplanationModal({ bridge, token, onClose }) {
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div 
-        className="w-full max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[90vh] border animate-fade-in-up"
-        style={{ background: 'var(--bg-primary)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+        className="w-full max-w-2xl rounded-lg flex flex-col max-h-[90vh] border animate-fade-in-up"
+        style={{ background: '#FFFFFF', borderColor: '#8B94A3', boxShadow: 'none' }}
       >
         {/* Header */}
         <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
           <div>
-            <span className="text-[10px] uppercase font-bold tracking-widest block" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-[10px] font-medium tracking-wider block" style={{ color: 'var(--text-muted)' }}>
               Explainable AI (XAI)
             </span>
-            <h3 className="text-base font-bold flex items-center gap-1.5">
-              🔍 Anomaly Explanation — {bridge.name}
+            <h3 className="text-base font-bold flex items-center gap-1.5" style={{ color: '#1C1F26' }}>
+              Anomaly explanation — {bridge.name}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-lg font-bold border transition hover:bg-[var(--bg-secondary)] cursor-pointer"
-            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+            className="w-8 h-8 rounded-[6px] flex items-center justify-center text-lg font-bold border transition hover:bg-[var(--bg-secondary)] cursor-pointer"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', boxShadow: 'none' }}
           >
             ×
           </button>
@@ -1379,42 +1424,41 @@ function XaiExplanationModal({ bridge, token, onClose }) {
         <div className="p-6 overflow-y-auto space-y-6 flex-1 bg-[var(--bg-secondary)]">
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
-              <Loader2 size={32} className="animate-spin text-blue-500" />
-              <p className="text-xs font-semibold text-[var(--text-secondary)]">
+              <Loader2 size={32} className="animate-spin text-[#0F6E56]" />
+              <p className="text-xs font-medium text-[var(--text-secondary)]">
                 Analyzing anomaly patterns...
               </p>
             </div>
           ) : error ? (
             <div className="p-5 border border-l-4 border-l-red-500 rounded-lg flex items-start gap-3" style={{ background: 'rgba(239,68,68,0.05)', borderColor: 'rgba(239,68,68,0.1)' }}>
-              <span className="text-red-500 text-lg">⚠️</span>
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-red-500">Analysis Failed</h4>
+                <h4 className="text-xs font-semibold text-red-700">Analysis failed</h4>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">{error}</p>
               </div>
             </div>
           ) : (
             <div className="space-y-6">
               {/* Stats & Badges Header */}
-              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
                 <div className="flex items-center gap-6">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] block">Health Score</span>
-                    <span className="text-lg font-black" style={{ color: xaiData.health_score >= 80 ? '#16a34a' : xaiData.health_score >= 50 ? '#d97706' : '#dc2626' }}>
+                    <span className="text-[10px] font-medium text-[var(--text-muted)] block">Health score</span>
+                    <span className="text-lg font-bold" style={{ color: xaiData.health_score >= 75 ? '#0F6E56' : xaiData.health_score >= 50 ? '#D97706' : '#991B1B' }}>
                       {xaiData.health_score ?? 'N/A'}/100
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] block">Anomaly Score</span>
-                    <span className="text-lg font-black font-mono text-[var(--text-primary)]">
+                    <span className="text-[10px] font-medium text-[var(--text-muted)] block">Anomaly score</span>
+                    <span className="text-lg font-bold font-mono text-[var(--text-primary)]">
                       {(xaiData.anomaly_score * 100).toFixed(1)}%
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] block">Alert Level</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase mt-1 ${
+                    <span className="text-[10px] font-medium text-[var(--text-muted)] block">Alert level</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border mt-1 ${
                       xaiData.alert_level === 'CRITICAL' 
-                        ? 'bg-red-100 text-red-700 border-red-200' 
-                        : 'bg-amber-100 text-amber-700 border-amber-200'
+                        ? 'bg-red-50 text-[#991B1B] border-red-200' 
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
                     }`}>
                       {xaiData.alert_level}
                     </span>
@@ -1425,19 +1469,19 @@ function XaiExplanationModal({ bridge, token, onClose }) {
               {/* Triggered Sensors Badges */}
               {xaiData.triggered_sensors && xaiData.triggered_sensors.length > 0 && (
                 <div className="space-y-2">
-                  <h4 className="text-[10px] uppercase tracking-wider font-black text-[var(--text-muted)]">Triggered Sensors</h4>
+                  <h4 className="text-[10px] font-semibold text-[var(--text-muted)]">Triggered sensors</h4>
                   <div className="flex flex-wrap gap-2">
                     {xaiData.triggered_sensors.map((sensor, i) => (
                       <span 
                         key={i} 
-                        className="px-3 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5"
+                        className="px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5"
                         style={{
-                          background: 'rgba(239, 68, 68, 0.05)',
-                          borderColor: 'rgba(239, 68, 68, 0.2)',
-                          color: '#ef4444'
+                          background: '#FDF2F2',
+                          borderColor: '#FECACA',
+                          color: '#991B1B'
                         }}
                       >
-                        ⚠️ {sensor}
+                        {sensor}
                       </span>
                     ))}
                   </div>
@@ -1447,9 +1491,9 @@ function XaiExplanationModal({ bridge, token, onClose }) {
               {/* 4 Labeled Cards */}
               <div className="space-y-4">
                 {/* 1. ROOT CAUSE */}
-                <div className="p-4 rounded-xl border border-l-4 border-l-red-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-red-500 mb-1.5">
-                    <span>🔴</span> ROOT CAUSE
+                <div className="p-4 rounded-lg border border-l-4 border-l-red-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  <div className="text-xs font-semibold text-red-700 mb-1.5">
+                    Root cause
                   </div>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {parsed.rootCause || 'No root cause detected.'}
@@ -1457,9 +1501,9 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 </div>
 
                 {/* 2. SENSOR CORRELATION */}
-                <div className="p-4 rounded-xl border border-l-4 border-l-amber-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-600 mb-1.5">
-                    <span>🔗</span> SENSOR CORRELATION
+                <div className="p-4 rounded-lg border border-l-4 border-l-amber-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  <div className="text-xs font-semibold text-amber-700 mb-1.5">
+                    Sensor correlation
                   </div>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {parsed.sensorCorrelation || 'No specific sensor correlation detected.'}
@@ -1467,9 +1511,9 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 </div>
 
                 {/* 3. IRC STANDARD REFERENCE */}
-                <div className="p-4 rounded-xl border border-l-4 border-l-blue-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-blue-500 mb-1.5">
-                    <span>📋</span> IRC STANDARD REFERENCE
+                <div className="p-4 rounded-lg border border-l-4 border-l-[#0F6E56]" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  <div className="text-xs font-semibold text-[#0F6E56] mb-1.5">
+                    IRC standard reference
                   </div>
                   <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                     {parsed.ircReference || 'No specific IRC standard cited.'}
@@ -1477,11 +1521,11 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 </div>
 
                 {/* 4. ENGINEER ACTION */}
-                <div className="p-4 rounded-xl border border-l-4 border-l-green-500" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-green-600 mb-1.5">
-                    <span>⚡</span> ENGINEER ACTION
+                <div className="p-4 rounded-lg border border-l-4 border-l-[#0F6E56]" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
+                  <div className="text-xs font-semibold text-[#0F6E56] mb-1.5">
+                    Engineer action
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-semibold">
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed font-medium">
                     {parsed.engineerAction || 'No direct action specified.'}
                   </p>
                 </div>
