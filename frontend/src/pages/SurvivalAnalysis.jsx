@@ -17,21 +17,22 @@ import {
   Activity,
   MousePointerClick,
   Play,
-  HardHat
+  HardHat,
+  Check
 } from 'lucide-react';
 
 const loadingSteps = [
-  "🔍 Fetching live sensor data...",
-  "📊 Calculating degradation rate...",
-  "🧮 Running survival model...",
-  "🤖 Generating maintenance schedule..."
+  "Fetching live sensor data...",
+  "Calculating degradation rate...",
+  "Running survival model...",
+  "Generating maintenance schedule..."
 ];
 
 const URGENCY_CONFIG = {
-  CRITICAL: { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', border: '#EF4444' },
-  HIGH: { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', border: '#F59E0B' },
-  MEDIUM: { color: '#EAB308', bg: 'rgba(234, 179, 8, 0.15)', border: '#EAB308' },
-  LOW: { color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', border: '#10B981' }
+  CRITICAL: { color: '#991B1B', bg: '#FDF2F2', border: '#FECACA' },
+  HIGH: { color: '#D97706', bg: '#FFFBEB', border: '#FEF3C7' },
+  MEDIUM: { color: '#D97706', bg: '#FFFBEB', border: '#FEF3C7' },
+  LOW: { color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' }
 };
 
 export default function SurvivalAnalysis() {
@@ -374,8 +375,8 @@ export default function SurvivalAnalysis() {
           className="border-b"
         >
           <div>
-            <h3 className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
-              <span>🔧 What-If Repair Simulator</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <span>What-if repair simulator</span>
             </h3>
             <p className="text-[10px] opacity-80 mt-0.5">Simulate the impact of repair timing and type</p>
           </div>
@@ -395,7 +396,7 @@ export default function SurvivalAnalysis() {
                 <span className="font-bold text-slate-500">Degradation Rate:</span>
                 <span className="font-black text-slate-700">{degradationRate.toFixed(3)} pts/day</span>
               </div>
-              <div className="text-red-500 font-bold mt-1 text-center">
+              <div className="text-red-700 font-bold mt-1 text-center">
                 Without any repair → fails in {Math.round(daysToFailure)} days
               </div>
             </div>
@@ -403,8 +404,8 @@ export default function SurvivalAnalysis() {
             {/* 3. REPAIR DATE SLIDER */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="font-black uppercase tracking-wider text-[10px] text-slate-500">Repair Date</label>
-                <span className="font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
+                <label className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Repair Date</label>
+                <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                   Day {repairDay} — {getSliderDate(repairDay)}
                 </span>
               </div>
@@ -416,15 +417,13 @@ export default function SurvivalAnalysis() {
                 onChange={(e) => setRepairDay(Number(e.target.value))}
                 className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
                 style={{
-                  background: repairDay > daysToFailure 
-                    ? '#fee2e2' 
-                    : `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(repairDay/30)*100}%, #e2e8f0 ${(repairDay/30)*100}%, #e2e8f0 100%)`,
+                  background: repairDay > daysToFailure ? '#FEE2E2' : '#E2E8F0',
                   outline: 'none',
                 }}
               />
               {repairDay > daysToFailure && (
-                <p className="text-red-500 font-bold text-[10px] animate-pulse">
-                  ⚠️ Bridge may fail before this repair date!
+                <p className="text-red-700 font-semibold text-[10px]">
+                  Bridge may fail before this repair date
                 </p>
               )}
             </div>
@@ -445,14 +444,14 @@ export default function SurvivalAnalysis() {
                       onClick={() => setRepairType(type.id)}
                       className="w-full text-left p-2 rounded-lg border text-xs transition-all flex items-center justify-between cursor-pointer"
                       style={{
-                        backgroundColor: isSelected ? '#3b82f6' : '#ffffff',
-                        borderColor: isSelected ? '#3b82f6' : '#cbd5e1',
+                        backgroundColor: isSelected ? '#1C1F26' : '#ffffff',
+                        borderColor: isSelected ? '#1C1F26' : '#cbd5e1',
                         color: isSelected ? '#ffffff' : '#334155',
-                        fontWeight: isSelected ? '700' : '400'
+                        fontWeight: isSelected ? '600' : '400'
                       }}
                     >
                       <span>{type.label}</span>
-                      {isSelected && <span>✓</span>}
+                      {isSelected && <Check size={14} color="#ffffff" />}
                     </button>
                   );
                 })}
@@ -463,7 +462,7 @@ export default function SurvivalAnalysis() {
             {isFailedBeforeRepair ? (
               <div className="p-3.5 rounded-lg border border-red-200 bg-red-50 text-red-700 font-bold space-y-1">
                 <p className="text-center text-xs">
-                  ⚠️ CRITICAL: Bridge will fail before Day {repairDay}. Immediate action required!
+                  Critical: Bridge will fail before day {repairDay}. Immediate action required.
                 </p>
               </div>
             ) : (
@@ -614,11 +613,11 @@ export default function SurvivalAnalysis() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
-            <Clock className="text-blue-400" size={24} />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+            <Clock className="text-slate-700" size={20} />
           </div>
           <div>
-            <h1 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>⏱️ Predictive Maintenance</h1>
+            <h1 className="text-xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Predictive maintenance</h1>
             <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
               Survival analysis — time-to-failure predictions for all bridges
             </p>
@@ -863,22 +862,22 @@ export default function SurvivalAnalysis() {
                 gap: '16px'
               }}>
                 <div style={{
-                  width: '40px', height: '40px',
-                  border: '3px solid rgba(99,102,241,0.2)',
-                  borderTop: '3px solid #6366f1',
+                  width: '36px', height: '36px',
+                  border: '3px solid #E2E8F0',
+                  borderTop: '3px solid #0F6E56',
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite'
                 }} />
-                <div style={{color: '#6366f1', fontSize: '14px', fontWeight: 500}}>
+                <div style={{color: 'var(--text-primary)', fontSize: '13px', fontWeight: 500}}>
                   {loadingSteps[loadingStep]}
                 </div>
                 <div style={{display: 'flex', gap: '6px'}}>
                   {loadingSteps.map((_, i) => (
                     <div key={i} style={{
-                      width: '8px', height: '8px',
+                      width: '7px', height: '7px',
                       borderRadius: '50%',
-                      background: i <= loadingStep ? '#6366f1' : 'rgba(99,102,241,0.2)',
-                      transition: 'background 0.3s ease'
+                      background: i <= loadingStep ? '#0F6E56' : '#E2E8F0',
+                      transition: 'background 0.2s ease'
                     }} />
                   ))}
                 </div>
@@ -958,30 +957,30 @@ export default function SurvivalAnalysis() {
                 </div>
 
                 {/* Degradation Details */}
-                <div className="p-3 rounded-lg border space-y-3 bg-gradient-to-br from-blue-500/5 to-transparent" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="p-3 rounded-lg border space-y-3 bg-[var(--bg-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Degradation Rate Dynamics</span>
-                    <TrendingDown size={14} className="text-blue-400" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Degradation rate dynamics</span>
+                    <TrendingDown size={14} className="text-slate-500" />
                   </div>
                   <div className="flex justify-between items-baseline">
-                    <span className="text-xl font-black text-blue-400">{selectedBridgeData.degradation_rate.toFixed(3)}</span>
+                    <span className="text-xl font-bold text-[var(--text-primary)]">{selectedBridgeData.degradation_rate.toFixed(3)}</span>
                     <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>points / day decline</span>
                   </div>
 
                   {/* Trajectory Bar */}
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[9px]" style={{ color: 'var(--text-secondary)' }}>
-                      <span>Health Trajectory (Current: {selectedBridgeData.health_score}%)</span>
-                      <span className="font-bold">Estimated Decline</span>
+                      <span>Health trajectory (Current: {selectedBridgeData.health_score}%)</span>
+                      <span className="font-medium">Estimated decline</span>
                     </div>
-                    <div className="relative w-full h-2.5 rounded-full bg-gradient-to-r from-red-500 via-amber-500 to-green-500 border border-slate-900/30 overflow-visible">
+                    <div className="relative w-full h-2.5 rounded-full bg-slate-200 border border-slate-300 overflow-visible">
                       {/* Marker representing current health score */}
                       <div 
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-blue-500 shadow-md flex items-center justify-center cursor-default"
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-slate-800 shadow-sm flex items-center justify-center cursor-default"
                         style={{ left: `${selectedBridgeData.health_score}%` }}
                         title={`Current Health: ${selectedBridgeData.health_score}%`}
                       >
-                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />
                       </div>
                     </div>
                     <div className="flex justify-between text-[8px]" style={{ color: 'var(--text-muted)' }}>
@@ -1014,7 +1013,7 @@ export default function SurvivalAnalysis() {
 
                 {/* Sensor Risk Predictions */}
                 <div className="space-y-2">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Telemetry Sensor Defect Risks</span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Telemetry sensor defect risks</span>
                   {selectedBridgeData.sensor_risks?.length === 0 ? (
                     <div className="p-3 rounded-lg border border-dashed text-center text-xs" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
                       No sensors at immediate failure risk
@@ -1029,10 +1028,10 @@ export default function SurvivalAnalysis() {
                               <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>Current: {sensorRisk.current} / Safe limit: {sensorRisk.threshold}</span>
                             </div>
                             <span 
-                              className="px-1.5 py-0.5 rounded text-[8px] font-black tracking-widest uppercase"
+                              className="px-1.5 py-0.5 rounded text-[8px] font-bold tracking-wider uppercase"
                               style={{ 
-                                color: sensorRisk.priority === 'CRITICAL' ? '#EF4444' : sensorRisk.priority === 'HIGH' ? '#F59E0B' : '#EAB308',
-                                backgroundColor: sensorRisk.priority === 'CRITICAL' ? 'rgba(239, 68, 68, 0.1)' : sensorRisk.priority === 'HIGH' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(234, 179, 8, 0.1)'
+                                color: sensorRisk.priority === 'CRITICAL' ? '#991B1B' : sensorRisk.priority === 'HIGH' ? '#D97706' : '#0F6E56',
+                                backgroundColor: sensorRisk.priority === 'CRITICAL' ? '#FDF2F2' : sensorRisk.priority === 'HIGH' ? '#FFFBEB' : '#F0FDF4'
                               }}
                             >
                               {sensorRisk.priority}
@@ -1050,14 +1049,14 @@ export default function SurvivalAnalysis() {
                                 className="h-full rounded transition-all"
                                 style={{ 
                                   width: `${Math.min(sensorRisk.usage_pct, 100)}%`,
-                                  backgroundColor: sensorRisk.usage_pct > 80 ? '#EF4444' : sensorRisk.usage_pct > 60 ? '#F59E0B' : '#3b82f6'
+                                  backgroundColor: sensorRisk.usage_pct > 80 ? '#991B1B' : sensorRisk.usage_pct > 60 ? '#D97706' : '#0F6E56'
                                 }}
                               />
                             </div>
                           </div>
 
-                          <div className="flex justify-between items-center text-[10px] font-bold text-red-400 bg-red-950/10 p-1.5 rounded">
-                            <span>Failure Prediction:</span>
+                          <div className="flex justify-between items-center text-[10px] font-medium text-red-700 bg-red-50 p-1.5 rounded border border-red-100">
+                            <span>Failure prediction:</span>
                             <span>~{sensorRisk.days_to_failure} days</span>
                           </div>
                         </div>
@@ -1069,8 +1068,8 @@ export default function SurvivalAnalysis() {
                 {/* Groq AI Maintenance Plan Sections */}
                 <div id="maintenance-schedule" className="space-y-4">
                   <div className="flex items-center gap-2 border-b pb-2" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <Sparkles className="text-blue-400" size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-primary)]">🤖 AI-Generated Maintenance Schedule</span>
+                    <HardHat className="text-slate-600" size={15} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-primary)]">AI-generated maintenance schedule</span>
                   </div>
 
                   {(() => {
