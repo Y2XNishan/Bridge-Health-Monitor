@@ -10,6 +10,23 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
+import {
+  Brain,
+  AlertTriangle,
+  AlertCircle,
+  CheckCircle,
+  Activity,
+  FileText,
+  DollarSign,
+  TrendingUp,
+  Clock,
+  Wrench,
+  Settings,
+  Search,
+  Sparkles,
+  Shield,
+  Radio
+} from 'lucide-react';
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONSTANTS (AIOps Center)
@@ -20,21 +37,21 @@ const REFRESH_MS = 15000;
 const BRIDGE_IDS = Array.from({ length: 58 }, (_, i) => i + 1);
 
 const C = {
-  bg:        '#f8fafc',
+  bg:        '#F8FAFA',
   card:      '#ffffff',
-  cardAlt:   '#f1f5f9',
-  border:    '#e2e8f0',
-  purple:    '#8b5cf6',
-  purpleDim: '#8b5cf6',
-  blue:      '#3b82f6',
-  green:     '#22c55e',
-  yellow:    '#eab308',
-  red:       '#ef4444',
-  cyan:      '#06b6d4',
-  text1:     '#0f172a',
+  cardAlt:   '#F8FAFA',
+  border:    '#E2E8F0',
+  purple:    '#0F6E56',
+  purpleDim: '#0F6E56',
+  blue:      '#1C1F26',
+  green:     '#0F6E56',
+  yellow:    '#D97706',
+  red:       '#991B1B',
+  cyan:      '#0F6E56',
+  text1:     '#1C1F26',
   text2:     '#475569',
-  text3:     '#64748b',
-  text4:     '#cbd5e1',
+  text3:     '#8B94A3',
+  text4:     '#CBD5E1',
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -88,16 +105,14 @@ function Pulse({ color = C.green, s = 8 }) {
 function Badge({ label, color, glow }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider"
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold"
       style={{
-        fontSize: 9,
-        color,
-        background: `${color}14`,
-        border: `1px solid ${color}30`,
-        boxShadow: glow ? `0 0 14px ${color}30` : 'none',
+        background: 'var(--bg-secondary)',
+        color: color || C.text2,
+        border: '1px solid var(--border-subtle)',
       }}
     >
-      <Pulse color={color} s={5} />
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color || C.text2 }} />
       {label}
     </span>
   );
@@ -303,16 +318,16 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       const riskPct = Math.round(riskScore * 100);
       let status = "Healthy — No immediate risk";
       let statusColor = C.green;
-      let statusIcon = "✅";
+      let statusIcon = "";
 
       if (riskPct >= 50) {
         status = "Critical — Immediate attention required";
         statusColor = C.red;
-        statusIcon = "🚨";
+        statusIcon = "";
       } else if (riskPct >= 30) {
         status = "Monitor — Moderate risk";
         statusColor = C.yellow;
-        statusIcon = "⚡";
+        statusIcon = "";
       }
 
       return {
@@ -339,10 +354,10 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-6 rounded-xl border space-y-5"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}15` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center gap-2.5">
-          <span className="text-base">⏳</span>
+          <Activity size={14} className="text-slate-500" />
           <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
             Predictive Failure Timeline
           </h2>
@@ -372,7 +387,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs">🌉</span>
+                    
                     <span className="text-[12px] font-bold" style={{ color: C.text1 }}>{b.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -512,10 +527,10 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-5 rounded-xl border h-full flex flex-col"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm">🔗</span>
+          <Activity size={14} />
           <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
             Anomaly Correlation Engine
           </h2>
@@ -553,7 +568,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 }}
               >
                 <span className="text-[11px] font-bold flex-1" style={{ color: C.text1 }}>
-                  🌉 {e.name}
+                  {e.name}
                 </span>
                 <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: C.border }}>
                   <div
@@ -564,7 +579,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <span className="text-[10px] font-mono font-bold w-10 text-right" style={{ color: barColor }}>
                   {e.score.toFixed(2)}
                 </span>
-                {isHigh && <span className="text-[8px]">⚠️</span>}
+                {isHigh && <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block" />}
               </div>
             );
           })}
@@ -575,7 +590,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           className="p-3 rounded-lg text-[10px] leading-relaxed mb-3"
           style={{ background: `${C.purple}08`, border: `1px solid ${C.purple}18`, color: C.text2 }}
         >
-          <span className="font-bold" style={{ color: C.purple }}>🧠 AI Analysis: </span>
+          <span className="font-bold" style={{ color: C.purple }}>AI analysis: </span>
           Bridge Health Monitor AI detected <strong style={{ color: C.text1 }}>{correlation.high.length}</strong> bridge(s) showing elevated readings simultaneously.
           This pattern suggests <em style={{ color: correlation.color }}>{correlation.cause.toLowerCase()}</em>.
         </div>
@@ -595,7 +610,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             </span>
           </div>
           <span className="text-[9px] font-mono" style={{ color: C.text3 }}>
-            🕐 {new Date().toLocaleTimeString()}
+            {new Date().toLocaleTimeString()}
           </span>
         </div>
       </div>
@@ -608,21 +623,21 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       const a = (e.action || '').toUpperCase();
       let icon, desc;
       if (a.includes('AI_FLAGGED')) {
-        icon = '🔑'; desc = `AI flagged ${e.target} for review`;
+        icon = ''; desc = `AI flagged ${e.target} for review`;
       } else if (a.includes('FEDERATED_ROUND')) {
-        icon = '🔄'; desc = `Federated training round ${e.target} started`;
+        icon = ''; desc = `Federated training round ${e.target} started`;
       } else if (a.includes('ANOMALY_BREACH')) {
-        icon = '⚠️'; desc = `Anomaly threshold breach: ${e.target}`;
+        icon = ''; desc = `Anomaly threshold breach: ${e.target}`;
       } else if (a.includes('PREDICTIVE_MAINTENANCE')) {
-        icon = '🔧'; desc = `Predictive maintenance recommendation generated for ${e.target}`;
+        icon = ''; desc = `Predictive maintenance recommendation generated for ${e.target}`;
       } else if (a.includes('ACTIVATE') || a.includes('BRIDGE')) {
-        icon = '🔌'; desc = 'Auto-activated bridge monitoring';
+        icon = ''; desc = 'Auto-activated bridge monitoring';
       } else if (a.includes('LOGIN')) {
-        icon = '🔐'; desc = 'Security: New session detected';
+        icon = ''; desc = 'Security: New session detected';
       } else if (a.includes('RESET') || a.includes('FEDERATED')) {
-        icon = '🔄'; desc = 'AI triggered federated retraining';
+        icon = ''; desc = 'AI triggered federated retraining';
       } else {
-        icon = '🤖'; desc = `System: ${e.action || 'operation'}`;
+        icon = ''; desc = `System: ${e.action || 'operation'}`;
       }
       const isAuto = (e.user_email || '').toLowerCase().includes('system');
       return { ...e, icon, desc, isAuto, time: e.timestamp ? new Date(e.timestamp).toLocaleString() : '—' };
@@ -635,10 +650,10 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-5 rounded-xl border h-full flex flex-col"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm">⚙️</span>
+          <Settings size={14} />
           <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
             Auto-Decision Log
           </h2>
@@ -744,7 +759,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         label: 'Vehicle Load',
         value: live.traffic_load ?? live.vehicle_count ?? '—',
         unit: live.traffic_load ? 'tons' : 'vehicles',
-        icon: '🚛',
+        icon: '',
         abnormal: false,
         warn: false,
       },
@@ -753,7 +768,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         value: live.vibration ?? 0,
         threshold: thresholds.vibration,
         unit: 'g',
-        icon: '📳',
+        icon: '',
         abnormal: (live.vibration ?? 0) > thresholds.vibration,
         warn: false,
       },
@@ -762,7 +777,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         value: live.strain ?? 0,
         threshold: thresholds.strain,
         unit: 'MPa',
-        icon: '📐',
+        icon: '',
         abnormal: (live.strain ?? 0) > thresholds.strain,
         warn: false,
       },
@@ -771,7 +786,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         value: live.crack_gap ?? 0,
         threshold: thresholds.crack_gap,
         unit: 'mm',
-        icon: '🔍',
+        icon: '',
         abnormal: (live.crack_gap ?? 0) > thresholds.crack_gap,
         warn: false,
       },
@@ -779,7 +794,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         label: 'Health Score',
         value: live.health_score ?? live.risk_score ?? '—',
         unit: '',
-        icon: hsAbnormal ? '🔴' : hsWarn ? '🟡' : '💚',
+        icon: '',
         abnormal: hsAbnormal,
         warn: hsWarn,
       },
@@ -812,7 +827,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         health: live.health_score ?? 100
       };
     })
-    .filter((b) => b.id >= 41 || b.health < 50)
+    .filter((b) => b.health < 50)
     .sort((a, b) => a.health - b.health);
   }, [liveMap]);
 
@@ -906,11 +921,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-6 rounded-xl border"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <span className="text-sm">🔬</span>
+            <Activity size={14} />
             <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
               Root Cause Analysis Chain
             </h2>
@@ -946,12 +961,12 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             >
               {isDownloading ? (
                 <>
-                  <span className="inline-block animate-spin">⏳</span>
+                  <span className="inline-block animate-spin text-xs">...</span>
                   Generating...
                 </>
               ) : (
                 <>
-                  <span>📄</span>
+                  <FileText size={14} />
                   Download Report
                 </>
               )}
@@ -976,7 +991,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                     background: isHighlighted ? `${C.red}08` : C.cardAlt,
                     border: `1.5px solid ${boxBorder}`,
                     minWidth: 130,
-                    boxShadow: isHighlighted ? `0 0 16px ${C.red}20` : 'none',
+                    boxShadow: 'none',
                   }}
                 >
                   {isHighlighted && (
@@ -1026,7 +1041,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           className="mt-4 p-3 rounded-lg text-[10px]"
           style={{ background: `${C.purple}08`, border: `1px solid ${C.purple}18` }}
         >
-          <span className="font-bold" style={{ color: C.purple }}>🧠 AI Root Cause: </span>
+          <span className="font-bold" style={{ color: C.purple }}>AI root cause: </span>
           <span style={{ color: C.text2 }}>
             {rootCause.primaryDriver ? (
               <>
@@ -1034,7 +1049,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 on {rootCause.bridgeName}. Anomaly score: <strong style={{ color: C.yellow }}>{rootCause.maxScore.toFixed(3)}</strong>.
               </>
             ) : (
-              <>✅ All sensors within normal parameters — no anomaly detected. All values are below their respective thresholds.</>
+              <>All sensors within normal parameters — no anomaly detected. All values are below their respective thresholds.</>
             )}
           </span>
         </div>
@@ -1052,16 +1067,16 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       const level = a.alert_level ?? a.level ?? 'NORMAL';
       return { id, level: level.toUpperCase(), health: live.health_score ?? 100 };
     });
-    // Cost calculations scale with Grade F/Critical bridges (health < 50 or ID >= 41)
-    const warningBridges = bridges.filter((b) => b.id >= 41 || b.health < 50);
+    // Cost calculations scale with Grade F/Critical bridges (health < 50)
+    const warningBridges = bridges.filter((b) => b.health < 50);
     const totalDeferredRisk = warningBridges.length * deferredCostPerDay * 30;
     const immediateRepairCost = warningBridges.length * repairPerBridge;
     const savings = Math.max(totalDeferredRisk - immediateRepairCost, 0);
 
     const total = totalDeferredRisk + immediateRepairCost + (savings > 0 ? savings : 1);
-    const healthyCount = bridges.filter((b) => b.id < 41 && b.health >= 75).length;
-    const monitorCount = bridges.filter((b) => b.id < 41 && b.health >= 50 && b.health < 75).length;
-    const criticalCount = bridges.filter((b) => b.id >= 41 || b.health < 50).length;
+    const healthyCount = bridges.filter((b) => b.health >= 75).length;
+    const monitorCount = bridges.filter((b) => b.health >= 50 && b.health < 75).length;
+    const criticalCount = bridges.filter((b) => b.health < 50).length;
 
     return {
       warningCount: warningBridges.length,
@@ -1085,11 +1100,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       return (
         <div
           className="p-5 rounded-xl border h-full flex flex-col"
-          style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+          style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-sm">💰</span>
+              <DollarSign size={14} />
               <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
                 Cost Intelligence
               </h2>
@@ -1103,17 +1118,17 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 color: isNetworkDownloading ? C.text3 : '#fff',
                 borderColor: isNetworkDownloading ? C.border : C.purple,
                 cursor: isNetworkDownloading ? 'not-allowed' : 'pointer',
-                boxShadow: isNetworkDownloading ? 'none' : `0 0 12px ${C.purple}50`
+                boxShadow: 'none'
               }}
             >
               {isNetworkDownloading ? (
                 <>
-                  <span className="inline-block animate-spin">⏳</span>
+                  <span className="inline-block animate-spin text-xs">...</span>
                   Generating...
                 </>
               ) : (
                 <>
-                  <span>📄</span>
+                  <FileText size={14} />
                   Download Network Report
                 </>
               )}
@@ -1123,9 +1138,9 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 py-4">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: `${C.green}12`, border: `2px solid ${C.green}30`, boxShadow: `0 0 24px ${C.green}15` }}
+              style={{ background: `${C.green}12`, border: `2px solid ${C.green}30`, boxShadow: 'none' }}
             >
-              <span className="text-2xl">✅</span>
+              <CheckCircle size={22} color={C.green} />
             </div>
 
             <div>
@@ -1151,7 +1166,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             className="p-3 rounded-lg text-[10px]"
             style={{ background: `${C.green}08`, border: `1px solid ${C.green}18`, color: C.text2 }}
           >
-            <span className="font-bold" style={{ color: C.green }}>💡 AI Insight: </span>
+            <span className="font-bold" style={{ color: C.green }}>AI insight: </span>
             Bridge Health Monitor AI has prevented potential emergency costs through early detection and proactive monitoring.
           </div>
         </div>
@@ -1164,11 +1179,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-5 rounded-xl border h-full flex flex-col"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm">💰</span>
+            <DollarSign size={14} />
             <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
               Cost Intelligence
             </h2>
@@ -1182,17 +1197,17 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               color: isNetworkDownloading ? C.text3 : '#fff',
               borderColor: isNetworkDownloading ? C.border : C.purple,
               cursor: isNetworkDownloading ? 'not-allowed' : 'pointer',
-              boxShadow: isNetworkDownloading ? 'none' : `0 0 12px ${C.purple}50`
+              boxShadow: 'none'
             }}
           >
             {isNetworkDownloading ? (
               <>
-                <span className="inline-block animate-spin">⏳</span>
+                <span className="inline-block animate-spin text-xs">...</span>
                 Generating...
               </>
             ) : (
               <>
-                <span>📄</span>
+                <FileText size={14} />
                 Download Network Report
               </>
             )}
@@ -1215,7 +1230,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 width: 110,
                 height: 110,
                 background: `conic-gradient(${stops})`,
-                boxShadow: `0 0 20px ${C.purple}15`,
+                boxShadow: 'none',
               }}
             >
               <div
@@ -1269,7 +1284,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           className="mt-4 p-3 rounded-lg text-[10px]"
           style={{ background: `${C.green}08`, border: `1px solid ${C.green}18`, color: C.text2 }}
         >
-          <span className="font-bold" style={{ color: C.green }}>💡 AI Recommendation: </span>
+          <span className="font-bold" style={{ color: C.green }}>AI recommendation: </span>
           Act now to save <strong style={{ color: C.green }}>{fmtLakhs(costData.savings)}</strong>. {costData.warningCount} bridge(s) have deferred maintenance accumulating at ₹15,000/day.
         </div>
       </div>
@@ -1295,10 +1310,10 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     return (
       <div
         className="p-5 rounded-xl border h-full flex flex-col"
-        style={{ background: C.card, borderColor: C.border, boxShadow: `0 0 20px ${C.purple}12` }}
+        style={{ background: C.card, borderColor: C.border, boxShadow: 'none' }}
       >
         <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm">🎯</span>
+          <Activity size={14} />
           <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
             Model Performance Intelligence
           </h2>
@@ -1329,7 +1344,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 border: `2px solid ${isLocal ? C.green : C.purple}30`,
               }}
             >
-              <span className="text-2xl">🦙</span>
+              <Brain size={22} color={C.purple} />
             </div>
             <span className="text-[10px] font-bold mt-1" style={{ color: C.text1 }}>LLaMA 3.2</span>
             <Badge label={isLocal ? 'LOCAL' : 'GROQ'} color={isLocal ? C.green : C.purple} />
@@ -1341,7 +1356,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           const alerts = [];
           if (fedRounds < 10) {
             alerts.push({
-              level: 'warning', icon: '⚠️', color: C.yellow,
+              level: 'warning', icon: '', color: C.yellow,
               isDrift: true,
               message: `Federated model has completed only ${fedRounds} training round${fedRounds !== 1 ? 's' : ''}. Minimum 10 rounds recommended for optimal accuracy. Run more federated rounds in the Federated ML page.`,
               action: 'Go to Federated ML →',
@@ -1350,7 +1365,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             alerts.push({
               level: 'success', icon: null, color: C.green,
               isDrift: false,
-              message: `✅ Federated model fully trained (10/10 rounds)`,
+              message: `Federated model fully trained (10/10 rounds)`,
               action: null,
             });
           }
@@ -1406,11 +1421,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             background: anyLow ? `${C.red}15` : `${C.purple}10`,
             border: `1px solid ${anyLow ? C.red : C.purple}30`,
             color: anyLow ? C.red : C.purple,
-            boxShadow: anyLow ? `0 0 18px ${C.red}25` : 'none',
+            boxShadow: 'none',
             animation: anyLow ? 'aio-glow 2s ease-in-out infinite' : 'none',
           }}
         >
-          {anyLow ? '🔴 Retraining Recommended' : '✅ All Models Performant'}
+          {anyLow ? 'Retraining recommended' : 'All models performant'}
         </button>
       </div>
     );
@@ -1646,7 +1661,7 @@ function BridgeIntelligenceTab() {
       >
         <div>
           <h1 className="text-[14px] font-extrabold tracking-tight uppercase" style={{ color: C.text1 }}>
-            ✨ Bridge Intelligence — AI Q&A
+            Bridge intelligence — AI Q&A
           </h1>
           <p className="text-[11px] mt-1" style={{ color: C.text3 }}>
             Ask questions about bridge health, sensors, risk, and maintenance — powered by RAG + Llama 3.3
@@ -1689,7 +1704,7 @@ function BridgeIntelligenceTab() {
                   disabled={isExporting}
                   className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
                   style={{
-                    background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`,
+                    background: '#1C1F26',
                     color: '#ffffff',
                     border: 'none',
                   }}
@@ -1700,7 +1715,7 @@ function BridgeIntelligenceTab() {
                       Generating...
                     </>
                   ) : (
-                    '📄 Export Report'
+                    'Export report'
                   )}
                 </button>
               )}
@@ -1717,7 +1732,7 @@ function BridgeIntelligenceTab() {
                     className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
                     style={{ background: `${C.purple}14`, border: `1px solid ${C.purple}25` }}
                   >
-                    ✨
+                    <Brain size={24} color={C.purple} />
                   </div>
                   <div className="text-center">
                     <p className="text-[13px] font-bold" style={{ color: C.text1 }}>Bridge Intelligence AI</p>
@@ -1737,7 +1752,7 @@ function BridgeIntelligenceTab() {
                     className="max-w-[85%] rounded-xl px-4 py-3"
                     style={{
                       background: msg.role === 'user'
-                        ? `linear-gradient(135deg, ${C.blue}, ${C.purple})`
+                        ? '#1C1F26'
                         : C.cardAlt,
                       color: msg.role === 'user' ? '#ffffff' : C.text1,
                       border: msg.role === 'user' ? 'none' : `1px solid ${C.border}`,
@@ -1746,7 +1761,7 @@ function BridgeIntelligenceTab() {
                     {msg.role === 'assistant' && (
                       <div className="flex items-center gap-1.5 mb-2">
                         <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>
-                          ✨ Bridge Intelligence AI
+                          Bridge intelligence AI
                         </span>
                         <span className="text-[8px]" style={{ color: C.text4 }}>
                           {formatTime(msg.time)}
@@ -1853,7 +1868,7 @@ function BridgeIntelligenceTab() {
                 disabled={isTyping || !input.trim()}
                 className="px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
-                  background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`,
+                  background: '#1C1F26',
                   color: '#ffffff',
                   border: 'none',
                 }}
@@ -1885,7 +1900,7 @@ function BridgeIntelligenceTab() {
                   className="w-10 h-10 mx-auto rounded-xl flex items-center justify-center text-lg mb-3"
                   style={{ background: `${C.purple}10`, border: `1px solid ${C.purple}20` }}
                 >
-                  🔍
+                  <Search size={18} color={C.purple} />
                 </div>
                 <p className="text-[11px]" style={{ color: C.text3 }}>
                   Ask a question to see which bridges are referenced in the response.
@@ -1949,10 +1964,10 @@ function BridgeIntelligenceTab() {
             </h3>
             <div className="space-y-2.5">
               {[
-                { label: 'Live sensor readings', icon: '📡' },
-                { label: 'AI risk scores', icon: '🤖' },
-                { label: 'Historical trends', icon: '📈' },
-                { label: 'Maintenance records', icon: '🔧' },
+                { label: 'Live sensor readings', icon: '' },
+                { label: 'AI risk scores', icon: '' },
+                { label: 'Historical trends', icon: '' },
+                { label: 'Maintenance records', icon: '' },
               ].map((src, i) => (
                 <div
                   key={i}
@@ -1969,7 +1984,7 @@ function BridgeIntelligenceTab() {
                     className="text-[9px] font-bold px-2 py-0.5 rounded-full"
                     style={{ color: C.green, background: `${C.green}14`, border: `1px solid ${C.green}25` }}
                   >
-                    ✓ Active
+                    Active
                   </span>
                 </div>
               ))}
@@ -2040,7 +2055,7 @@ export default function AIIntelligenceCenter() {
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
             }`}
           >
-            🧠 AIOps Operations
+            AIOps operations
           </button>
           <button
             onClick={() => setActiveTab('federated')}
@@ -2051,7 +2066,7 @@ export default function AIIntelligenceCenter() {
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
             }`}
           >
-            ✨ Bridge Intelligence
+            Bridge intelligence
           </button>
         </div>
 
