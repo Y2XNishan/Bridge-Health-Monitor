@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import { fetchBridges } from '../api';
+import { Users, Activity, AlertTriangle, FileText, AlertCircle, Shield } from 'lucide-react';
 
 export default function AdminPanel() {
   const { user: currentUser, token } = useAuth();
@@ -137,15 +138,17 @@ export default function AdminPanel() {
         className="p-6 text-center rounded-xl space-y-4 max-w-lg mx-auto border mt-10"
         style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
       >
-        <span className="text-3xl">🚫</span>
-        <h3 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--accent-red-light)' }}>Access Denied</h3>
+        <div className="flex justify-center">
+          <AlertCircle size={32} color="#991B1B" />
+        </div>
+        <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#991B1B' }}>Access denied</h3>
         <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{error}</p>
         <button
           onClick={fetchData}
           className="mt-3 text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition"
-          style={{ background: 'var(--bg-secondary)', border: '1px solid #21262d', color: 'var(--text-primary)' }}
+          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
         >
-          Retry Authorization
+          Retry authorization
         </button>
       </div>
     );
@@ -156,30 +159,35 @@ export default function AdminPanel() {
       {/* SECTION 3: SYSTEM STATS CARDS */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Active Sessions', value: stats.activeSessions, icon: '👥', color: 'var(--accent-blue-light)', desc: 'Secure client logins' },
-          { label: 'Bridges Monitored', value: stats.monitoredBridges, icon: '🌉', color: 'var(--accent-red-light)', desc: 'Active sensor simulators' },
-          { label: 'Alerts Today', value: stats.alertsToday, icon: '⚠️', color: '#d2a8ff', desc: 'Active critical telemetry' },
-          { label: 'PDF Reports', value: stats.pdfReportsExported, icon: '📋', color: 'var(--accent-green-light)', desc: 'Successful exports logged' },
-        ].map((stat, i) => (
-          <div 
-            key={i}
-            className="p-5 rounded-xl border flex items-center justify-between"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-          >
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                {stat.label}
-              </p>
-              <p className="text-2xl font-black font-mono tracking-tight" style={{ color: stat.color }}>
-                {stat.value}
-              </p>
-              <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                {stat.desc}
-              </p>
+          { label: 'Active sessions', value: stats.activeSessions, icon: Users, color: '#1C1F26', desc: 'Secure client logins' },
+          { label: 'Bridges monitored', value: stats.monitoredBridges, icon: Activity, color: '#0F6E56', desc: 'Active sensor simulators' },
+          { label: 'Alerts today', value: stats.alertsToday, icon: AlertTriangle, color: '#991B1B', desc: 'Active critical telemetry' },
+          { label: 'PDF reports', value: stats.pdfReportsExported, icon: FileText, color: '#475569', desc: 'Successful exports logged' },
+        ].map((stat, i) => {
+          const IconComp = stat.icon;
+          return (
+            <div 
+              key={i}
+              className="p-5 rounded-xl border flex items-center justify-between"
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+            >
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                  {stat.label}
+                </p>
+                <p className="text-2xl font-bold font-mono tracking-tight" style={{ color: stat.color }}>
+                  {stat.value}
+                </p>
+                <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+                  {stat.desc}
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
+                <IconComp size={18} color={stat.color} />
+              </div>
             </div>
-            <span className="text-2xl shrink-0" style={{ opacity: 0.8 }}>{stat.icon}</span>
-          </div>
-        ))}
+          );
+        })}
       </section>
 
       {/* SECTION 1: USER MANAGEMENT TABLE */}
@@ -189,8 +197,9 @@ export default function AdminPanel() {
       >
         <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
-              👤 Platform Identity Management
+            <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Users size={16} color="#0F6E56" />
+              Platform identity management
             </h2>
             <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
               Authorized administrators can audit active personnel and revoke security credentials.
@@ -281,8 +290,9 @@ export default function AdminPanel() {
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 gap-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div>
-            <h2 className="text-sm font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
-              🛡️ System Audit Log Trail
+            <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Shield size={16} color="#0F6E56" />
+              System audit log trail
             </h2>
             <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
               Real-time immutable ledger tracking API transactions, auth events, and security exceptions.
@@ -291,17 +301,17 @@ export default function AdminPanel() {
 
           {/* Filter dropdown */}
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>Filter Status</span>
+            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>Filter status</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-[10px] font-bold py-1.5 px-3 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#58a6ff]"
+              className="text-[10px] font-semibold py-1.5 px-3 rounded-lg border focus:outline-none focus:border-[#0F6E56]"
               style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
             >
-              <option value="ALL">ALL EVENTS</option>
-              <option value="SUCCESS">SUCCESS</option>
-              <option value="DENIED">DENIED (AUTH ERR)</option>
-              <option value="ACTION">GENERIC ACTION</option>
+              <option value="ALL">All events</option>
+              <option value="SUCCESS">Success</option>
+              <option value="DENIED">Denied (Auth err)</option>
+              <option value="ACTION">Action</option>
             </select>
           </div>
         </div>
