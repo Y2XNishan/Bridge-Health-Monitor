@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { MapPin, Activity, AlertTriangle } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -340,9 +341,9 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
   }, []);
 
   const getPinColor = (healthScore) => {
-    if (healthScore >= 75) return '#10B981'; // Healthy green
-    if (healthScore >= 50) return '#F59E0B'; // Monitor amber
-    return '#EF4444'; // Critical red
+    if (healthScore >= 75) return '#0F6E56'; // Healthy teal
+    if (healthScore >= 50) return '#D97706'; // Monitor amber
+    return '#991B1B'; // Critical red
   };
 
   const getTierLabel = (healthScore) => {
@@ -500,8 +501,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
         >
           {/* Header Title info */}
           <div className="absolute top-4 left-4 z-10 pointer-events-none">
-            <h2 className="text-sm font-extrabold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              🇮🇳 India Bridge Monitoring Network
+            <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              India bridge monitoring network
               <span 
                 className="text-[9px] font-normal font-mono tracking-widest px-1.5 py-0.5 rounded"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
@@ -510,24 +511,23 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
               </span>
             </h2>
             <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Geographic structural status index. Left-click pin to review metrics.
+              Geographic structural status index. Select pin to review bridge metrics.
             </p>
           </div>
 
           {/* Zoom & Pan Controls (Top-Right Corner) */}
           <div 
-            className="absolute top-4 right-4 z-20 flex items-center gap-1 p-1 rounded-xl backdrop-blur-md"
+            className="absolute top-4 right-4 z-20 flex items-center gap-1 p-1 rounded-lg"
             style={{ 
-              background: 'rgba(33, 38, 45, 0.55)', 
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+              background: '#1C1F26', 
+              border: '1px solid #2A2E39'
             }}
           >
             <button
               onClick={() => setZoom(prev => Math.min(5, prev + 0.5))}
               title="Zoom In"
-              className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: 'var(--text-primary)', border: 'none', background: 'none' }}
+              className="w-7 h-7 rounded flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-white/10 active:scale-95"
+              style={{ color: '#F8FAFA', border: 'none', background: 'none' }}
             >
               ＋
             </button>
@@ -542,8 +542,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 });
               }}
               title="Zoom Out"
-              className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: 'var(--text-primary)', border: 'none', background: 'none' }}
+              className="w-7 h-7 rounded flex items-center justify-center font-bold text-xs transition cursor-pointer hover:bg-white/10 active:scale-95"
+              style={{ color: '#F8FAFA', border: 'none', background: 'none' }}
             >
               －
             </button>
@@ -553,10 +553,10 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 setPan({ x: 210, y: -430 });
               }}
               title="Focus South India Cluster"
-              className="px-2 h-7 rounded-lg flex items-center justify-center text-[8.5px] font-bold uppercase tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: 'var(--text-secondary)', border: 'none', background: 'none' }}
+              className="px-2 h-7 rounded flex items-center justify-center text-[9px] font-semibold tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
+              style={{ color: '#8B94A3', border: 'none', background: 'none' }}
             >
-              📍 South
+              South
             </button>
             <button
               onClick={() => {
@@ -564,10 +564,10 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 setPan({ x: 0, y: 0 });
               }}
               title="Reset Zoom"
-              className="px-2 h-7 rounded-lg flex items-center justify-center text-[8.5px] font-bold uppercase tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: 'var(--text-secondary)', border: 'none', background: 'none' }}
+              className="px-2 h-7 rounded flex items-center justify-center text-[9px] font-semibold tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
+              style={{ color: '#8B94A3', border: 'none', background: 'none' }}
             >
-              ↺ Reset
+              Reset
             </button>
           </div>
 
@@ -724,7 +724,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       fill="#475569"
                       className="text-[7.5px] font-medium font-mono"
                     >
-                      📍 {hoveredBridge.city || 'State'}, {hoveredBridge.state}
+                      {hoveredBridge.city || 'State'}, {hoveredBridge.state}
                     </text>
 
                     {/* Details line 2 */}
@@ -764,15 +764,15 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
           >
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#10B981' }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#0F6E56' }} />
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Healthy</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#F59E0B' }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D97706' }} />
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Monitor</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#EF4444' }} />
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#991B1B' }} />
               <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Critical</span>
             </div>
           </div>
@@ -898,13 +898,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                   
                   {/* Location (City + State) */}
                   <div className="text-[9.5px] font-mono flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                    <span>📍</span>
+                    <MapPin size={11} className="text-slate-400" />
                     <span>{bridge.city || 'State'}, {bridge.state}</span>
                   </div>
 
                   {/* River, Type, Year, Length (Single compact metadata line) */}
                   <div className="text-[9px] font-mono tracking-tight pt-1" style={{ color: 'var(--text-muted)' }}>
-                    🌊 {bridge.river} • {bridge.type} • {bridge.year_built} • {bridge.length_m}m
+                    {bridge.river} • {bridge.type} • {bridge.year_built} • {bridge.length_m}m
                   </div>
                 </div>
 
@@ -916,8 +916,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                         className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${bridge.health_score}%`,
-                          backgroundColor: pinColor,
-                          boxShadow: `0 0 4px ${pinColor}40`
+                          backgroundColor: pinColor
                         }}
                       />
                     </div>
@@ -943,13 +942,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       className="flex items-center gap-1.5 text-[9px] font-mono cursor-help" 
                       style={{ color: 'var(--text-secondary)' }}
                     >
-                      <span>ALERTS</span>
+                      <span>Alerts</span>
                       <span
-                        className="text-[9px] font-black px-1.5 py-0.2 rounded border"
+                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded border"
                         style={{
-                          background: bridge.alert_count > 0 ? 'rgba(255, 123, 114, 0.1)' : 'rgba(63, 185, 80, 0.1)',
-                          borderColor: bridge.alert_count > 0 ? '#ff7b72' : '#3fb950',
-                          color: bridge.alert_count > 0 ? '#ff7b72' : '#3fb950',
+                          background: bridge.alert_count > 0 ? '#FDF2F2' : '#F8FAFA',
+                          borderColor: bridge.alert_count > 0 ? '#FECACA' : '#E2E8F0',
+                          color: bridge.alert_count > 0 ? '#991B1B' : '#64748B',
                         }}
                       >
                         {bridge.alert_count}
@@ -964,15 +963,14 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                           left: '50%',
                           transform: 'translateX(-50%)',
                           marginBottom: '8px',
-                          background: '#1e293b',
+                          background: '#1C1F26',
                           color: '#ffffff',
                           padding: '4px 8px',
                           borderRadius: '4px',
                           fontSize: '11px',
                           whiteSpace: 'nowrap',
                           zIndex: 1000,
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #2A2E39',
                           pointerEvents: 'none',
                           fontWeight: '500',
                           fontFamily: 'var(--font-sans)'
@@ -1055,19 +1053,20 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             className="p-6 rounded-2xl w-full max-w-sm shadow-2xl space-y-4 animate-fade-in-up text-left relative"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
           >
-            <h3 className="text-sm font-black uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              🖥️ Live Telemetry Control
+            <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Activity size={16} color="#0F6E56" />
+              Live telemetry control
             </h3>
-            <div className="h-[1px]" style={{ background: '#21262d' }} />
+            <div className="h-[1px]" style={{ background: 'var(--border-subtle)' }} />
             
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {liveBridgeIds.has(modalBridge.id) ? (
                 <>
-                  Live monitoring is currently <strong>active</strong> for <span style={{ color: 'var(--accent-green-light)', fontWeight: 'bold' }}>{modalBridge.name}</span>. Would you like to view the dashboard telemetry stream or deactivate the simulator?
+                  Live monitoring is currently <strong>active</strong> for <span style={{ color: '#0F6E56', fontWeight: 'bold' }}>{modalBridge.name}</span>. Would you like to view the dashboard telemetry stream or deactivate the simulator?
                 </>
               ) : (
                 <>
-                  Activate real-time simulated live sensor feeds and anomaly alert stream monitoring for <span style={{ color: 'var(--accent-blue-light)', fontWeight: 'bold' }}>{modalBridge.name}</span>?
+                  Activate real-time simulated live sensor feeds and anomaly alert stream monitoring for <span style={{ color: '#1C1F26', fontWeight: 'bold' }}>{modalBridge.name}</span>?
                 </>
               )}
             </p>
@@ -1075,10 +1074,11 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             {/* Error Message inside the Modal */}
             {modalError && (
               <div 
-                className="px-3.5 py-2 rounded-lg text-[10px] font-semibold leading-relaxed animate-fade-in-up"
-                style={{ background: 'rgba(255, 123, 114, 0.1)', border: '1px solid rgba(255, 123, 114, 0.2)', color: 'var(--accent-red-light)' }}
+                className="px-3.5 py-2 rounded-lg text-[10px] font-semibold flex items-center gap-1.5 leading-relaxed animate-fade-in-up"
+                style={{ background: '#FDF2F2', border: '1px solid #FECACA', color: '#991B1B' }}
               >
-                ⚠️ {modalError}
+                <AlertTriangle size={13} color="#991B1B" />
+                <span>{modalError}</span>
               </div>
             )}
 
@@ -1093,10 +1093,10 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       setShowModal(false);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className={`w-full font-bold uppercase py-2.5 rounded-lg transition-all cursor-pointer hover:opacity-90 ${
+                    className={`w-full font-semibold py-2.5 rounded-lg transition-all cursor-pointer hover:opacity-90 ${
                       activating ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
-                    style={{ background: 'var(--accent-blue-light)', color: '#ffffff' }}
+                    style={{ background: '#1C1F26', color: '#ffffff' }}
                   >
                     Go to Dashboard
                   </button>
@@ -1200,20 +1200,20 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       showToast("Activation failed — please try again", "error");
                     }
                   }}
-                  className="w-full font-bold uppercase py-2.5 rounded-lg transition-all cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full font-semibold py-2.5 rounded-lg transition-all cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
                   style={
                     !isEngineer()
-                      ? { background: '#21262d', border: '1px solid var(--border-hover)', color: 'var(--text-muted)' }
-                      : { background: 'var(--accent-blue-light)', color: '#ffffff' }
+                      ? { background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }
+                      : { background: '#0F6E56', color: '#ffffff' }
                   }
                 >
-                  {!isEngineer() ? 'Requires Engineer access' : activating ? 'Activating...' : 'Activate Live Monitoring'}
+                  {!isEngineer() ? 'Requires engineer access' : activating ? 'Activating...' : 'Activate live monitoring'}
                 </button>
               )}
               <button
                 disabled={activating}
                 onClick={() => setShowModal(false)}
-                className={`w-full font-bold uppercase py-2.5 rounded-lg transition-all cursor-pointer hover:bg-[#161b22] ${
+                className={`w-full font-semibold py-2.5 rounded-lg transition-all cursor-pointer hover:bg-slate-100 ${
                   activating ? 'opacity-50 cursor-not-allowed' : ''
                 }`}
                 style={{ background: 'transparent', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
@@ -1228,14 +1228,14 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
       {/* ── TOAST MESSAGES POPUP ── */}
       {toastMessage && (
         <div 
-          className="fixed bottom-6 left-6 z-50 px-4 py-2.5 rounded-lg text-xs shadow-2xl flex items-center gap-2 animate-fade-in-up font-semibold"
+          className="fixed bottom-6 left-6 z-50 px-4 py-2.5 rounded-lg text-xs shadow-lg flex items-center gap-2 animate-fade-in-up font-medium"
           style={{ 
             background: 'var(--bg-card)', 
-            border: toastType === 'success' ? '1px solid #3fb950' : '1px solid #ff7b72', 
-            color: toastType === 'success' ? '#3fb950' : '#ff7b72' 
+            border: toastType === 'success' ? '1px solid #DCFCE7' : '1px solid #FECACA', 
+            color: toastType === 'success' ? '#0F6E56' : '#991B1B' 
           }}
         >
-          <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: toastType === 'success' ? '#3fb950' : '#ff7b72' }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: toastType === 'success' ? '#0F6E56' : '#991B1B' }} />
           {toastMessage}
         </div>
       )}
