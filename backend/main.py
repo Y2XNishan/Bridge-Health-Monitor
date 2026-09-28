@@ -1318,11 +1318,11 @@ async def xai_explain(bridge_id: int = 1, user=Depends(get_current_user)):
     status_str = live.get("health_status", "").upper()
     health_score = live.get("health_score", 100.0)
     if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
-        alert_level = "CRITICAL"
+        alert_level = "Critical"
     elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
-        alert_level = "WARNING"
+        alert_level = "Monitor"
     else:
-        alert_level = "NORMAL"
+        alert_level = "Healthy"
     anomaly_data = {}
     if explain_anomaly is None:
         raise HTTPException(status_code=500, detail="XAI explanation module is not available")

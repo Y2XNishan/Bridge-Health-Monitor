@@ -131,22 +131,22 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
 
     triggered_sensors = []
     if vibration > vib_crit:
-        triggered_sensors.append(f"Vibration {vibration:.3f}g (IRC:6-2017 threshold: {vib_crit}g) — CRITICAL breach")
+        triggered_sensors.append(f"Vibration {vibration:.3f}g (IRC:6-2017 threshold: {vib_crit}g) — Critical breach")
     elif vibration > vib_warn:
         triggered_sensors.append(f"Vibration {vibration:.3f}g (approaching threshold of {vib_crit}g)")
     
     if strain > str_crit:
-        triggered_sensors.append(f"Strain {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.0f} MPa) — CRITICAL breach")
+        triggered_sensors.append(f"Strain {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.0f} MPa) — Critical breach")
     elif strain > str_warn:
         triggered_sensors.append(f"Strain {strain:.1f} MPa (approaching IRC:112 limit of {str_crit:.0f} MPa)")
     
     if crack_gap > crk_crit:
-        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm) — CRITICAL breach")
+        triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm) — Critical breach")
     elif crack_gap > crk_warn:
         triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (approaching safe limit of {crk_crit:.2f}mm)")
     
     if water_level > wat_crit:
-        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m) — CRITICAL breach")
+        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m) — Critical breach")
     elif water_level > wat_warn:
         triggered_sensors.append(f"Water level {water_level:.2f}m (approaching flood danger limit of {wat_crit:.2f}m)")
     
@@ -188,9 +188,11 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
     if anomaly_score > 0.7:
         root_cause_hints.append(f"ML anomaly score of {anomaly_score:.2f} indicates pattern deviation from historical baseline")
     
+    status_label = "Critical" if str(alert_level).upper() in ["CRITICAL", "FAIL"] else "Monitor" if str(alert_level).upper() in ["WARNING", "MONITOR", "WATCH", "POOR", "FAIR"] else "Healthy"
+
     prompt = f"""
 Bridge: {bridge_name}
-Alert Level: {alert_level}
+Alert Level: {status_label}
 Health Score: {health_score}/100
 Anomaly Score: {anomaly_score}
 
@@ -238,7 +240,7 @@ Generate an XAI explanation with exactly these 4 sections:
                     triggered_sensors,
                     sensor_data,
                     anomaly_score,
-                    alert_level,
+                    status_label,
                     bridge_name
                 )
         except Exception as e:
@@ -327,9 +329,9 @@ Generate an XAI explanation with exactly these 4 sections:
         elif vibration > vib_warn or strain > str_warn:
             action_parts.append("Verify axle weigh-in-motion calibration and inspect deck expansion joints.")
             
-        if alert_level == "CRITICAL":
+        if status_label == "Critical":
             base_action = f"Immediately deploy an emergency structural response team to {bridge_name}."
-        elif alert_level == "WARNING":
+        elif status_label == "Monitor":
             base_action = f"Deploy a maintenance crew to perform local inspection and structural checks within 48 hours."
         else:
             base_action = "Increase telemetry polling frequency and verify sensor telemetry calibrations."
@@ -346,7 +348,8 @@ Generate an XAI explanation with exactly these 4 sections:
     
     return {
         "bridge_name": bridge_name,
-        "alert_level": alert_level,
+        "alert_level": status_label,
+        "status": status_label,
         "health_score": health_score,
         "anomaly_score": anomaly_score,
         "triggered_sensors": triggered_sensors,

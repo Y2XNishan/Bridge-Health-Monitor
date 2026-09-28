@@ -39,7 +39,7 @@ const generateAlerts = (bridges) => {
     .slice(0, 3)
     .map(bridge => ({
       bridge_name: bridge.name,
-      message: `CRITICAL: Health ${bridge.health_score.toFixed(1)}/100 — ${bridge.alert_count} active alerts`,
+      message: `Critical: Health ${bridge.health_score.toFixed(1)}/100 — ${bridge.alert_count} active alerts`,
       severity: 'critical'
     }))
 
@@ -1455,13 +1455,28 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                   </div>
                   <div>
                     <span className="text-[10px] font-medium text-[var(--text-muted)] block">Alert level</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border mt-1 ${
-                      xaiData.alert_level === 'CRITICAL' 
-                        ? 'bg-red-50 text-[#991B1B] border-red-200' 
-                        : 'bg-amber-50 text-amber-800 border-amber-200'
-                    }`}>
-                      {xaiData.alert_level}
-                    </span>
+                    {(() => {
+                      const raw = String(xaiData.alert_level || xaiData.status || 'Normal').trim();
+                      const isCritical = raw.toUpperCase() === 'CRITICAL' || raw.toUpperCase() === 'FAIL';
+                      const isWarning = raw.toUpperCase() === 'WARNING' || raw.toUpperCase() === 'MONITOR' || raw.toUpperCase() === 'WATCH';
+                      const displayLabel = isCritical ? 'Critical' : isWarning ? 'Monitor' : 'Healthy';
+                      return (
+                        <span 
+                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border mt-1"
+                          style={{
+                            background: isCritical ? '#FDF2F2' : isWarning ? '#FFFBEB' : '#F0FDF4',
+                            borderColor: isCritical ? '#FECACA' : isWarning ? '#FEF3C7' : '#DCFCE7',
+                            color: '#1C1F26'
+                          }}
+                        >
+                          <span 
+                            className="w-1.5 h-1.5 rounded-full shrink-0" 
+                            style={{ backgroundColor: isCritical ? '#991B1B' : isWarning ? '#D97706' : '#0F6E56' }} 
+                          />
+                          {displayLabel}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1472,6 +1487,9 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                   <h4 className="text-[10px] font-semibold text-[var(--text-muted)]">Triggered sensors</h4>
                   <div className="flex flex-wrap gap-2">
                     {xaiData.triggered_sensors.map((sensor, i) => {
+                      const text = typeof sensor === 'string'
+                        ? sensor.replace(/CRITICAL\s+breach/gi, 'Critical breach').replace(/CRITICAL/g, 'Critical')
+                        : sensor;
                       const isCritical = typeof sensor === 'string' && sensor.toUpperCase().includes('CRITICAL');
                       return (
                         <span 
@@ -1483,7 +1501,11 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                             color: isCritical ? '#991B1B' : '#B45309'
                           }}
                         >
-                          {sensor}
+                          <span 
+                            className="w-1.5 h-1.5 rounded-full shrink-0" 
+                            style={{ backgroundColor: isCritical ? '#991B1B' : '#D97706' }} 
+                          />
+                          {text}
                         </span>
                       );
                     })}
