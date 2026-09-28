@@ -748,6 +748,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       vibration: SENSOR_THRESHOLDS.vibration.crit,   // 1.2 g (IRC:6-2017)
       strain: SENSOR_THRESHOLDS.strain.crit,          // 210 MPa (IRC:112-2011)
       crack_gap: SENSOR_THRESHOLDS.crack_gap.crit,    // 0.30 mm (IRC:112-2011)
+      water_level: SENSOR_THRESHOLDS.water_level.crit, // 5.50 m (IRC:6-2017)
     };
 
     // Health score color helper
@@ -792,6 +793,15 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         warn: false,
       },
       {
+        label: 'Water Level',
+        value: live.water_level ?? 0,
+        threshold: thresholds.water_level,
+        unit: 'm',
+        icon: '',
+        abnormal: (live.water_level ?? 0) > thresholds.water_level,
+        warn: false,
+      },
+      {
         label: 'Health Score',
         value: live.health_score ?? live.risk_score ?? '—',
         unit: '',
@@ -806,6 +816,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       { name: 'Vibration', value: live.vibration ?? 0, threshold: thresholds.vibration },
       { name: 'Strain', value: live.strain ?? 0, threshold: thresholds.strain },
       { name: 'Crack Gap', value: live.crack_gap ?? 0, threshold: thresholds.crack_gap },
+      { name: 'Water Level', value: live.water_level ?? 0, threshold: thresholds.water_level },
     ];
     const anomalousSensors = sensors.filter((s) => s.value > s.threshold);
     const primaryDriver =

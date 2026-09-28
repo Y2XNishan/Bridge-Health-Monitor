@@ -1471,19 +1471,22 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-semibold text-[var(--text-muted)]">Triggered sensors</h4>
                   <div className="flex flex-wrap gap-2">
-                    {xaiData.triggered_sensors.map((sensor, i) => (
-                      <span 
-                        key={i} 
-                        className="px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5"
-                        style={{
-                          background: '#FDF2F2',
-                          borderColor: '#FECACA',
-                          color: '#991B1B'
-                        }}
-                      >
-                        {sensor}
-                      </span>
-                    ))}
+                    {xaiData.triggered_sensors.map((sensor, i) => {
+                      const isCritical = typeof sensor === 'string' && sensor.toUpperCase().includes('CRITICAL');
+                      return (
+                        <span 
+                          key={i} 
+                          className="px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5"
+                          style={{
+                            background: isCritical ? '#FDF2F2' : '#FFFBEB',
+                            borderColor: isCritical ? '#FECACA' : '#FDE68A',
+                            color: isCritical ? '#991B1B' : '#B45309'
+                          }}
+                        >
+                          {sensor}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}
