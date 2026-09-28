@@ -1,4 +1,5 @@
 import { Bell, CheckCircle2 } from 'lucide-react';
+import { getRiskSeverity } from '../constants/thresholds';
 
 export default function AlertPanel({ alerts }) {
   if (!alerts || alerts.length === 0) {
@@ -17,9 +18,16 @@ export default function AlertPanel({ alerts }) {
     );
   }
 
-  const criticalAndWarningCount = alerts.filter(
-    (a) => a.alert_level === 'CRITICAL' || a.alert_level === 'WARNING' || a.alert_level === 'MONITOR'
-  ).length;
+  // Count active alerts (Monitor or Critical, i.e. risk score >= 40%)
+  const criticalAndWarningCount = alerts.filter((a) => {
+    const rawScore = a.combined_score ?? a.risk ?? a.risk_score;
+    if (rawScore != null) {
+      const { isCritical, isWarning } = getRiskSeverity(rawScore);
+      return isCritical || isWarning;
+    }
+    const lvl = (a.alert_level || a.level || '').toUpperCase();
+    return lvl === 'CRITICAL' || lvl === 'WARNING' || lvl === 'MONITOR' || lvl === 'HIGH' || lvl === 'MODERATE';
+  }).length;
 
   return (
     <div className="p-5 bg-white border border-slate-200 rounded-[8px]" id="alert-panel" style={{ boxShadow: 'none' }}>
@@ -34,24 +42,28 @@ export default function AlertPanel({ alerts }) {
       </div>
       <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
         {alerts.map((alert, idx) => {
-          const isCritical = alert.alert_level === 'CRITICAL';
-          const isWarning = alert.alert_level === 'WARNING' || alert.alert_level === 'MONITOR';
+          // Assign severity badge per alert strictly using Structural Risk Index gauge thresholds:
+          // Low: <40% (Healthy), Moderate: 40–70% (Monitor), High: >70% (Critical)
+          const rawScore = alert.combined_score ?? alert.risk ?? alert.risk_score;
+          let severity;
+          if (rawScore != null) {
+            severity = getRiskSeverity(rawScore);
+          } else {
+            const lvl = (alert.alert_level || alert.level || '').toUpperCase();
+            const fallbackPct = lvl === 'CRITICAL' || lvl === 'HIGH' ? 85 : lvl === 'WARNING' || lvl === 'MONITOR' || lvl === 'WATCH' ? 55 : 20;
+            severity = getRiskSeverity(fallbackPct);
+          }
+
+          const { isCritical, isWarning, status: badgeLabel, color: barColor, badgeBg, badgeBorder, riskPct } = severity;
 
           const cardStyle = {
             border: '1px solid #E2E8F0',
-            borderLeft: isCritical ? '3px solid #991B1B' : isWarning ? '3px solid #D97706' : '3px solid #0F6E56',
+            borderLeft: `3px solid ${barColor}`,
             borderRadius: '6px',
             padding: '10px 12px',
             backgroundColor: '#FFFFFF',
             boxShadow: 'none'
           };
-
-          const badgeBg = isCritical ? '#FDF2F2' : isWarning ? '#FFFBEB' : '#F0FDF4';
-          const badgeBorder = isCritical ? '#FECACA' : isWarning ? '#FEF3C7' : '#DCFCE7';
-          const badgeDot = isCritical ? '#991B1B' : isWarning ? '#D97706' : '#0F6E56';
-          const badgeLabel = isCritical ? 'Critical' : isWarning ? 'Monitor' : 'Healthy';
-
-          const barColor = isCritical ? '#991B1B' : isWarning ? '#D97706' : '#0F6E56';
 
           return (
             <div
@@ -66,7 +78,7 @@ export default function AlertPanel({ alerts }) {
                   className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border"
                   style={{ backgroundColor: badgeBg, borderColor: badgeBorder, color: '#1C1F26' }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: badgeDot }} />
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: barColor }} />
                   {badgeLabel}
                 </span>
               </div>
@@ -80,14 +92,14 @@ export default function AlertPanel({ alerts }) {
 
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium text-slate-700">
-                  Risk score: {(alert.combined_score * 100).toFixed(1)}%
+                  Risk score: {riskPct.toFixed(1)}%
                 </span>
                 {/* Score bar */}
                 <div className="flex-1 h-[2px] overflow-hidden bg-slate-100">
                   <div
                     className="h-full transition-all duration-300"
                     style={{
-                      width: `${Math.min(100, alert.combined_score * 100)}%`,
+                      width: `${Math.min(100, Math.max(0, riskPct))}%`,
                       background: barColor,
                     }}
                   />

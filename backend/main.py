@@ -286,6 +286,8 @@ try:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        get_risk_alert_level,
+        get_risk_severity_label,
     )
 except ImportError:
     from constants import (
@@ -294,6 +296,8 @@ except ImportError:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        get_risk_alert_level,
+        get_risk_severity_label,
     )
 
 _HISTORY_WINDOW = 1500  # enough rows for rolling-24h features
@@ -301,15 +305,8 @@ _HEALTH_HISTORY_MAX = 50
 
 
 def _get_risk_alert_level(score: float) -> str:
-    """Map a combined risk score to an alert level (Pipeline B thresholds)."""
-    if score > 0.80:
-        return "CRITICAL"
-    elif score > 0.65:
-        return "WARNING"
-    elif score > 0.40:
-        return "WATCH"
-    else:
-        return "NORMAL"
+    """Map a combined risk score to an alert level (matching Structural Risk Index bands)."""
+    return get_risk_alert_level(score)
 
 
 def calculate_health_score(
@@ -1573,41 +1570,51 @@ def prediction_scores(bridge_id: int = 1):
 # ── GET /api/alerts ────────────────────────────────────────────────────────
 @app.get("/api/alerts")
 def generate_varied_alerts(bridge_id: int, count: int = 20) -> list:
-    """Generate realistic synthetically varied alerts for active dashboard profiles."""
+    """Generate realistic synthetically varied alerts for active dashboard profiles.
+    Alert severity strictly aligns with Structural Risk Index bands:
+    - Low: < 40% (Healthy)
+    - Moderate: 40–70% (Monitor)
+    - High: > 70% (Critical)
+    """
     alert_templates = [
-        {"sensor": "Crack Gap Widening",      "level": "CRITICAL", "risk": 98.0},
-        {"sensor": "Strain Threshold Exceeded","level": "WARNING",  "risk": 72.5},
-        {"sensor": "Vibration Surge Detected", "level": "WARNING",  "risk": 68.3},
-        {"sensor": "Water Level Elevated",     "level": "WATCH",    "risk": 45.2},
-        {"sensor": "Crack Gap Widening",       "level": "CRITICAL", "risk": 95.1},
-        {"sensor": "Predictive Risk Alert",    "level": "WARNING",  "risk": 71.8},
-        {"sensor": "Vibration Surge Detected", "level": "CRITICAL", "risk": 88.4},
-        {"sensor": "Strain Threshold Exceeded","level": "WATCH",    "risk": 52.7},
-        {"sensor": "Water Level Elevated",     "level": "WARNING",  "risk": 66.9},
-        {"sensor": "Crack Gap Widening",       "level": "CRITICAL", "risk": 97.3},
-        {"sensor": "Predictive Risk Alert",    "level": "WATCH",    "risk": 41.5},
-        {"sensor": "Vibration Surge Detected", "level": "WARNING",  "risk": 74.2},
-        {"sensor": "Strain Threshold Exceeded","level": "CRITICAL", "risk": 82.6},
-        {"sensor": "Water Level Elevated",     "level": "CRITICAL", "risk": 91.0},
-        {"sensor": "Crack Gap Widening",       "level": "WARNING",  "risk": 63.4},
-        {"sensor": "Predictive Risk Alert",    "level": "CRITICAL", "risk": 85.7},
-        {"sensor": "Vibration Surge Detected", "level": "WATCH",    "risk": 48.9},
-        {"sensor": "Strain Threshold Exceeded","level": "WARNING",  "risk": 69.1},
-        {"sensor": "Water Level Elevated",     "level": "WATCH",    "risk": 55.3},
-        {"sensor": "Crack Gap Widening",       "level": "CRITICAL", "risk": 93.8},
+        {"sensor": "Crack Gap Widening",      "risk": 98.0},
+        {"sensor": "Strain Threshold Exceeded","risk": 72.5},
+        {"sensor": "Vibration Surge Detected", "risk": 68.3},
+        {"sensor": "Water Level Elevated",     "risk": 45.2},
+        {"sensor": "Crack Gap Widening",       "risk": 95.1},
+        {"sensor": "Predictive Risk Alert",    "risk": 71.8},
+        {"sensor": "Vibration Surge Detected", "risk": 88.4},
+        {"sensor": "Strain Threshold Exceeded","risk": 52.7},
+        {"sensor": "Water Level Elevated",     "risk": 66.9},
+        {"sensor": "Crack Gap Widening",       "risk": 97.3},
+        {"sensor": "Predictive Risk Alert",    "risk": 41.5},
+        {"sensor": "Vibration Surge Detected", "risk": 74.2},
+        {"sensor": "Strain Threshold Exceeded","risk": 82.6},
+        {"sensor": "Water Level Elevated",     "risk": 91.0},
+        {"sensor": "Crack Gap Widening",       "risk": 63.4},
+        {"sensor": "Predictive Risk Alert",    "risk": 85.7},
+        {"sensor": "Vibration Surge Detected", "risk": 48.9},
+        {"sensor": "Strain Threshold Exceeded","risk": 69.1},
+        {"sensor": "Water Level Elevated",     "risk": 55.3},
+        {"sensor": "Crack Gap Widening",       "risk": 93.8},
     ]
 
     alerts_list = []
     for i, template in enumerate(alert_templates[:count]):
         ts = datetime.now() - timedelta(minutes=i)
+        risk = float(template["risk"])
+        # Match Structural Risk Index bands: Low <40%, Moderate 40-70%, High >70%
+        level = get_risk_alert_level(risk)  # "CRITICAL", "WARNING", or "NORMAL"
+        severity = get_risk_severity_label(risk)  # "Critical", "Monitor", or "Healthy"
         alerts_list.append({
             "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
             "sensor": template["sensor"],
             "message": template["sensor"],
-            "level": template["level"],
-            "alert_level": template["level"],
-            "risk": template["risk"],
-            "combined_score": template["risk"] / 100.0,
+            "level": level,
+            "alert_level": level,
+            "severity": severity,
+            "risk": risk,
+            "combined_score": round(risk / 100.0, 4),
         })
     return alerts_list
 

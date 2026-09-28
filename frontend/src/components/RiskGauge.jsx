@@ -1,20 +1,9 @@
 import { Gauge } from 'lucide-react';
+import { getRiskSeverity } from '../constants/thresholds';
 
 export default function RiskGauge({ riskScore = 0 }) {
-  const pct = Math.round(riskScore * 100);
-
-  // Color based on risk level
-  let color, label;
-  if (pct < 40) {
-    color = '#0F6E56';
-    label = 'Low risk';
-  } else if (pct <= 70) {
-    color = '#D97706';
-    label = 'Moderate risk';
-  } else {
-    color = '#991B1B';
-    label = 'High risk';
-  }
+  const { color, label, riskPct } = getRiskSeverity(riskScore);
+  const pct = Math.round(riskPct);
 
   // Semicircle arc math
   const radius = 80;

@@ -59,7 +59,39 @@ def get_sensor_status_label(sensor_name: str, value: float) -> str:
 def get_sensor_status_color(label: str) -> str:
     """Standardized badge hex colors."""
     if label == "CRITICAL":
-        return "#DC2626"
+        return "#991B1B"
     if label in ["WARNING", "ELEVATED", "MONITOR"]:
-        return "#EA580C"
-    return "#16A34A"
+        return "#D97706"
+    return "#0F6E56"
+
+
+# Structural Risk Index bands
+# Low < 40%, Moderate 40-70%, High > 70%
+RISK_THRESHOLDS = {
+    "low": {"max": 40.0, "label": "Low risk", "severity": "Healthy", "alert_level": "NORMAL", "color": "#0F6E56"},
+    "moderate": {"min": 40.0, "max": 70.0, "label": "Moderate risk", "severity": "Monitor", "alert_level": "WARNING", "color": "#D97706"},
+    "high": {"min": 70.0, "label": "High risk", "severity": "Critical", "alert_level": "CRITICAL", "color": "#991B1B"},
+}
+
+
+def get_risk_alert_level(score: float) -> str:
+    """Map a combined risk score/pct to an alert level matching Structural Risk Index bands."""
+    pct = score * 100.0 if score <= 1.0 else score
+    if pct > 70.0:
+        return "CRITICAL"
+    elif pct >= 40.0:
+        return "WARNING"
+    else:
+        return "NORMAL"
+
+
+def get_risk_severity_label(score: float) -> str:
+    """Map a combined risk score/pct to severity label: 'Critical', 'Monitor', or 'Healthy'."""
+    pct = score * 100.0 if score <= 1.0 else score
+    if pct > 70.0:
+        return "Critical"
+    elif pct >= 40.0:
+        return "Monitor"
+    else:
+        return "Healthy"
+

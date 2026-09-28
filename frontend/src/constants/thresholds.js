@@ -69,3 +69,78 @@ export function getSensorAlertLevel(sensor, value) {
   if (value >= t.warn) return 'WARNING';
   return 'NORMAL';
 }
+
+/**
+ * Structural Risk Index thresholds:
+ * Low: < 40%
+ * Moderate: 40–70%
+ * High: > 70%
+ */
+export const RISK_THRESHOLDS = {
+  low: { max: 40, label: 'Low risk', status: 'Healthy', color: '#0F6E56', badgeBg: '#F0FDF4', badgeBorder: '#DCFCE7' },
+  moderate: { min: 40, max: 70, label: 'Moderate risk', status: 'Monitor', color: '#D97706', badgeBg: '#FFFBEB', badgeBorder: '#FEF3C7' },
+  high: { min: 70, label: 'High risk', status: 'Critical', color: '#991B1B', badgeBg: '#FDF2F2', badgeBorder: '#FECACA' },
+};
+
+/**
+ * Returns standardized risk severity based on numeric risk score/percentage:
+ * <40% => Healthy (Low risk)
+ * 40–70% => Monitor (Moderate risk)
+ * >70% => Critical (High risk)
+ */
+export function getRiskSeverity(riskScoreOrPercent) {
+  if (riskScoreOrPercent == null) {
+    return {
+      status: 'Healthy',
+      label: 'Low risk',
+      color: '#0F6E56',
+      badgeBg: '#F0FDF4',
+      badgeBorder: '#DCFCE7',
+      isCritical: false,
+      isWarning: false,
+      isHealthy: true,
+      riskPct: 0,
+    };
+  }
+
+  const num = Number(riskScoreOrPercent);
+  const pct = !isNaN(num) && num <= 1.0 && num > 0 ? num * 100 : num;
+
+  if (pct > 70) {
+    return {
+      status: 'Critical',
+      label: 'High risk',
+      color: '#991B1B',
+      badgeBg: '#FDF2F2',
+      badgeBorder: '#FECACA',
+      isCritical: true,
+      isWarning: false,
+      isHealthy: false,
+      riskPct: pct,
+    };
+  }
+  if (pct >= 40) {
+    return {
+      status: 'Monitor',
+      label: 'Moderate risk',
+      color: '#D97706',
+      badgeBg: '#FFFBEB',
+      badgeBorder: '#FEF3C7',
+      isCritical: false,
+      isWarning: true,
+      isHealthy: false,
+      riskPct: pct,
+    };
+  }
+  return {
+    status: 'Healthy',
+    label: 'Low risk',
+    color: '#0F6E56',
+    badgeBg: '#F0FDF4',
+    badgeBorder: '#DCFCE7',
+    isCritical: false,
+    isWarning: false,
+    isHealthy: true,
+    riskPct: pct,
+  };
+}
