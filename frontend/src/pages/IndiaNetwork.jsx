@@ -313,12 +313,19 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             bridge={selectedBridge}
             isLive={selectedBridge ? liveBridgeIds.has(selectedBridge.id) : false}
             onOpenInspector={(b) => {
-              if (onSelectBridge) onSelectBridge(b.id);
+              const bId = Number(b?.id ?? b?.bridge_id ?? b);
+              if (onSelectBridge && bId) onSelectBridge(bId);
               if (setCurrentPage) setCurrentPage('ai-inspector');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             onManageLive={(b) => {
-              setModalBridge(b);
+              const bId = Number(b?.id ?? b?.bridge_id ?? b);
+              const normalized = {
+                ...(typeof b === 'object' ? b : {}),
+                id: bId,
+                bridge_id: bId,
+              };
+              setModalBridge(normalized);
               setModalError('');
               setActivating(false);
               setShowModal(true);
@@ -741,13 +748,14 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             )}
 
             <div className="flex flex-col gap-2 pt-2 text-[10px]">
-              {liveBridgeIds.has(modalBridge.id) ? (
+              {liveBridgeIds.has(Number(modalBridge?.id ?? modalBridge?.bridge_id)) ? (
                 <>
                   <button
                     disabled={activating}
                     onClick={() => {
-                      onSelectBridge(modalBridge.id);
-                      setCurrentPage('dashboard');
+                      const bId = Number(modalBridge?.id ?? modalBridge?.bridge_id);
+                      if (onSelectBridge && bId) onSelectBridge(bId);
+                      if (setCurrentPage) setCurrentPage('dashboard');
                       setShowModal(false);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
@@ -765,15 +773,20 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       try {
                         setActivating(true);
                         setModalError('');
+                        const token = localStorage.getItem('bridgeiq_token') || 'permanent-admin-token';
+                        const bId = Number(modalBridge?.id ?? modalBridge?.bridge_id);
                         const res = await fetch(`${API_BASE}/api/bridges/deactivate`, {
                           method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ bridge_id: modalBridge.id })
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                          },
+                          body: JSON.stringify({ bridge_id: bId })
                         });
                         if (res.ok) {
                           setLiveBridgeIds(prev => {
                             const next = new Set(prev);
-                            next.delete(modalBridge.id);
+                            next.delete(bId);
                             return next;
                           });
                           showToast(`Deactivated monitoring for ${modalBridge.name}`, 'success');
@@ -809,10 +822,15 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                     const timeoutId = setTimeout(() => controller.abort(), 5000);
                     
                     try {
+                      const token = localStorage.getItem('bridgeiq_token') || 'permanent-admin-token';
+                      const bId = Number(modalBridge?.id ?? modalBridge?.bridge_id);
                       const res = await fetch(`${API_BASE}/api/bridges/activate`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bridge_id: modalBridge.id }),
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ bridge_id: bId }),
                         signal: controller.signal
                       });
                       
@@ -826,7 +844,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       if (data.status === 'activated') {
                         setLiveBridgeIds(prev => {
                           const next = new Set(prev);
-                          next.add(modalBridge.id);
+                          next.add(bId);
                           return next;
                         });
                         
@@ -834,8 +852,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                         setShowModal(false);
                         
                         // Navigate automatically to Live Dashboard with that bridge selected
-                        onSelectBridge(modalBridge.id);
-                        setCurrentPage('dashboard');
+                        if (onSelectBridge && bId) onSelectBridge(bId);
+                        if (setCurrentPage) setCurrentPage('dashboard');
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       } else {
                         throw new Error(data.message || 'Activation failed');

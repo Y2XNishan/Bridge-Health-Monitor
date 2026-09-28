@@ -330,9 +330,11 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
   };
 
   const handleInspectBridge = (bridge) => {
-    onSelectBridge(bridge.id);
-    // Determine target page: default to AIOps Center
-    setCurrentPage('aiops');
+    const bridgeId = Number(bridge?.id ?? bridge?.bridge_id);
+    if (onSelectBridge && bridgeId) {
+      onSelectBridge(bridgeId);
+    }
+    setCurrentPage('ai-inspector');
   };
 
   // Recent Alerts extraction for right side feed

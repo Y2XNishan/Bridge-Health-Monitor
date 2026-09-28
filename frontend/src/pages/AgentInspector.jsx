@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 
@@ -19,7 +19,6 @@ import {
   Sparkles
 } from 'lucide-react';
 
-
 const STAGES = [
   { id: 'fetch', label: 'Fetching live sensor data...' },
   { id: 'anomaly', label: 'Analyzing anomaly scores...' },
@@ -34,23 +33,23 @@ const SEVERITY_CONFIG = {
 };
 
 const markdownComponents = {
-  h1: ({ node, ...props }) => <h2 className="text-lg font-black mt-6 mb-3 text-[var(--text-primary)]" {...props} />,
-  h2: ({ node, ...props }) => (
+  h1: (props) => <h2 className="text-lg font-black mt-6 mb-3 text-[var(--text-primary)]" {...props} />,
+  h2: (props) => (
     <h3 className="text-base font-extrabold mt-5 mb-2.5 text-[var(--text-primary)] flex items-center gap-2">
       <Sparkles size={14} className="text-[var(--accent-blue)]" />
       {props.children}
     </h3>
   ),
-  h3: ({ node, ...props }) => (
+  h3: (props) => (
     <h4 className="text-sm font-bold mt-4 mb-2 text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-1 flex items-center gap-1.5">
       <ChevronRight size={12} className="text-[var(--accent-blue)]" />
       {props.children}
     </h4>
   ),
-  p: ({ node, ...props }) => <p className="text-xs text-[var(--text-secondary)] leading-relaxed my-2" {...props} />,
-  ul: ({ node, ...props }) => <ul className="my-2 space-y-1.5" {...props} />,
-  ol: ({ node, ...props }) => <ol className="my-2 list-decimal ml-6 space-y-1.5" {...props} />,
-  li: ({ node, ...props }) => (
+  p: (props) => <p className="text-xs text-[var(--text-secondary)] leading-relaxed my-2" {...props} />,
+  ul: (props) => <ul className="my-2 space-y-1.5" {...props} />,
+  ol: (props) => <ol className="my-2 list-decimal ml-6 space-y-1.5" {...props} />,
+  li: (props) => (
     <li className="flex items-start gap-2 ml-4 my-1.5 list-none">
       <span className="text-[var(--accent-blue)] mt-0.5">•</span>
       <span className="text-xs text-[var(--text-secondary)] leading-relaxed flex-1">
@@ -58,7 +57,7 @@ const markdownComponents = {
       </span>
     </li>
   ),
-  strong: ({ node, ...props }) => <strong className="font-bold text-[var(--text-primary)]" {...props} />
+  strong: (props) => <strong className="font-bold text-[var(--text-primary)]" {...props} />
 };
 
 function CollapsibleSection({ title, content }) {
@@ -130,17 +129,10 @@ const getTodayDateFormatted = () => {
   return `${dd}-${mm}-${yyyy}`;
 };
 
-const mapAlertLevel = (level) => {
-  if (!level) return 'HEALTHY';
-  const val = level.toUpperCase();
-  if (val === 'NORMAL') return 'HEALTHY';
-  if (val === 'WATCH' || val === 'WARNING') return 'MONITOR';
-  return val;
-};
-
 export default function AgentInspector({ activeBridgeId }) {
   const [bridges, setBridges] = useState([]);
-  const [selectedBridgeId, setSelectedBridgeId] = useState(() => (activeBridgeId ? Number(activeBridgeId) : ''));
+  const [bridgesLoading, setBridgesLoading] = useState(true);
+  const [selectedBridgeId, setSelectedBridgeId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [currentStageIndex, setCurrentStageIndex] = useState(-1);
   const [inspectionResult, setInspectionResult] = useState(null);
@@ -153,31 +145,38 @@ export default function AgentInspector({ activeBridgeId }) {
   
   // Fetch all 58 bridges on mount
   useEffect(() => {
+    let isMounted = true;
     fetch(`${API_BASE}/api/india/bridges`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
         return res.json();
       })
       .then((data) => {
-        setBridges(data);
-        if (data.length > 0) {
-          setSelectedBridgeId((prev) => {
-            if (prev && data.some(b => Number(b.id) === Number(prev))) return prev;
-            if (activeBridgeId && data.some(b => Number(b.id) === Number(activeBridgeId))) return Number(activeBridgeId);
-            return data[0].id;
-          });
-        }
+        if (!isMounted) return;
+        const list = Array.isArray(data) ? data : [];
+        setBridges(list);
+        setBridgesLoading(false);
       })
       .catch((err) => {
+        if (!isMounted) return;
         console.error('[agent-inspector-fetch-bridges]', err);
         setError('Failed to load bridges list.');
+        setBridgesLoading(false);
       });
-  }, [activeBridgeId]);
+    return () => { isMounted = false; };
+  }, []);
 
-  // Derived selected bridge
+  // Compute effective selected bridge ID cleanly without setting state in effect
+  const rawActiveId = typeof activeBridgeId === 'object' ? (activeBridgeId?.id ?? activeBridgeId?.bridge_id) : activeBridgeId;
+  const effectiveBridgeId = selectedBridgeId != null
+    ? selectedBridgeId
+    : (rawActiveId ? Number(rawActiveId) : (bridges[0]?.id ?? ''));
+
+  // Derived selected bridge with safe fallback
   const selectedBridge = useMemo(() => {
-    return bridges.find((b) => Number(b.id) === Number(selectedBridgeId)) || bridges[0] || null;
-  }, [bridges, selectedBridgeId]);
+    if (!bridges || bridges.length === 0) return null;
+    return bridges.find((b) => Number(b.id) === Number(effectiveBridgeId)) || bridges[0] || null;
+  }, [bridges, effectiveBridgeId]);
 
   // Update selected bridge details when selector changes
   const handleBridgeChange = (e) => {
@@ -207,15 +206,16 @@ export default function AgentInspector({ activeBridgeId }) {
     advanceStage(0);
 
     try {
-      console.log("Selected Bridge:", selectedBridge);
-      const token = localStorage.getItem('bridgeiq_token');
+      const bridgeId = Number(selectedBridge?.id ?? selectedBridge?.bridge_id ?? selectedBridgeId);
+      const bridgeName = selectedBridge?.name || `Bridge #${bridgeId}`;
+      const token = localStorage.getItem('bridgeiq_token') || 'permanent-admin-token';
       const response = await fetch(`${API_BASE}/api/agent/inspect`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ bridge_id: selectedBridge.id, bridge_name: selectedBridge.name })
+        body: JSON.stringify({ bridge_id: bridgeId, bridge_name: bridgeName })
       });
       if (response.status === 401) {
         throw new Error("Please logout and login again to refresh your session.");
@@ -336,6 +336,39 @@ export default function AgentInspector({ activeBridgeId }) {
     }
   }
 
+  if (bridgesLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 text-center">
+        <Loader2 size={32} className="animate-spin text-[#0F6E56]" />
+        <p className="text-xs font-medium text-slate-500">Loading bridge inspector data...</p>
+      </div>
+    );
+  }
+
+  if (!selectedBridge) {
+    return (
+      <div 
+        className="glass-card p-8 flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto my-12 rounded-2xl" 
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
+      >
+        <AlertCircle size={36} className="text-amber-500" />
+        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Bridge not found</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          The requested bridge profile could not be located in the monitoring network.
+        </p>
+        {bridges.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSelectedBridgeId(bridges[0].id)}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[#0F6E56] text-white cursor-pointer hover:opacity-95"
+          >
+            Select first available bridge
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in-up" style={{ color: 'var(--text-primary)' }}>
       {/* Page Header */}
@@ -359,7 +392,7 @@ export default function AgentInspector({ activeBridgeId }) {
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <select
-              value={selectedBridgeId}
+              value={effectiveBridgeId}
               onChange={handleBridgeChange}
               disabled={loading}
               className="flex-1 h-11 rounded-lg px-4 text-xs font-semibold focus:outline-none focus:border-[var(--accent-teal)] cursor-pointer transition"
@@ -367,7 +400,7 @@ export default function AgentInspector({ activeBridgeId }) {
             >
               {bridges.map((b) => (
                 <option key={b.id} value={b.id} style={{ background: 'var(--bg-primary)' }}>
-                  {b.name} ({b.location || `${b.city}, ${b.state}`})
+                  {b.name || `Bridge #${b.id}`} ({b.location || (b.city && b.state ? `${b.city}, ${b.state}` : b.state || 'India')})
                 </option>
               ))}
             </select>
@@ -391,8 +424,8 @@ export default function AgentInspector({ activeBridgeId }) {
             </button>
           </div>
           {selectedBridge && (
-            <p className="text-[10px] font-mono mt-1" style={{ color: 'var(--text-muted)' }}>
-              {selectedBridge.name} • {selectedBridge.type || 'Beam'} Type • Built in {selectedBridge.year_built || 'N/A'} • {selectedBridge.length_m || 'N/A'}m Length • {selectedBridge.state || 'N/A'} • Last Inspected: {getTodayDateFormatted()}
+            <p className="text-[10px] font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
+              {selectedBridge.name} • {selectedBridge.type || 'Beam'} Type • Built in {selectedBridge.year_built || 'N/A'} • {selectedBridge.length_m ? `${selectedBridge.length_m}m Length • ` : ''}{selectedBridge.city ? `${selectedBridge.city}, ` : ''}{selectedBridge.state || 'India'} • Last Inspected: {getTodayDateFormatted()}
             </p>
           )}
         </div>
@@ -531,45 +564,47 @@ export default function AgentInspector({ activeBridgeId }) {
                 {[
                   {
                     name: 'Vibration',
-                    val: inspectionResult.sensor_summary?.vibration,
+                    val: inspectionResult?.sensor_summary?.vibration,
                     unit: 'g',
                     limit: `${SENSOR_THRESHOLDS.vibration.crit}g`,
                     icon: Activity,
-                    alert: inspectionResult.sensor_summary?.vibration > SENSOR_THRESHOLDS.vibration.warn
+                    alert: typeof inspectionResult?.sensor_summary?.vibration === 'number' && inspectionResult.sensor_summary.vibration > SENSOR_THRESHOLDS.vibration.warn
                   },
                   {
                     name: 'Strain',
-                    val: inspectionResult.sensor_summary?.strain,
+                    val: inspectionResult?.sensor_summary?.strain,
                     unit: 'MPa',
                     limit: `${SENSOR_THRESHOLDS.strain.crit}MPa`,
                     icon: Bot,
-                    alert: inspectionResult.sensor_summary?.strain > SENSOR_THRESHOLDS.strain.warn
+                    alert: typeof inspectionResult?.sensor_summary?.strain === 'number' && inspectionResult.sensor_summary.strain > SENSOR_THRESHOLDS.strain.warn
                   },
                   {
                     name: 'Crack Gap',
-                    val: inspectionResult.sensor_summary?.crack_gap,
+                    val: inspectionResult?.sensor_summary?.crack_gap,
                     unit: 'mm',
                     limit: `${SENSOR_THRESHOLDS.crack_gap.crit}mm`,
                     icon: AlertTriangle,
-                    alert: inspectionResult.sensor_summary?.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn
+                    alert: typeof inspectionResult?.sensor_summary?.crack_gap === 'number' && inspectionResult.sensor_summary.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn
                   },
                   {
                     name: 'Water Level',
-                    val: inspectionResult.sensor_summary?.water_level,
+                    val: inspectionResult?.sensor_summary?.water_level,
                     unit: 'm',
                     limit: `${SENSOR_THRESHOLDS.water_level.crit}m`,
                     icon: Droplet,
-                    alert: inspectionResult.sensor_summary?.water_level > SENSOR_THRESHOLDS.water_level.warn
+                    alert: typeof inspectionResult?.sensor_summary?.water_level === 'number' && inspectionResult.sensor_summary.water_level > SENSOR_THRESHOLDS.water_level.warn
                   }
                 ].map((sensor) => {
                   const Icon = sensor.icon;
+                  const hasVal = typeof sensor.val === 'number';
+                  const isExceeded = hasVal && sensor.val > parseFloat(sensor.limit);
                   return (
                     <div 
                       key={sensor.name} 
                       className="glass-card p-4 flex flex-col justify-between"
                       style={{
                         borderLeft: sensor.alert 
-                          ? `3px solid ${sensor.val > parseFloat(sensor.limit) ? '#EF4444' : '#F59E0B'}` 
+                          ? `3px solid ${isExceeded ? '#EF4444' : '#F59E0B'}` 
                           : '1px solid var(--border-subtle)'
                       }}
                     >
@@ -578,10 +613,10 @@ export default function AgentInspector({ activeBridgeId }) {
                         <Icon size={14} className={sensor.alert ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-muted)]'} />
                       </div>
                       <div className="mt-2.5">
-                        <span className="text-lg font-black">{sensor.val !== undefined ? sensor.val.toFixed(3) : 'N/A'}</span>
+                        <span className="text-lg font-black">{hasVal ? sensor.val.toFixed(3) : '--'}</span>
                         <span className="text-[10px] ml-0.5 text-[var(--text-secondary)]">{sensor.unit}</span>
                       </div>
-                      <span className="text-[8px] font-mono text-[var(--text-muted)] block mt-1">Limit: {sensor.limit}</span>
+                      <span className="text-[8px] font-sans tabular-nums text-[var(--text-muted)] block mt-1">Limit: {sensor.limit}</span>
                     </div>
                   );
                 })}

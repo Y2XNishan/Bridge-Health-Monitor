@@ -23,6 +23,7 @@ import CrackDetection from './pages/CrackDetection';
 import Dashboard from './pages/Dashboard';
 import AgentInspector from './pages/AgentInspector';
 import SurvivalAnalysis from './pages/SurvivalAnalysis';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useAuth } from './context/AuthContext';
 import {
   fetchLive,
@@ -34,8 +35,27 @@ import {
 
 const MAX_CHART_POINTS = 30;
 
+const KNOWN_PATHS = {
+  '/': 'dashboard',
+  '/dashboard': 'dashboard',
+  '/network': 'network',
+  '/maintenance': 'maintenance',
+  '/admin': 'admin',
+  '/crack-detection': 'crack-detection',
+  '/aiops': 'aiops',
+  '/ai-inspector': 'ai-inspector',
+  '/predictive': 'predictive',
+};
+
 const getInitialPage = () => {
-  if (window.location.pathname === '/maintenance') return 'maintenance';
+  const path = window.location.pathname;
+  if (KNOWN_PATHS[path]) {
+    return KNOWN_PATHS[path];
+  }
+  // Catch-all: unknown path -> redirect to dashboard
+  if (path !== '/' && path !== '') {
+    window.history.replaceState({}, '', '/');
+  }
   return 'dashboard';
 };
 
@@ -46,8 +66,15 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
-    if (location.pathname === '/maintenance') {
-      setCurrentPage('maintenance');
+    const path = location.pathname;
+    if (KNOWN_PATHS[path]) {
+      setCurrentPage(KNOWN_PATHS[path]);
+    } else {
+      // Catch-all: unknown path -> redirect to / and display dashboard
+      if (path !== '/' && path !== '') {
+        window.history.replaceState({}, '', '/');
+      }
+      setCurrentPage('dashboard');
     }
   }, [location.pathname]);
 
@@ -202,9 +229,9 @@ export default function App() {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    const path = page === 'maintenance' ? '/maintenance' : '/';
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
+    const targetPath = Object.keys(KNOWN_PATHS).find((k) => KNOWN_PATHS[k] === page) || '/';
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
     }
   };
 
@@ -281,26 +308,28 @@ export default function App() {
 
           <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
             <div className="max-w-screen-2xl mx-auto space-y-6">
-              {currentPage === 'dashboard' ? (
-                <Dashboard
-                  onSelectBridge={setActiveBridgeId}
-                  setCurrentPage={handlePageChange}
-                />
-              ) : currentPage === 'maintenance' ? (
-                <Maintenance />
-              ) : currentPage === 'admin' ? (
-                <AdminPanel />
-              ) : currentPage === 'crack-detection' ? (
-                <CrackDetection />
-              ) : currentPage === 'aiops' ? (
-                <AIIntelligenceCenter />
-              ) : currentPage === 'ai-inspector' ? (
-                <AgentInspector activeBridgeId={activeBridgeSafeId} />
-              ) : currentPage === 'predictive' ? (
-                <SurvivalAnalysis />
-              ) : (
-                <IndiaNetwork onSelectBridge={setActiveBridgeId} setCurrentPage={setCurrentPage} />
-              )}
+              <ErrorBoundary onNavigateDashboard={() => handlePageChange('dashboard')} onReset={() => handlePageChange('dashboard')}>
+                {currentPage === 'dashboard' ? (
+                  <Dashboard
+                    onSelectBridge={setActiveBridgeId}
+                    setCurrentPage={handlePageChange}
+                  />
+                ) : currentPage === 'maintenance' ? (
+                  <Maintenance />
+                ) : currentPage === 'admin' ? (
+                  <AdminPanel />
+                ) : currentPage === 'crack-detection' ? (
+                  <CrackDetection />
+                ) : currentPage === 'aiops' ? (
+                  <AIIntelligenceCenter />
+                ) : currentPage === 'ai-inspector' ? (
+                  <AgentInspector activeBridgeId={activeBridgeSafeId} />
+                ) : currentPage === 'predictive' ? (
+                  <SurvivalAnalysis />
+                ) : (
+                  <IndiaNetwork onSelectBridge={setActiveBridgeId} setCurrentPage={handlePageChange} />
+                )}
+              </ErrorBoundary>
             </div>
 
             {/* Footer */}
