@@ -37,49 +37,42 @@ export default function IndiaMapLeaflet({
   const boundaryLayerRef = useRef(null);
   const markerMapRef = useRef({});
 
-  // ── Initialize Map & Tile Layer & SOI Boundary ──
+  // ── Initialize Map & Plain Background & Survey of India Boundary ──
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // Initialize Leaflet map
+    // Initialize Leaflet map on plain light background (#F8FAFA), zero external tile requests
     const map = L.map(mapContainerRef.current, {
       center: [22.5, 82.0],
       zoom: 4.8,
       minZoom: 4,
       maxZoom: 18,
-      zoomControl: false, // We place zoom control cleanly in top-right
+      zoomControl: false,
       attributionControl: false,
     });
 
     mapInstanceRef.current = map;
 
-    // Minimal light basemap (CartoDB Positron)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd',
-      maxZoom: 19,
-      opacity: 0.95,
-    }).addTo(map);
-
-    // Official Survey of India Boundary Overlay
+    // Official Survey of India Boundary Overlay on plain #F8FAFA backdrop
     try {
       const boundaryLayer = L.geoJSON(indiaGeoJson, {
         style: {
-          color: '#334155', // Slate-700 official border
-          weight: 1.6,
-          opacity: 0.9,
-          fillColor: '#0F6E56',
-          fillOpacity: 0.02,
+          color: '#334155', // Slate-700 official border outline
+          weight: 1.5,
+          opacity: 1.0,
+          fillColor: '#FFFFFF', // Crisp white landmass against #F8FAFA canvas
+          fillOpacity: 1.0,
         },
         interactive: false,
       }).addTo(map);
 
       boundaryLayerRef.current = boundaryLayer;
 
-      // Fit map to official Survey of India bounds
+      // Fit map to official Survey of India bounds so all 58 bridges and boundary are visible
       const bounds = boundaryLayer.getBounds();
       if (bounds.isValid()) {
         map.fitBounds(bounds, {
-          padding: [15, 15],
+          padding: [20, 20],
           maxZoom: 6,
         });
       }
@@ -87,13 +80,13 @@ export default function IndiaMapLeaflet({
       console.error('[Leaflet SOI GeoJSON error]', e);
     }
 
-    // Add standard Leaflet Zoom Control
+    // Add standard Leaflet Zoom Control in topright
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // Add minimal Attribution Control
+    // Attribution: Survey of India boundary only
     L.control.attribution({
       position: 'bottomleft',
-      prefix: 'Survey of India boundary • © CARTO / OpenStreetMap',
+      prefix: 'Survey of India boundary',
     }).addTo(map);
 
     // Initialize MarkerClusterGroup
@@ -102,8 +95,8 @@ export default function IndiaMapLeaflet({
       zoomToBoundsOnClick: true,
       spiderfyOnMaxZoom: true,
       removeOutsideVisibleBounds: true,
-      disableClusteringAtZoom: 15,
-      maxClusterRadius: 38, // Groups dense city clusters (Delhi, Mumbai, Kochi, Kolkata, Guwahati)
+      disableClusteringAtZoom: 13, // Individual markers automatically visible at zoom 13+
+      maxClusterRadius: 36,
       iconCreateFunction: function (cluster) {
         const childMarkers = cluster.getAllChildMarkers();
         const count = childMarkers.length;
@@ -147,7 +140,7 @@ export default function IndiaMapLeaflet({
     clusterGroupRef.current = clusterGroup;
     map.addLayer(clusterGroup);
 
-    // Invalidate size on window resize or initial render
+    // Invalidate size on initial render
     const resizeTimer = setTimeout(() => {
       map.invalidateSize();
     }, 200);
@@ -159,7 +152,7 @@ export default function IndiaMapLeaflet({
     };
   }, []);
 
-  // ── Render / Update Markers when filteredBridges or selection changes ──
+  // ── Render / Update Markers for all filtered bridges ──
   useEffect(() => {
     const clusterGroup = clusterGroupRef.current;
     const map = mapInstanceRef.current;
@@ -227,7 +220,7 @@ export default function IndiaMapLeaflet({
               <span style="width: 5px; height: 5px; border-radius: 50%; background: ${statusInfo.color};"></span>
               ${statusInfo.label}
             </span>
-            <span style="font-family: monospace; font-weight: 700; font-size: 11px; color: #0F172A;">
+            <span style="font-family: ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 11px; color: #0F172A;">
               ${formatHealthScore(bridge.health_score)}<span style="font-size: 9px; color: #64748B; font-weight: 400;">/100</span>
             </span>
           </div>
@@ -242,7 +235,7 @@ export default function IndiaMapLeaflet({
         className: 'leaflet-clean-tooltip',
       });
 
-      // Clicking a marker selects that bridge and triggers callback
+      // Clicking a marker selects that bridge
       marker.on('click', () => {
         if (onSelectBridge) onSelectBridge(bridge);
         if (onOpenDetails) onOpenDetails(bridge);
@@ -253,29 +246,34 @@ export default function IndiaMapLeaflet({
     });
   }, [filteredBridges, selectedPinBridgeId, liveBridgeIds, onSelectBridge, onOpenDetails]);
 
-  // ── Auto-reveal / pan to selected marker when selectedPinBridgeId changes ──
+  // ── Open tooltip when marker is selected and visible ──
   useEffect(() => {
     if (selectedPinBridgeId == null) return;
     const marker = markerMapRef.current[selectedPinBridgeId];
     const clusterGroup = clusterGroupRef.current;
-    const map = mapInstanceRef.current;
-    if (marker && clusterGroup && map) {
-      clusterGroup.zoomToShowLayer(marker, () => {
-        const latLng = marker.getLatLng();
-        map.panTo(latLng, { animate: true, duration: 0.4 });
+    if (marker && clusterGroup) {
+      if (clusterGroup.getVisibleParent(marker) === marker) {
         marker.openTooltip();
-      });
+      }
     }
   }, [selectedPinBridgeId]);
 
-  // ── Auto-fit state bounds when state filter is applied ──
+  // ── Auto-fit bounds when state filter is selected ──
   useEffect(() => {
-    if (selectedState && selectedState !== 'All' && mapInstanceRef.current && filteredBridges.length > 0) {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (selectedState && selectedState !== 'All' && filteredBridges.length > 0) {
       const latLngs = filteredBridges
         .filter((b) => b.lat != null && b.lng != null)
         .map((b) => [b.lat, b.lng]);
       if (latLngs.length > 0) {
-        mapInstanceRef.current.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30], maxZoom: 9 });
+        map.fitBounds(L.latLngBounds(latLngs), { padding: [40, 40], maxZoom: 9 });
+      }
+    } else if (selectedState === 'All' && boundaryLayerRef.current) {
+      const bounds = boundaryLayerRef.current.getBounds();
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [20, 20], maxZoom: 6 });
       }
     }
   }, [selectedState, filteredBridges]);
@@ -285,7 +283,7 @@ export default function IndiaMapLeaflet({
     const map = mapInstanceRef.current;
     const boundary = boundaryLayerRef.current;
     if (map && boundary) {
-      map.fitBounds(boundary.getBounds(), { padding: [15, 15] });
+      map.fitBounds(boundary.getBounds(), { padding: [20, 20], maxZoom: 6 });
     } else if (map) {
       map.setView([22.5, 82.0], 5);
     }
@@ -300,26 +298,14 @@ export default function IndiaMapLeaflet({
 
   return (
     <div
-      className="w-full relative rounded-2xl overflow-hidden"
-      style={{ height: height || '560px', border: '1px solid var(--border-subtle)', background: '#F8FAFC' }}
+      className="w-full relative rounded-2xl overflow-hidden isolate"
+      style={{
+        height: height || '560px',
+        border: '1px solid var(--border-subtle)',
+        background: '#F8FAFA',
+        overflow: 'hidden',
+      }}
     >
-      {/* Map Header Overlay */}
-      <div className="absolute top-3.5 left-3.5 z-[400] pointer-events-none max-w-[60%]">
-        <h2 className="text-xs sm:text-sm font-bold tracking-tight flex flex-wrap items-center gap-1.5" style={{ color: '#0F172A' }}>
-          India network map
-          <span 
-            className="text-[9px] font-normal font-sans px-1.5 py-0.5 rounded inline-flex items-center"
-            style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569' }}
-          >
-            <span className="tabular-nums font-mono font-bold mr-1">{filteredBridges.length}</span>
-            <span>{filteredBridges.length === 1 ? 'bridge' : 'bridges'}</span>
-          </span>
-        </h2>
-        <p className="text-[10px] mt-0.5 text-slate-500 font-sans hidden sm:block">
-          Survey of India boundary • Click pin to inspect
-        </p>
-      </div>
-
       {/* Quick View Navigation Controls (Top-Right alongside zoom) */}
       <div className="absolute top-3.5 right-14 z-[400] flex items-center gap-1.5">
         <button
@@ -340,8 +326,12 @@ export default function IndiaMapLeaflet({
         </button>
       </div>
 
-      {/* Leaflet DOM Container - fills 100% width and height */}
-      <div ref={mapContainerRef} className="w-full h-full" style={{ zIndex: 1 }} />
+      {/* Leaflet DOM Container - fills 100% width and height, plain #F8FAFA background */}
+      <div 
+        ref={mapContainerRef} 
+        className="w-full h-full" 
+        style={{ zIndex: 1, background: '#F8FAFA' }} 
+      />
 
       {/* Integrated Legend Overlay (Bottom-Right) */}
       <div 

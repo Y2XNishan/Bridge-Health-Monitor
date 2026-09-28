@@ -165,45 +165,32 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
 
     const sensorStatuses = [];
 
-    // Vibration
-    if (bridge.vibration > 1.2) {
-      sensorStatuses.push({ sensor: "Vibration", level: "CRITICAL", severity: 3 });
-    } else if (bridge.vibration > 0.9) {
-      sensorStatuses.push({ sensor: "Vibration", level: "WARNING", severity: 2 });
-    } else if (bridge.vibration > 0.6) {
-      sensorStatuses.push({ sensor: "Vibration", level: "WATCH", severity: 1 });
+    // Vibration (IRC:6-2017)
+    if (bridge.vibration > SENSOR_THRESHOLDS.vibration.crit) {
+      sensorStatuses.push({ sensor: "Vibration", level: "Critical", severity: 3 });
+    } else if (bridge.vibration > SENSOR_THRESHOLDS.vibration.warn) {
+      sensorStatuses.push({ sensor: "Vibration", level: "Monitor", severity: 2 });
     }
 
-    // Strain
-    if (bridge.strain > 210) {
-      sensorStatuses.push({ sensor: "Strain", level: "CRITICAL", severity: 3 });
-    } else if (bridge.strain > 190) {
-      sensorStatuses.push({ sensor: "Strain", level: "WARNING", severity: 2 });
-    } else if (bridge.strain > 170) {
-      sensorStatuses.push({ sensor: "Strain", level: "WATCH", severity: 1 });
+    // Strain (IRC:112-2011)
+    if (bridge.strain > SENSOR_THRESHOLDS.strain.crit) {
+      sensorStatuses.push({ sensor: "Strain", level: "Critical", severity: 3 });
+    } else if (bridge.strain > SENSOR_THRESHOLDS.strain.warn) {
+      sensorStatuses.push({ sensor: "Strain", level: "Monitor", severity: 2 });
     }
 
     // Crack Gap per IRC:112-2011 Table 12.1
-    const crackCrit = SENSOR_THRESHOLDS.crack_gap.crit; // 0.30 mm
-    const crackWarn = SENSOR_THRESHOLDS.crack_gap.warn; // 0.20 mm
-    const crackMid = (crackCrit + crackWarn) / 2;       // 0.25 mm
-    if (bridge.crack_gap > crackCrit) {
-      sensorStatuses.push({ sensor: "Crack Gap", level: "CRITICAL", severity: 3 });
-    } else if (bridge.crack_gap > crackMid) {
-      sensorStatuses.push({ sensor: "Crack Gap", level: "WARNING", severity: 2 });
-    } else if (bridge.crack_gap > crackWarn) {
-      sensorStatuses.push({ sensor: "Crack Gap", level: "WATCH", severity: 1 });
+    if (bridge.crack_gap > SENSOR_THRESHOLDS.crack_gap.crit) {
+      sensorStatuses.push({ sensor: "Crack gap", level: "Critical", severity: 3 });
+    } else if (bridge.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn) {
+      sensorStatuses.push({ sensor: "Crack gap", level: "Monitor", severity: 2 });
     }
 
-    // Water Level
-    const waterCrit = SENSOR_THRESHOLDS.water_level.crit;
-    const waterWarn = SENSOR_THRESHOLDS.water_level.warn;
-    if (bridge.water_level > waterCrit) {
-      sensorStatuses.push({ sensor: "Water Level", level: "CRITICAL", severity: 3 });
-    } else if (bridge.water_level > 5.0) {
-      sensorStatuses.push({ sensor: "Water Level", level: "WARNING", severity: 2 });
-    } else if (bridge.water_level > waterWarn) {
-      sensorStatuses.push({ sensor: "Water Level", level: "WATCH", severity: 1 });
+    // Water Level (IRC:6-2017 / CWC Flood standards)
+    if (bridge.water_level > SENSOR_THRESHOLDS.water_level.crit) {
+      sensorStatuses.push({ sensor: "Water level", level: "Critical", severity: 3 });
+    } else if (bridge.water_level > SENSOR_THRESHOLDS.water_level.warn) {
+      sensorStatuses.push({ sensor: "Water level", level: "Monitor", severity: 2 });
     }
 
     if (sensorStatuses.length > 0) {
@@ -216,13 +203,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     const ratios = [
       { name: "Vibration", ratio: (bridge.vibration || 0) / SENSOR_THRESHOLDS.vibration.crit },
       { name: "Strain", ratio: (bridge.strain || 0) / SENSOR_THRESHOLDS.strain.crit },
-      { name: "Crack Gap", ratio: (bridge.crack_gap || 0) / SENSOR_THRESHOLDS.crack_gap.crit },
-      { name: "Water Level", ratio: (bridge.water_level || 0) / SENSOR_THRESHOLDS.water_level.crit }
+      { name: "Crack gap", ratio: (bridge.crack_gap || 0) / SENSOR_THRESHOLDS.crack_gap.crit },
+      { name: "Water level", ratio: (bridge.water_level || 0) / SENSOR_THRESHOLDS.water_level.crit }
     ];
     ratios.sort((a, b) => b.ratio - a.ratio);
 
     const topRatio = ratios[0];
-    const level = topRatio.ratio > 0.8 ? "WARNING" : "WATCH";
+    const level = topRatio.ratio > 1.0 ? "Critical" : topRatio.ratio > 0.8 ? "Monitor" : "Healthy";
     return `Top alert: ${topRatio.name} — ${level}`;
   };
 
@@ -293,13 +280,21 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
   return (
     <div className="space-y-6 animate-fade-in-up" style={{ color: 'var(--text-primary)' }}>
       
-      {/* ── Status text line ── */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500 font-medium m-0">58 bridges monitored across national network</p>
+      {/* ── Map Header & Subtitle row above the map ── */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            India network map
+          </h2>
+          <span className="text-xs text-slate-500 font-medium">58 bridges monitored</span>
+        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-normal m-0">
+          Official Survey of India legal boundary. Click any marker or cluster to inspect telemetry.
+        </p>
       </div>
 
       {/* ── SECTION 1: MAP ON LEFT, SELECTED BRIDGE PANEL ON RIGHT ── */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-stretch">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-start">
         {/* Left: Leaflet Interactive Map */}
         <div className="lg:col-span-7 xl:col-span-8 w-full">
           <IndiaMapLeaflet
@@ -313,7 +308,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
         </div>
 
         {/* Right: Selected Bridge Details Panel */}
-        <div className="lg:col-span-5 xl:col-span-4 w-full h-[560px]">
+        <div className="lg:col-span-5 xl:col-span-4 w-full">
           <SelectedBridgePanel
             bridge={selectedBridge}
             isLive={selectedBridge ? liveBridgeIds.has(selectedBridge.id) : false}
@@ -493,7 +488,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                     return (
                       <div className="text-[9px] font-sans tracking-tight pt-1 truncate" style={{ color: 'var(--text-muted)' }}>
                         {metaText}
-                        <span className="tabular-nums font-mono">{bridge.year_built}</span>
+                        <span className="font-sans tabular-nums">{bridge.year_built}</span>
                       </div>
                     );
                   })()}
@@ -512,7 +507,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       />
                     </div>
                     <span className="text-[10px] font-semibold font-sans tabular-nums shrink-0 text-right" style={{ color: pinColor }}>
-                      <span className="tabular-nums font-mono font-bold">{formatHealthScore(bridge.health_score)}</span>
+                      <span className="font-sans tabular-nums font-bold">{formatHealthScore(bridge.health_score)}</span>
                       <span className="text-[9px] text-[var(--text-muted)] font-normal ml-0.5">/100</span>
                     </span>
                   </div>
@@ -541,7 +536,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                           color: bridge.alert_count > 0 ? '#991B1B' : '#64748B',
                         }}
                       >
-                        <span className="tabular-nums font-mono">{bridge.alert_count}</span>
+                        <span className="font-sans tabular-nums">{bridge.alert_count}</span>
                       </span>
                     </div>
                     {hoveredBadgeId === bridge.id && (
