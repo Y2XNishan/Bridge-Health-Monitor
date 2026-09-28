@@ -12,6 +12,7 @@ import {
 } from '../api';
 
 import { CheckCircle2, AlertTriangle, AlertCircle, Loader2, Search, List, Activity, Bell, X } from 'lucide-react';
+import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import {
   BarChart,
   Bar,
@@ -553,15 +554,18 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                           {/* Health score with custom underline */}
                           <td className="px-6 py-4">
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                              <span
-                                className="font-mono text-base font-bold"
-                                style={{
-                                  color: healthColor,
-                                  fontSize: '15px',
-                                }}
-                              >
-                                {bridge.health_score !== null && bridge.health_score !== undefined ? bridge.health_score.toFixed(1) : '—'}
-                              </span>
+                              <div style={{ display: 'flex', alignItems: 'baseline' }}>
+                                <span
+                                  className="font-mono text-base font-bold"
+                                  style={{
+                                    color: healthColor,
+                                    fontSize: '15px',
+                                  }}
+                                >
+                                  {bridge.health_score !== null && bridge.health_score !== undefined ? formatHealthScore(bridge.health_score) : '—'}
+                                </span>
+                                <span className="text-[10px] text-[var(--text-muted)] font-normal ml-0.5">/100</span>
+                              </div>
                               <div 
                                 style={{ 
                                   width: '28px', 
@@ -581,22 +585,7 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
 
                           {/* Status badge */}
                           <td className="px-6 py-4">
-                            {alertLvl === 'CRITICAL' ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#FDF2F2', color: '#1C1F26', borderColor: '#FECACA' }}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#991B1B' }} />
-                                Critical
-                              </span>
-                            ) : (alertLvl === 'MONITOR' || alertLvl === 'WARNING') ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#FFFBEB', color: '#1C1F26', borderColor: '#FEF3C7' }}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#D97706' }} />
-                                Monitor
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border" style={{ background: '#F0FDF4', color: '#1C1F26', borderColor: '#DCFCE7' }}>
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#0F6E56' }} />
-                                Healthy
-                              </span>
-                            )}
+                            <StatusBadge status={alertLvl} healthScore={bridge.health_score} />
                           </td>
 
                           {/* Action links */}
@@ -815,20 +804,13 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                         borderBottom: idx === recentAlerts.length - 1 ? 'none' : '1px solid #f1f5f9'
                       }}
                     >
-                      <span 
-                        style={{ 
-                          width: '8px', 
-                          height: '8px', 
-                          borderRadius: '50%', 
-                          backgroundColor: alert.severity === 'critical' ? '#991B1B' : '#D97706',
-                          marginTop: '5px',
-                          flexShrink: 0
-                        }} 
-                      />
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {alert.bridge_name}
-                        </p>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#1C1F26', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {alert.bridge_name}
+                          </p>
+                          <StatusBadge status={alert.severity === 'critical' ? 'Critical' : 'Monitor'} size="sm" />
+                        </div>
                         <p style={{ margin: '4px 0 0 0', fontSize: '11px', fontWeight: '500', color: '#64748b' }}>
                           {alert.message}
                         </p>
@@ -1011,24 +993,10 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                               {bridge.name}
                             </p>
                             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                              Health score: <span style={{ fontWeight: '600', color: '#991B1B' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
+                              Health score: <span style={{ fontWeight: '600', color: '#991B1B' }}>{bridge.health_score.toFixed(1)}/100</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
                             </p>
                           </div>
-                          <span style={{
-                            background: '#FDF2F2',
-                            color: '#1C1F26',
-                            padding: '4px 10px',
-                            borderRadius: '99px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            border: '1px solid #FECACA',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#991B1B' }} />
-                            Critical
-                          </span>
+                          <StatusBadge status="Critical" />
                         </div>
                       ))}
                     </div>
@@ -1068,24 +1036,10 @@ export default function Dashboard({ onSelectBridge, setCurrentPage }) {
                               {bridge.name}
                             </p>
                             <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>
-                              Health score: <span style={{ fontWeight: '600', color: '#D97706' }}>{bridge.health_score.toFixed(1)}</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
+                              Health score: <span style={{ fontWeight: '600', color: '#D97706' }}>{bridge.health_score.toFixed(1)}/100</span> • {bridge.location || `${bridge.city || ''}, ${bridge.state || ''}`}
                             </p>
                           </div>
-                          <span style={{
-                            background: '#FFFBEB',
-                            color: '#1C1F26',
-                            padding: '4px 10px',
-                            borderRadius: '99px',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            border: '1px solid #FEF3C7',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#D97706' }} />
-                            Monitor
-                          </span>
+                          <StatusBadge status="Monitor" />
                         </div>
                       ))}
                     </div>
@@ -1455,28 +1409,9 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                   </div>
                   <div>
                     <span className="text-[10px] font-medium text-[var(--text-muted)] block">Alert level</span>
-                    {(() => {
-                      const raw = String(xaiData.alert_level || xaiData.status || 'Normal').trim();
-                      const isCritical = raw.toUpperCase() === 'CRITICAL' || raw.toUpperCase() === 'FAIL';
-                      const isWarning = raw.toUpperCase() === 'WARNING' || raw.toUpperCase() === 'MONITOR' || raw.toUpperCase() === 'WATCH';
-                      const displayLabel = isCritical ? 'Critical' : isWarning ? 'Monitor' : 'Healthy';
-                      return (
-                        <span 
-                          className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border mt-1"
-                          style={{
-                            background: isCritical ? '#FDF2F2' : isWarning ? '#FFFBEB' : '#F0FDF4',
-                            borderColor: isCritical ? '#FECACA' : isWarning ? '#FEF3C7' : '#DCFCE7',
-                            color: '#1C1F26'
-                          }}
-                        >
-                          <span 
-                            className="w-1.5 h-1.5 rounded-full shrink-0" 
-                            style={{ backgroundColor: isCritical ? '#991B1B' : isWarning ? '#D97706' : '#0F6E56' }} 
-                          />
-                          {displayLabel}
-                        </span>
-                      );
-                    })()}
+                    <div className="mt-1">
+                      <StatusBadge status={xaiData.alert_level || xaiData.status} healthScore={xaiData.health_score} />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
+import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import {
   LineChart,
   Line,
@@ -956,7 +957,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             >
               {criticalBridgesForRca.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.name} (Health: {b.health.toFixed(1)})
+                  {b.name} (Health: {formatHealthScore(b.health)}/100)
                 </option>
               ))}
             </select>
@@ -1934,7 +1935,6 @@ function BridgeIntelligenceTab() {
                     return (a.health_score ?? 100) - (b.health_score ?? 100);
                   })
                   .map((b, i) => {
-                  const tier = getHealthTier(b.health_score ?? 100);
                   const topSensor = getTopSensor(b);
                   return (
                     <div
@@ -1950,12 +1950,12 @@ function BridgeIntelligenceTab() {
                           {topSensor.name}: {(topSensor.value ?? 0).toFixed(2)} {topSensor.unit}
                         </p>
                       </div>
-                      <span
-                        className="text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase"
-                        style={{ color: tier.color, background: tier.bg, border: `1px solid ${tier.color}30` }}
-                      >
-                        {b.health_score?.toFixed(0)} — {tier.label}
-                      </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] font-mono font-medium" style={{ color: C.text1 }}>
+                          {formatHealthScore(b.health_score)}<span className="text-[10px]" style={{ color: C.text3 }}>/100</span>
+                        </span>
+                        <StatusBadge healthScore={b.health_score ?? 100} size="sm" />
+                      </div>
                     </div>
                   );
                 })}

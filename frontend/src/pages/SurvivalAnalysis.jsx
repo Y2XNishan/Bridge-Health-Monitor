@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatHealthScore } from '../components/StatusBadge';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import ReactMarkdown from 'react-markdown';
@@ -894,7 +895,7 @@ export default function SurvivalAnalysis() {
                   <div className="flex justify-between items-start gap-2">
                     <div>
                       <h2 className="text-sm font-black" style={{ color: 'var(--text-primary)' }}>{selectedBridgeData.bridge_name}</h2>
-                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Status: {selectedBridgeData.alert_level} | Health: {selectedBridgeData.health_score}/100</span>
+                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Status: {selectedBridgeData.alert_level} | Health: {formatHealthScore(selectedBridgeData.health_score)}/100</span>
                     </div>
                     <span 
                       className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider shrink-0"
@@ -970,7 +971,7 @@ export default function SurvivalAnalysis() {
                   {/* Trajectory Bar */}
                   <div className="space-y-1 pt-1">
                     <div className="flex justify-between text-[9px]" style={{ color: 'var(--text-secondary)' }}>
-                      <span>Health trajectory (Current: {selectedBridgeData.health_score}%)</span>
+                      <span>Health trajectory (Current: {formatHealthScore(selectedBridgeData.health_score)}/100)</span>
                       <span className="font-medium">Estimated decline</span>
                     </div>
                     <div className="relative w-full h-2.5 rounded-full bg-slate-200 border border-slate-300 overflow-visible">
@@ -978,7 +979,7 @@ export default function SurvivalAnalysis() {
                       <div 
                         className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-white border-2 border-slate-800 shadow-sm flex items-center justify-center cursor-default"
                         style={{ left: `${selectedBridgeData.health_score}%` }}
-                        title={`Current Health: ${selectedBridgeData.health_score}%`}
+                        title={`Current Health: ${formatHealthScore(selectedBridgeData.health_score)}/100`}
                       >
                         <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />
                       </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
+import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import ReactMarkdown from 'react-markdown';
@@ -463,16 +464,7 @@ export default function AgentInspector() {
               className="glass-card p-6 flex flex-col items-center text-center space-y-4 relative overflow-hidden"
               style={{ borderTop: `4px solid ${severityCfg.color}` }}
             >
-              <div 
-                className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border"
-                style={{
-                  backgroundColor: severityCfg.bg,
-                  borderColor: severityCfg.color,
-                  color: severityCfg.color
-                }}
-              >
-                {severityCfg.label} SEVERITY
-              </div>
+              <StatusBadge status={severityCfg.label} />
 
               {/* Circular Health progress ring */}
               <div className="relative flex items-center justify-center mt-2">
@@ -512,8 +504,9 @@ export default function AgentInspector() {
                   />
                 </svg>
                 <div className="absolute flex flex-col items-center">
-                  <span className="text-3xl font-black tracking-tight" style={{ color: severityCfg.color }}>
-                    {Math.round(displayScore)}
+                  <span className="text-2xl font-black tracking-tight" style={{ color: severityCfg.color }}>
+                    {formatHealthScore(displayScore)}
+                    <span className="text-xs font-semibold text-slate-500 ml-0.5">/100</span>
                   </span>
                   <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">Health Score</span>
                 </div>

@@ -1,5 +1,6 @@
 import { Waves, Activity, Gauge, ScanLine } from 'lucide-react';
 import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
+import StatusBadge from './StatusBadge';
 
 const THRESHOLDS = SENSOR_THRESHOLDS;
 const getStatus = getSensorStatus;
@@ -10,28 +11,6 @@ const SENSOR_META = {
   strain:      { label: SENSOR_THRESHOLDS.strain.label,      unit: SENSOR_THRESHOLDS.strain.unit,      icon: Gauge },
   crack_gap:   { label: SENSOR_THRESHOLDS.crack_gap.label,   unit: SENSOR_THRESHOLDS.crack_gap.unit,   icon: ScanLine },
 };
-
-function StatusBadge({ status }) {
-  const isCritical = status === 'Critical';
-  const isMonitor = status === 'Monitor';
-
-  const badgeBg = isCritical ? '#FDF2F2' : isMonitor ? '#FFFBEB' : '#F0FDF4';
-  const badgeBorder = isCritical ? '#FECACA' : isMonitor ? '#FEF3C7' : '#DCFCE7';
-  const badgeDot = isCritical ? '#991B1B' : isMonitor ? '#D97706' : '#0F6E56';
-
-  return (
-    <span 
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border"
-      style={{ backgroundColor: badgeBg, borderColor: badgeBorder, color: '#1C1F26' }}
-    >
-      <span
-        className="w-1.5 h-1.5 rounded-full"
-        style={{ backgroundColor: badgeDot }}
-      />
-      {status}
-    </span>
-  );
-}
 
 export default function MetricCards({ liveData }) {
   const sensors = ['water_level', 'vibration', 'strain', 'crack_gap'];

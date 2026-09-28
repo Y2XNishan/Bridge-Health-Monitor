@@ -7,6 +7,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Activity } from 'lucide-react';
+import StatusBadge, { formatHealthScore } from './StatusBadge';
 
 const GRADE_CONFIG = {
   A: { color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' },
@@ -133,7 +134,7 @@ export default function HealthScore({ liveData, healthHistory }) {
               className="text-5xl font-black tracking-tight leading-none"
               style={{ color: cfg.color }}
             >
-              {score !== null ? Math.round(displayScore) : '—'}
+              {score !== null ? formatHealthScore(displayScore) : '—'}
             </span>
             <span className="text-xs font-medium mt-1" style={{ color: 'var(--text-muted)' }}>/ 100</span>
 
@@ -155,26 +156,13 @@ export default function HealthScore({ liveData, healthHistory }) {
         <div className="flex-1 min-w-0 w-full">
           {/* Status */}
           <div className="mb-5">
-            <span
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest"
-              style={{
-                background: cfg.bg,
-                border: `1px solid ${cfg.border}`,
-                color: cfg.color,
-              }}
-            >
-              <span
-                className="w-2 h-2 rounded-full animate-pulse"
-                style={{ backgroundColor: cfg.color }}
-              />
-              {status}
-            </span>
+            <StatusBadge status={status} healthScore={score} />
           </div>
 
           {/* Score breakdown */}
           <div className="grid grid-cols-3 gap-3 mb-5">
             {[
-              { label: 'Health', value: score !== null ? `${score}` : '—', sub: 'Score' },
+              { label: 'Health', value: score !== null ? `${formatHealthScore(score)}/100` : '—', sub: 'Score' },
               { label: 'Grade', value: grade, sub: 'Rating' },
               { label: 'Status', value: status, sub: 'Condition' },
             ].map((item) => (

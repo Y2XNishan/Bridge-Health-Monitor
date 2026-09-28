@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MapPin, Activity, AlertTriangle, Search } from 'lucide-react';
+import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -351,12 +352,6 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     if (healthScore >= 75) return 'Healthy';
     if (healthScore >= 50) return 'Monitor';
     return 'Critical';
-  };
-
-  const getStatusBadgeClass = (healthScore) => {
-    if (healthScore >= 75) return 'badge-normal';
-    if (healthScore >= 50) return 'badge-warning';
-    return 'badge-critical';
   };
 
   const getTopAlertText = (bridge) => {
@@ -756,7 +751,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                     >
                       Score:{' '}
                       <tspan fill={getPinColor(hoveredBridge.health_score)} className="font-extrabold font-mono">
-                        {hoveredBridge.health_score}%
+                        {formatHealthScore(hoveredBridge.health_score)}/100
                       </tspan>{' '}
                       • Grade:{' '}
                       <tspan fill={getPinColor(hoveredBridge.health_score)} className="font-extrabold font-mono">
@@ -944,8 +939,9 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                         }}
                       />
                     </div>
-                    <span className="text-[10px] font-medium font-sans min-w-[32px] text-right shrink-0" style={{ color: pinColor }}>
-                      <span className="tabular-nums font-mono">{bridge.health_score}</span>%
+                    <span className="text-[10px] font-semibold font-sans tabular-nums shrink-0 text-right" style={{ color: pinColor }}>
+                      <span className="tabular-nums font-mono font-bold">{formatHealthScore(bridge.health_score)}</span>
+                      <span className="text-[9px] text-[var(--text-muted)] font-normal ml-0.5">/100</span>
                     </span>
                   </div>
                 </div>
@@ -953,9 +949,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 {/* Status badge + Alerts count row */}
                 <div className="flex items-center justify-between pt-2 gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   {/* Status Badge */}
-                  <span className={`badge ${getStatusBadgeClass(bridge.health_score)} shrink-0`} style={{ fontSize: '8.5px' }}>
-                    {getTierLabel(bridge.health_score)}
-                  </span>
+                  <StatusBadge healthScore={bridge.health_score} size="sm" />
 
                    {/* Alert Counter (Compact) */}
                   <div className="shrink-0" style={{ position: 'relative', display: 'inline-block' }}>

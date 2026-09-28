@@ -9,6 +9,7 @@ import {
   Cell,
 } from "recharts";
 import { Truck, AlertTriangle, Activity, BarChart2, PieChart, History } from "lucide-react";
+import StatusBadge from "./StatusBadge";
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -569,23 +570,7 @@ export default function TrafficPanel({ bridgeId = 1 }) {
                     </td>
 
                     <td style={{ padding: "8px", textAlign: "center" }}>
-                      <span
-                        style={{
-                          background: badgeBg,
-                          border: `1px solid ${badgeBorder}`,
-                          color: "#1C1F26",
-                          padding: "2px 8px",
-                          borderRadius: "9999px",
-                          fontSize: "10px",
-                          fontWeight: "500",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "5px"
-                        }}
-                      >
-                        <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: badgeDot }} />
-                        {badgeText}
-                      </span>
+                      <StatusBadge status={badgeText} size="sm" />
                     </td>
                   </tr>
                 );

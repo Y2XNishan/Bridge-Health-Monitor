@@ -1,5 +1,6 @@
 import { Bell, CheckCircle2 } from 'lucide-react';
 import { getRiskSeverity } from '../constants/thresholds';
+import StatusBadge from './StatusBadge';
 
 export default function AlertPanel({ alerts }) {
   if (!alerts || alerts.length === 0) {
@@ -74,13 +75,7 @@ export default function AlertPanel({ alerts }) {
                 <span className="text-[11px] font-mono text-slate-500">
                   {alert.timestamp}
                 </span>
-                <span 
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border"
-                  style={{ backgroundColor: badgeBg, borderColor: badgeBorder, color: '#1C1F26' }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: barColor }} />
-                  {badgeLabel}
-                </span>
+                <StatusBadge status={badgeLabel} size="sm" />
               </div>
 
               {/* Triggering sensor message */}
