@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Activity, AlertTriangle, Search } from 'lucide-react';
+import { MapPin, Activity, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import IndiaMapLeaflet from '../components/IndiaMapLeaflet';
+import SelectedBridgePanel from '../components/SelectedBridgePanel';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -13,13 +14,18 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Search & Filtering states
+  // Search & Filtering & Sorting states
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedState, setSelectedState] = useState('All');
   const [selectedGrade, setSelectedGrade] = useState('All');
-  
-  // Selected interactive pin
-  const [selectedPinBridgeId, setSelectedPinBridgeId] = useState(null);
+  const [sortBy, setSortBy] = useState('health_asc');
+
+  // Selected Bridge ID for Map and Right-Hand Panel
+  const [selectedBridgeId, setSelectedBridgeId] = useState(null);
+
+  // Pagination state (12 per page)
+  const PAGE_SIZE = 12;
+  const [currentPageNum, setCurrentPageNum] = useState(1);
 
   // Live bridges state list
   const [liveBridgeIds, setLiveBridgeIds] = useState(new Set());
@@ -82,10 +88,10 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
   }, [bridges]);
 
   // Filter and sort bridges logic
-  const filteredBridges = useMemo(() => {
+  const filteredAndSortedBridges = useMemo(() => {
     let result = [...bridges];
 
-    // Search query filter (by name or state)
+    // Search query filter (by name, state, or city)
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       result = result.filter(
@@ -112,9 +118,39 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
       }
     }
 
-    // Default sort: health score ascending (worst first)
-    return result.sort((a, b) => a.health_score - b.health_score);
-  }, [bridges, searchTerm, selectedState, selectedGrade]);
+    // Sort logic
+    if (sortBy === 'health_asc') {
+      result.sort((a, b) => a.health_score - b.health_score);
+    } else if (sortBy === 'health_desc') {
+      result.sort((a, b) => b.health_score - a.health_score);
+    } else if (sortBy === 'name_asc') {
+      result.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'alerts_desc') {
+      result.sort((a, b) => (b.alert_count || 0) - (a.alert_count || 0) || (a.health_score - b.health_score));
+    }
+
+    return result;
+  }, [bridges, searchTerm, selectedState, selectedGrade, sortBy]);
+
+  // Derived active/selected bridge
+  const selectedBridge = useMemo(() => {
+    if (selectedBridgeId != null) {
+      const match = filteredAndSortedBridges.find((b) => b.id === selectedBridgeId);
+      if (match) return match;
+    }
+    return filteredAndSortedBridges[0] || null;
+  }, [filteredAndSortedBridges, selectedBridgeId]);
+
+  const activeBridgeId = selectedBridge?.id ?? null;
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredAndSortedBridges.length / PAGE_SIZE));
+  const safePageNum = Math.min(currentPageNum, totalPages);
+
+  const paginatedBridges = useMemo(() => {
+    const start = (safePageNum - 1) * PAGE_SIZE;
+    return filteredAndSortedBridges.slice(start, start + PAGE_SIZE);
+  }, [filteredAndSortedBridges, safePageNum]);
 
   const getPinColor = (healthScore) => {
     if (healthScore >= 75) return '#0F6E56'; // Healthy teal
@@ -190,25 +226,33 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     return `Top alert: ${topRatio.name} — ${level}`;
   };
 
-  // Card click navigates or triggers modal
-  const handleCardClick = (bridge) => {
-    setModalBridge(bridge);
-    setModalError('');
-    setActivating(false);
-    setShowModal(true);
+  // Selecting a card highlights its marker and updates panel
+  const handleCardSelect = (bridge) => {
+    setSelectedBridgeId(bridge.id);
   };
 
-  // Map pin click scrolls or highlights card below
-  const handlePinClick = (bridge) => {
-    setSelectedPinBridgeId(bridge.id);
-    const element = document.getElementById(`bridge-card-${bridge.id}`);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-1', 'ring-cyan-500/50');
-      setTimeout(() => {
-        element.classList.remove('ring-1', 'ring-cyan-500/50');
-      }, 2000);
+  // Selecting a marker highlights its card, flips page if needed, and updates panel
+  const handleMarkerSelect = (bridge) => {
+    setSelectedBridgeId(bridge.id);
+
+    // Calculate which page this bridge is located on
+    const index = filteredAndSortedBridges.findIndex((b) => b.id === bridge.id);
+    if (index !== -1) {
+      const targetPage = Math.floor(index / PAGE_SIZE) + 1;
+      setCurrentPageNum(targetPage);
     }
+
+    // Smooth scroll to card and highlight it
+    setTimeout(() => {
+      const element = document.getElementById(`bridge-card-${bridge.id}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        element.classList.add('ring-2', 'ring-[#0F6E56]');
+        setTimeout(() => {
+          element.classList.remove('ring-2', 'ring-[#0F6E56]');
+        }, 2200);
+      }
+    }, 120);
   };
 
   if (loading) {
@@ -237,7 +281,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
         <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{error}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-1 text-[10px] font-medium tracking-wide px-4 py-2 rounded-lg transition"
+          className="mt-1 text-[10px] font-medium tracking-wide px-4 py-2 rounded-lg transition cursor-pointer"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
         >
           Try again
@@ -250,58 +294,102 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     <div className="space-y-6 animate-fade-in-up" style={{ color: 'var(--text-primary)' }}>
       
       {/* ── Status text line ── */}
-      <p className="text-xs text-slate-500 font-medium m-0">58 bridges monitored</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500 font-medium m-0">58 bridges monitored across national network</p>
+      </div>
 
-      {/* ── SECTION 1: INTERACTIVE LEAFLET MAP WITH SURVEY OF INDIA BOUNDARY & CLUSTERING ── */}
-      <section className="relative w-full">
-        <IndiaMapLeaflet
-          bridges={bridges}
-          filteredBridges={filteredBridges}
-          selectedPinBridgeId={selectedPinBridgeId}
-          onSelectBridge={handlePinClick}
-          onOpenDetails={handleCardClick}
-          liveBridgeIds={liveBridgeIds}
-        />
+      {/* ── SECTION 1: MAP ON LEFT, SELECTED BRIDGE PANEL ON RIGHT ── */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full items-stretch">
+        {/* Left: Leaflet Interactive Map */}
+        <div className="lg:col-span-7 xl:col-span-8 w-full">
+          <IndiaMapLeaflet
+            filteredBridges={filteredAndSortedBridges}
+            selectedPinBridgeId={activeBridgeId}
+            onSelectBridge={handleMarkerSelect}
+            liveBridgeIds={liveBridgeIds}
+            selectedState={selectedState}
+            height="560px"
+          />
+        </div>
+
+        {/* Right: Selected Bridge Details Panel */}
+        <div className="lg:col-span-5 xl:col-span-4 w-full h-[560px]">
+          <SelectedBridgePanel
+            bridge={selectedBridge}
+            isLive={selectedBridge ? liveBridgeIds.has(selectedBridge.id) : false}
+            onOpenInspector={(b) => {
+              if (onSelectBridge) onSelectBridge(b.id);
+              if (setCurrentPage) setCurrentPage('ai-inspector');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onManageLive={(b) => {
+              setModalBridge(b);
+              setModalError('');
+              setActivating(false);
+              setShowModal(true);
+            }}
+            isEngineer={isEngineer && isEngineer()}
+            topAlertText={selectedBridge ? getTopAlertText(selectedBridge) : ''}
+          />
+        </div>
       </section>
 
-      {/* Thin divider line between map and search bar */}
-      <div className="w-full h-[1px] my-2" style={{ background: 'var(--border-subtle)' }} />
+      {/* Thin divider line between map section and cards section */}
+      <div className="w-full h-[1px]" style={{ background: 'var(--border-subtle)' }} />
 
-      {/* ── SECTION 2: CLEAN SINGLE ROW SEARCH & FILTER BAR ── */}
-      <div className="max-w-[1200px] mx-auto w-full py-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full text-[10px]">
+      {/* ── SECTION 2: SEARCH, STATE, STATUS & SORT CONTROLS ── */}
+      <div id="bridge-cards-section" className="w-full pt-1 pb-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 w-full text-xs">
           
-          {/* Search Input takes 40% width */}
-          <div className="w-full md:w-[40%] h-10 relative flex items-center">
+          {/* Search Input (4 columns on lg) */}
+          <div className="lg:col-span-4 h-10 relative flex items-center">
             <Search
               size={14}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#8B94A3]"
+              className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"
             />
             <input
               type="text"
               placeholder="Search bridges by name, state, city..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-full rounded-lg text-[10px] focus:outline-none focus:border-[#0F6E56] transition-all font-sans"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPageNum(1);
+              }}
+              className="w-full h-full rounded-xl text-xs focus:outline-none focus:border-[#0F6E56] transition-all font-sans"
               style={{ 
-                paddingLeft: '36px', 
-                paddingRight: '12px', 
+                paddingLeft: '34px', 
+                paddingRight: searchTerm ? '32px' : '12px', 
                 background: 'var(--bg-card)', 
                 border: '1px solid var(--border-subtle)', 
                 color: 'var(--text-primary)' 
               }}
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm('');
+                  setCurrentPageNum(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 text-xs cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
-          {/* State Filter dropdown takes 20% width */}
-          <div className="w-full md:w-[20%] h-10">
+          {/* State Filter dropdown (3 columns on lg) */}
+          <div className="lg:col-span-3 h-10">
             <select
               value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-              className="w-full h-full rounded-lg px-3 text-[10px] focus:outline-none focus:border-[#0F6E56] cursor-pointer transition font-sans"
+              onChange={(e) => {
+                setSelectedState(e.target.value);
+                setCurrentPageNum(1);
+              }}
+              className="w-full h-full rounded-xl px-3 text-xs focus:outline-none focus:border-[#0F6E56] cursor-pointer transition font-sans"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
-              <option value="All">All states</option>
+              <option value="All">All states ({statesList.length - 1})</option>
               {statesList.filter(s => s !== 'All').map((state) => (
                 <option key={state} value={state} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
                   {state}
@@ -310,51 +398,65 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             </select>
           </div>
 
-          {/* Grade Filter dropdown takes 20% width */}
-          <div className="w-full md:w-[20%] h-10">
+          {/* Status Filter dropdown (2 columns on lg) */}
+          <div className="lg:col-span-2 h-10">
             <select
               value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full h-full rounded-lg px-3 text-[10px] focus:outline-none focus:border-[#0F6E56] cursor-pointer transition font-sans"
+              onChange={(e) => {
+                setSelectedGrade(e.target.value);
+                setCurrentPageNum(1);
+              }}
+              className="w-full h-full rounded-xl px-3 text-xs focus:outline-none focus:border-[#0F6E56] cursor-pointer transition font-sans"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
               <option value="All" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>All statuses</option>
-              <option value="Critical" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Critical</option>
-              <option value="Monitor" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Monitor</option>
-              <option value="Healthy" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Healthy</option>
+              <option value="Critical" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Critical (&lt;50)</option>
+              <option value="Monitor" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Monitor (50–74)</option>
+              <option value="Healthy" style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>Healthy (≥75)</option>
             </select>
           </div>
 
-          {/* Results Count takes remaining space (20%), right aligned */}
-          <div className="w-full md:w-[20%] h-10 flex items-center justify-end">
-            <span 
-              className="w-full h-full flex items-center justify-end text-[10px] font-sans tracking-wide px-3 rounded-lg"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
+          {/* Sort dropdown (3 columns on lg) */}
+          <div className="lg:col-span-3 h-10">
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value);
+                setCurrentPageNum(1);
+              }}
+              className="w-full h-full rounded-xl px-3 text-xs focus:outline-none focus:border-[#0F6E56] cursor-pointer transition font-sans font-medium"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
-              Showing <span className="tabular-nums font-mono mx-1">{filteredBridges.length}</span> of <span className="tabular-nums font-mono mx-1">{bridges.length}</span>
-            </span>
+              <option value="health_asc">Sort: Health (Low to high)</option>
+              <option value="health_desc">Sort: Health (High to low)</option>
+              <option value="name_asc">Sort: Name (A to Z)</option>
+              <option value="alerts_desc">Sort: Alert count (High to low)</option>
+            </select>
           </div>
 
         </div>
       </div>
 
-      {/* ── SECTION 3: BRIDGE CARDS LIST GRID ── */}
-      <section className="space-y-3">
+      {/* ── SECTION 3: BRIDGE CARDS LIST GRID (12 PER PAGE) ── */}
+      <section className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredBridges.map((bridge) => {
+          {paginatedBridges.map((bridge) => {
             const pinColor = getPinColor(bridge.health_score);
             const isLive = liveBridgeIds.has(bridge.id);
+            const isSelected = activeBridgeId === bridge.id;
             
             return (
               <div
                 id={`bridge-card-${bridge.id}`}
                 key={bridge.id}
-                onClick={() => handleCardClick(bridge)}
-                className="rounded-xl flex flex-col justify-between cursor-pointer group hover:-translate-y-0.5 relative transition-all duration-200"
+                onClick={() => handleCardSelect(bridge)}
+                className={`rounded-xl flex flex-col justify-between cursor-pointer group hover:-translate-y-0.5 relative transition-all duration-200 ${
+                  isSelected ? 'ring-2 ring-[#0F6E56] shadow-sm' : ''
+                }`}
                 style={{
                   padding: '16px',
                   background: 'var(--bg-card)',
-                  border: '1px solid var(--border-subtle)'
+                  border: isSelected ? '1px solid #0F6E56' : '1px solid var(--border-subtle)'
                 }}
               >
                 {/* Pulsing Live Badge top right */}
@@ -421,7 +523,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                   {/* Status Badge */}
                   <StatusBadge healthScore={bridge.health_score} size="sm" />
 
-                   {/* Alert Counter (Compact) */}
+                  {/* Alert Counter (Compact) */}
                   <div className="shrink-0" style={{ position: 'relative', display: 'inline-block' }}>
                     <div 
                       onMouseEnter={() => setHoveredBadgeId(bridge.id)}
@@ -484,13 +586,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                   </div>
                 </div>
 
-                {/* Non-live bridge cards have an Activate button at the bottom */}
+                {/* Card footer action: select bridge or open activation */}
                 {!isLive && (
                   <button
                     disabled={!isEngineer()}
                     title={!isEngineer() ? "Requires engineer access" : ""}
                     onClick={(e) => {
-                      e.stopPropagation(); // prevent card click direct navigation
+                      e.stopPropagation();
                       setModalBridge(bridge);
                       setModalError('');
                       setActivating(false);
@@ -507,7 +609,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           })}
         </div>
 
-        {filteredBridges.length === 0 && (
+        {/* Empty state when filters return no bridges */}
+        {filteredAndSortedBridges.length === 0 && (
           <div 
             className="p-10 text-center rounded-xl"
             style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
@@ -520,12 +623,85 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 setSearchTerm('');
                 setSelectedState('All');
                 setSelectedGrade('All');
+                setSortBy('health_asc');
+                setCurrentPageNum(1);
               }}
               className="mt-3 text-[10px] font-medium tracking-wide px-4 py-2 rounded-lg transition cursor-pointer"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
             >
               Clear filters
             </button>
+          </div>
+        )}
+
+        {/* ── PAGINATION CONTROLS (12 PER PAGE) ── */}
+        {filteredAndSortedBridges.length > 0 && (
+          <div 
+            className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t" 
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            {/* Items count indicator */}
+            <div className="text-xs text-slate-500 font-sans">
+              Showing <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">{(safePageNum - 1) * PAGE_SIZE + 1}</span>–
+              <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">{Math.min(safePageNum * PAGE_SIZE, filteredAndSortedBridges.length)}</span> of{' '}
+              <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">{filteredAndSortedBridges.length}</span> bridges
+            </div>
+
+            {/* Pagination buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={safePageNum === 1}
+                onClick={() => {
+                  setCurrentPageNum((p) => Math.max(1, p - 1));
+                  document.getElementById('bridge-cards-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                <ChevronLeft size={14} />
+                <span>Previous</span>
+              </button>
+
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                const isActive = pageNum === safePageNum;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => {
+                      setCurrentPageNum(pageNum);
+                      document.getElementById('bridge-cards-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center ${
+                      isActive
+                        ? 'text-white shadow-sm'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                    style={{
+                      background: isActive ? '#0F6E56' : 'var(--bg-card)',
+                      border: isActive ? '1px solid #0F6E56' : '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                disabled={safePageNum === totalPages}
+                onClick={() => {
+                  setCurrentPageNum((p) => Math.min(totalPages, p + 1));
+                  document.getElementById('bridge-cards-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="h-8 px-2.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                <span>Next</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
         )}
       </section>
@@ -550,18 +726,21 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 </>
               ) : (
                 <>
-                  Activate real-time simulated live sensor feeds and anomaly alert stream monitoring for <span style={{ color: '#1C1F26', fontWeight: 'bold' }}>{modalBridge.name}</span>?
+                  Live monitoring is currently <strong>inactive</strong> for <span style={{ color: 'var(--text-primary)', fontWeight: 'bold' }}>{modalBridge.name}</span>. Activating will initiate live telemetry feed generation and stream sensor data in real-time.
                 </>
               )}
             </p>
 
-            {/* Error Message inside the Modal */}
             {modalError && (
               <div 
-                className="px-3.5 py-2 rounded-lg text-[10px] font-semibold flex items-center gap-1.5 leading-relaxed animate-fade-in-up"
+                className="p-3 rounded-lg text-xs font-medium flex items-center gap-2"
                 style={{ background: '#FDF2F2', border: '1px solid #FECACA', color: '#991B1B' }}
               >
-                <AlertTriangle size={13} color="#991B1B" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
                 <span>{modalError}</span>
               </div>
             )}

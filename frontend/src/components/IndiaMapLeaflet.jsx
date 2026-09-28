@@ -23,17 +23,19 @@ function getStatusInfo(healthScore) {
 }
 
 export default function IndiaMapLeaflet({
-  bridges = [],
   filteredBridges = [],
   selectedPinBridgeId,
   onSelectBridge,
   onOpenDetails,
   liveBridgeIds = new Set(),
+  selectedState = 'All',
+  height = '560px',
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const clusterGroupRef = useRef(null);
   const boundaryLayerRef = useRef(null);
+  const markerMapRef = useRef({});
 
   // ── Initialize Map & Tile Layer & SOI Boundary ──
   useEffect(() => {
@@ -42,7 +44,7 @@ export default function IndiaMapLeaflet({
     // Initialize Leaflet map
     const map = L.map(mapContainerRef.current, {
       center: [22.5, 82.0],
-      zoom: 5,
+      zoom: 4.8,
       minZoom: 4,
       maxZoom: 18,
       zoomControl: false, // We place zoom control cleanly in top-right
@@ -101,7 +103,7 @@ export default function IndiaMapLeaflet({
       spiderfyOnMaxZoom: true,
       removeOutsideVisibleBounds: true,
       disableClusteringAtZoom: 15,
-      maxClusterRadius: 40, // Groups dense city clusters (Delhi, Mumbai, Kochi, Kolkata, Guwahati)
+      maxClusterRadius: 38, // Groups dense city clusters (Delhi, Mumbai, Kochi, Kolkata, Guwahati)
       iconCreateFunction: function (cluster) {
         const childMarkers = cluster.getAllChildMarkers();
         const count = childMarkers.length;
@@ -123,8 +125,8 @@ export default function IndiaMapLeaflet({
             background-color: ${bg};
             border: 2px solid ${color};
             color: #1C1F26;
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -136,8 +138,8 @@ export default function IndiaMapLeaflet({
             transition: transform 0.15s ease;
           ">${count}</div>`,
           className: 'bridge-cluster-icon',
-          iconSize: L.point(32, 32),
-          iconAnchor: L.point(16, 16),
+          iconSize: L.point(30, 30),
+          iconAnchor: L.point(15, 15),
         });
       },
     });
@@ -164,6 +166,7 @@ export default function IndiaMapLeaflet({
     if (!clusterGroup || !map) return;
 
     clusterGroup.clearLayers();
+    markerMapRef.current = {};
 
     filteredBridges.forEach((bridge) => {
       if (bridge.lat == null || bridge.lng == null) return;
@@ -172,8 +175,11 @@ export default function IndiaMapLeaflet({
       const isSelected = selectedPinBridgeId === bridge.id;
       const isLive = liveBridgeIds.has(bridge.id);
 
-      const size = isSelected ? 18 : 14;
+      const size = isSelected ? 22 : 14;
       const borderSize = isSelected ? 3 : 2;
+      const ringShadow = isSelected
+        ? '0 0 0 5px rgba(15, 110, 86, 0.45), 0 3px 8px rgba(0,0,0,0.35)'
+        : '0 1px 3px rgba(0,0,0,0.25)';
 
       // Flat circular marker with shared status color and thin white outline
       const icon = L.divIcon({
@@ -183,7 +189,7 @@ export default function IndiaMapLeaflet({
           height: ${size}px;
           border-radius: 50%;
           border: ${borderSize}px solid #ffffff;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+          box-shadow: ${ringShadow};
           cursor: pointer;
           transition: transform 0.15s ease;
           position: relative;
@@ -192,8 +198,8 @@ export default function IndiaMapLeaflet({
             position: absolute;
             top: -2px;
             right: -2px;
-            width: 5px;
-            height: 5px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background-color: #34D399;
             border: 1px solid #ffffff;
@@ -208,6 +214,7 @@ export default function IndiaMapLeaflet({
         icon,
         bridgeStatus: statusInfo.label,
         bridgeId: bridge.id,
+        zIndexOffset: isSelected ? 1000 : 0,
       });
 
       // Hover Tooltip showing bridge name, location, and health score
@@ -235,15 +242,43 @@ export default function IndiaMapLeaflet({
         className: 'leaflet-clean-tooltip',
       });
 
-      // Clicking a marker selects that bridge and opens its details
+      // Clicking a marker selects that bridge and triggers callback
       marker.on('click', () => {
         if (onSelectBridge) onSelectBridge(bridge);
         if (onOpenDetails) onOpenDetails(bridge);
       });
 
       clusterGroup.addLayer(marker);
+      markerMapRef.current[bridge.id] = marker;
     });
   }, [filteredBridges, selectedPinBridgeId, liveBridgeIds, onSelectBridge, onOpenDetails]);
+
+  // ── Auto-reveal / pan to selected marker when selectedPinBridgeId changes ──
+  useEffect(() => {
+    if (selectedPinBridgeId == null) return;
+    const marker = markerMapRef.current[selectedPinBridgeId];
+    const clusterGroup = clusterGroupRef.current;
+    const map = mapInstanceRef.current;
+    if (marker && clusterGroup && map) {
+      clusterGroup.zoomToShowLayer(marker, () => {
+        const latLng = marker.getLatLng();
+        map.panTo(latLng, { animate: true, duration: 0.4 });
+        marker.openTooltip();
+      });
+    }
+  }, [selectedPinBridgeId]);
+
+  // ── Auto-fit state bounds when state filter is applied ──
+  useEffect(() => {
+    if (selectedState && selectedState !== 'All' && mapInstanceRef.current && filteredBridges.length > 0) {
+      const latLngs = filteredBridges
+        .filter((b) => b.lat != null && b.lng != null)
+        .map((b) => [b.lat, b.lng]);
+      if (latLngs.length > 0) {
+        mapInstanceRef.current.fitBounds(L.latLngBounds(latLngs), { padding: [30, 30], maxZoom: 9 });
+      }
+    }
+  }, [selectedState, filteredBridges]);
 
   // Quick View Jump controls
   const handleResetIndiaView = () => {
@@ -264,25 +299,29 @@ export default function IndiaMapLeaflet({
   };
 
   return (
-    <div className="w-full relative rounded-2xl overflow-hidden" style={{ height: '520px', border: '1px solid var(--border-subtle)', background: '#F8FAFC' }}>
+    <div
+      className="w-full relative rounded-2xl overflow-hidden"
+      style={{ height: height || '560px', border: '1px solid var(--border-subtle)', background: '#F8FAFC' }}
+    >
       {/* Map Header Overlay */}
-      <div className="absolute top-4 left-4 z-[400] pointer-events-none">
-        <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: '#0F172A' }}>
-          India bridge monitoring network
+      <div className="absolute top-3.5 left-3.5 z-[400] pointer-events-none max-w-[60%]">
+        <h2 className="text-xs sm:text-sm font-bold tracking-tight flex flex-wrap items-center gap-1.5" style={{ color: '#0F172A' }}>
+          India network map
           <span 
-            className="text-[9px] font-normal font-sans px-1.5 py-0.5 rounded"
+            className="text-[9px] font-normal font-sans px-1.5 py-0.5 rounded inline-flex items-center"
             style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569' }}
           >
-            <span className="tabular-nums font-mono font-bold">{bridges.length}</span> bridges
+            <span className="tabular-nums font-mono font-bold mr-1">{filteredBridges.length}</span>
+            <span>{filteredBridges.length === 1 ? 'bridge' : 'bridges'}</span>
           </span>
         </h2>
-        <p className="text-[10px] mt-0.5 text-slate-500 font-sans">
-          Official Survey of India boundaries. Click marker or cluster to inspect bridges.
+        <p className="text-[10px] mt-0.5 text-slate-500 font-sans hidden sm:block">
+          Survey of India boundary • Click pin to inspect
         </p>
       </div>
 
       {/* Quick View Navigation Controls (Top-Right alongside zoom) */}
-      <div className="absolute top-4 right-14 z-[400] flex items-center gap-1.5">
+      <div className="absolute top-3.5 right-14 z-[400] flex items-center gap-1.5">
         <button
           type="button"
           onClick={handleFocusSouthIndia}
@@ -306,7 +345,7 @@ export default function IndiaMapLeaflet({
 
       {/* Integrated Legend Overlay (Bottom-Right) */}
       <div 
-        className="absolute bottom-4 right-4 p-2.5 rounded-lg flex flex-col gap-1.5 text-[9px] pointer-events-none select-none z-[400] w-32 bg-white/95 border border-slate-200 shadow-sm"
+        className="absolute bottom-3.5 right-3.5 p-2 rounded-lg flex flex-col gap-1 text-[9px] pointer-events-none select-none z-[400] w-32 bg-white/95 border border-slate-200 shadow-sm"
       >
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#0F6E56', border: '1.5px solid #fff' }} />
@@ -321,7 +360,7 @@ export default function IndiaMapLeaflet({
           <span className="font-medium text-slate-700">Critical (&lt;50)</span>
         </div>
         <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-          <span className="w-4 h-4 rounded-full border border-slate-400 bg-slate-100 text-[8px] font-bold flex items-center justify-center text-slate-700">
+          <span className="w-3.5 h-3.5 rounded-full border border-slate-400 bg-slate-100 text-[8px] font-bold flex items-center justify-center text-slate-700">
             5
           </span>
           <span className="font-medium text-slate-500">Cluster</span>

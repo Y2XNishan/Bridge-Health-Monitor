@@ -295,7 +295,7 @@ export default function App() {
               ) : currentPage === 'aiops' ? (
                 <AIIntelligenceCenter />
               ) : currentPage === 'ai-inspector' ? (
-                <AgentInspector />
+                <AgentInspector activeBridgeId={activeBridgeSafeId} />
               ) : currentPage === 'predictive' ? (
                 <SurvivalAnalysis />
               ) : (

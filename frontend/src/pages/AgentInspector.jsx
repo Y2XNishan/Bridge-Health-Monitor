@@ -138,10 +138,9 @@ const mapAlertLevel = (level) => {
   return val;
 };
 
-export default function AgentInspector() {
+export default function AgentInspector({ activeBridgeId }) {
   const [bridges, setBridges] = useState([]);
-  const [selectedBridgeId, setSelectedBridgeId] = useState('');
-  const [selectedBridge, setSelectedBridge] = useState(null);
+  const [selectedBridgeId, setSelectedBridgeId] = useState(() => (activeBridgeId ? Number(activeBridgeId) : ''));
   const [loading, setLoading] = useState(false);
   const [currentStageIndex, setCurrentStageIndex] = useState(-1);
   const [inspectionResult, setInspectionResult] = useState(null);
@@ -162,22 +161,27 @@ export default function AgentInspector() {
       .then((data) => {
         setBridges(data);
         if (data.length > 0) {
-          setSelectedBridgeId(data[0].id);
-          setSelectedBridge(data[0]);
+          setSelectedBridgeId((prev) => {
+            if (prev && data.some(b => Number(b.id) === Number(prev))) return prev;
+            if (activeBridgeId && data.some(b => Number(b.id) === Number(activeBridgeId))) return Number(activeBridgeId);
+            return data[0].id;
+          });
         }
       })
       .catch((err) => {
         console.error('[agent-inspector-fetch-bridges]', err);
         setError('Failed to load bridges list.');
       });
-  }, []);
+  }, [activeBridgeId]);
+
+  // Derived selected bridge
+  const selectedBridge = useMemo(() => {
+    return bridges.find((b) => Number(b.id) === Number(selectedBridgeId)) || bridges[0] || null;
+  }, [bridges, selectedBridgeId]);
 
   // Update selected bridge details when selector changes
   const handleBridgeChange = (e) => {
-    const id = Number(e.target.value);
-    setSelectedBridgeId(id);
-    const bridge = bridges.find(b => b.id === id);
-    setSelectedBridge(bridge);
+    setSelectedBridgeId(Number(e.target.value));
   };
 
   // Run AI agent inspection
