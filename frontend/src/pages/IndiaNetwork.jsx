@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { MapPin, Activity, AlertTriangle } from 'lucide-react';
+import { MapPin, Activity, AlertTriangle, Search } from 'lucide-react';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -553,27 +553,41 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
             >
               －
             </button>
+
+            {/* Divider */}
+            <div className="w-[1px] h-4 mx-0.5" style={{ backgroundColor: '#2A2E39' }} />
+
             <button
+              type="button"
               onClick={() => {
                 setZoom(2.2);
                 setPan({ x: 210, y: -430 });
               }}
               title="Focus South India Cluster"
-              className="px-2 h-7 rounded flex items-center justify-center text-[9px] font-semibold tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: '#8B94A3', border: 'none', background: 'none' }}
+              className="px-2.5 h-7 rounded flex items-center justify-center text-[9.5px] font-medium tracking-wide transition cursor-pointer hover:bg-white/10 active:scale-95 border"
+              style={{ 
+                color: '#CBD5E1', 
+                backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                borderColor: '#2A2E39' 
+              }}
             >
-              South
+              South India
             </button>
             <button
+              type="button"
               onClick={() => {
                 setZoom(1);
                 setPan({ x: 0, y: 0 });
               }}
-              title="Reset Zoom"
-              className="px-2 h-7 rounded flex items-center justify-center text-[9px] font-semibold tracking-wider transition cursor-pointer hover:bg-white/10 active:scale-95"
-              style={{ color: '#8B94A3', border: 'none', background: 'none' }}
+              title="Reset Map View"
+              className="px-2.5 h-7 rounded flex items-center justify-center text-[9.5px] font-medium tracking-wide transition cursor-pointer hover:bg-white/10 active:scale-95 border"
+              style={{ 
+                color: '#CBD5E1', 
+                backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+                borderColor: '#2A2E39' 
+              }}
             >
-              Reset
+              Reset View
             </button>
           </div>
 
@@ -786,7 +800,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
       </section>
 
       {/* Thin divider line between map and search bar */}
-      <div className="w-full h-[1px] my-2" style={{ background: '#21262d' }} />
+      <div className="w-full h-[1px] my-2" style={{ background: 'var(--border-subtle)' }} />
 
       {/* ── SECTION 2: CLEAN SINGLE ROW SEARCH & FILTER BAR ── */}
       <div className="max-w-[1200px] mx-auto w-full py-4">
@@ -794,25 +808,23 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           
           {/* Search Input takes 40% width */}
           <div className="w-full md:w-[40%] h-10 relative flex items-center">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#8b949e"
-              strokeWidth="2.5"
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
+            <Search
+              size={14}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#8B94A3]"
+            />
             <input
               type="text"
               placeholder="Search bridges by name, state, city..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-full rounded-lg pl-9 pr-3 text-[10px] focus:outline-none focus:border-[#58a6ff] transition-all font-sans"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
+              className="w-full h-full rounded-lg text-[10px] focus:outline-none focus:border-[#0F6E56] transition-all font-sans"
+              style={{ 
+                paddingLeft: '36px', 
+                paddingRight: '12px', 
+                background: 'var(--bg-card)', 
+                border: '1px solid var(--border-subtle)', 
+                color: 'var(--text-primary)' 
+              }}
             />
           </div>
 
@@ -873,23 +885,24 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 id={`bridge-card-${bridge.id}`}
                 key={bridge.id}
                 onClick={() => handleCardClick(bridge)}
-                className="p-4 rounded-xl flex flex-col justify-between cursor-pointer group hover:-translate-y-0.5 relative overflow-hidden transition-all duration-200"
+                className="rounded-xl flex flex-col justify-between cursor-pointer group hover:-translate-y-0.5 relative transition-all duration-200"
                 style={{
+                  padding: '16px',
                   background: 'var(--bg-card)',
                   border: isLive
-                    ? '1px solid #3fb950'
+                    ? '1px solid #0F6E56'
                     : selectedPinBridgeId === bridge.id
                       ? '1px solid #58a6ff'
-                      : '1px solid #21262d'
+                      : '1px solid var(--border-subtle)'
                 }}
               >
                 {/* Pulsing Green LIVE Badge top right */}
                 {isLive && (
                   <div 
-                    className="absolute right-0 top-0 px-2 py-0.8 rounded-bl-lg text-[7px] font-black uppercase tracking-wider flex items-center gap-1 animate-pulse"
-                    style={{ background: 'rgba(63, 185, 80, 0.1)', borderBottom: '1px solid rgba(63, 185, 80, 0.2)', borderLeft: '1px solid rgba(63, 185, 80, 0.2)', color: 'var(--accent-green-light)' }}
+                    className="absolute right-0 top-0 px-2 py-0.5 rounded-bl-lg rounded-tr-xl text-[7px] font-black uppercase tracking-wider flex items-center gap-1 animate-pulse"
+                    style={{ background: 'rgba(15, 110, 86, 0.1)', borderBottom: '1px solid rgba(15, 110, 86, 0.2)', borderLeft: '1px solid rgba(15, 110, 86, 0.2)', color: '#0F6E56' }}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#0F6E56' }} />
                     LIVE
                   </div>
                 )}
@@ -904,14 +917,22 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                   
                   {/* Location (City + State) */}
                   <div className="text-[9.5px] font-mono flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
-                    <MapPin size={11} className="text-slate-400" />
-                    <span>{bridge.city || 'State'}, {bridge.state}</span>
+                    <MapPin size={11} className="text-slate-400 shrink-0" />
+                    <span className="truncate">{bridge.city || 'State'}, {bridge.state}</span>
                   </div>
 
-                  {/* River, Type, Year, Length (Single compact metadata line) */}
-                  <div className="text-[9px] font-mono tracking-tight pt-1" style={{ color: 'var(--text-muted)' }}>
-                    {bridge.river} • {bridge.type} • {bridge.year_built} • {bridge.length_m}m
-                  </div>
+                  {/* River, Type, Year (Hide river if empty or 'None', show only type and year) */}
+                  {(() => {
+                    const hasRiver = bridge.river && !['none', 'null', 'n/a', ''].includes(String(bridge.river).trim().toLowerCase());
+                    const metaText = hasRiver
+                      ? `${bridge.river} • ${bridge.type} • ${bridge.year_built}`
+                      : `${bridge.type} • ${bridge.year_built}`;
+                    return (
+                      <div className="text-[9px] font-mono tracking-tight pt-1 truncate" style={{ color: 'var(--text-muted)' }}>
+                        {metaText}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Health progress bar and percent indicator */}
@@ -921,26 +942,26 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{
-                          width: `${bridge.health_score}%`,
+                          width: `${Math.min(100, Math.max(0, bridge.health_score))}%`,
                           backgroundColor: pinColor
                         }}
                       />
                     </div>
-                    <span className="text-[10px] font-bold font-mono min-w-[28px] text-right" style={{ color: pinColor }}>
+                    <span className="text-[10px] font-bold font-mono min-w-[32px] text-right shrink-0" style={{ color: pinColor }}>
                       {bridge.health_score}%
                     </span>
                   </div>
                 </div>
 
                 {/* Status badge + Alerts count row */}
-                <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  {/* Status Badge (Smaller size) */}
-                  <span className={`badge ${getStatusBadgeClass(bridge.health_score)}`} style={{ fontSize: '8.5px' }}>
+                <div className="flex items-center justify-between pt-2 gap-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  {/* Status Badge */}
+                  <span className={`badge ${getStatusBadgeClass(bridge.health_score)} shrink-0`} style={{ fontSize: '8.5px' }}>
                     {getTierLabel(bridge.health_score)}
                   </span>
 
                    {/* Alert Counter (Compact) */}
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <div className="shrink-0" style={{ position: 'relative', display: 'inline-block' }}>
                     <div 
                       onMouseEnter={() => setHoveredBadgeId(bridge.id)}
                       onMouseLeave={() => setHoveredBadgeId(null)}
@@ -950,7 +971,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                     >
                       <span>Alerts</span>
                       <span
-                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded border"
+                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded border shrink-0"
                         style={{
                           background: bridge.alert_count > 0 ? '#FDF2F2' : '#F8FAFA',
                           borderColor: bridge.alert_count > 0 ? '#FECACA' : '#E2E8F0',

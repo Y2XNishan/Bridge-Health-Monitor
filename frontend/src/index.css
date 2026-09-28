@@ -41,25 +41,25 @@
 }
 
 /* ── Global resets ─────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
-html {
-  font-size: 14px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-body {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  margin: 0;
-  font-family: var(--font-family);
+  body {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    margin: 0;
+    font-family: var(--font-family);
+  }
 }
 
 /* ── Scrollbar styling ─────────────────────────────────────────── */
