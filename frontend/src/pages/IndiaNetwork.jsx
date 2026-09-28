@@ -294,9 +294,9 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           y1={pStart.y}
           x2={pEnd.x}
           y2={pEnd.y}
-          stroke="rgba(15,23,42,0.06)"
-          strokeWidth="1"
-          strokeDasharray="4,4"
+          stroke="#cbd5e1"
+          strokeWidth="0.8"
+          strokeDasharray="3,3"
         />
       );
       lines.push(
@@ -304,8 +304,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           key={`lat-text-${lat}`}
           x={10}
           y={pStart.y - 4}
-          fill="rgba(15,23,42,0.3)"
-          className="text-[7px] font-mono tracking-widest font-bold pointer-events-none"
+          fill="#475569"
+          className="text-[8px] font-mono font-medium pointer-events-none select-none"
         >
           {lat}°N
         </text>
@@ -322,9 +322,9 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           y1={pStart.y}
           x2={pEnd.x}
           y2={pEnd.y}
-          stroke="rgba(15,23,42,0.06)"
-          strokeWidth="1"
-          strokeDasharray="4,4"
+          stroke="#cbd5e1"
+          strokeWidth="0.8"
+          strokeDasharray="3,3"
         />
       );
       lines.push(
@@ -332,8 +332,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           key={`lng-text-${lng}`}
           x={pStart.x + 4}
           y={MAP_H - 10}
-          fill="rgba(15,23,42,0.3)"
-          className="text-[7px] font-mono tracking-widest font-bold pointer-events-none"
+          fill="#475569"
+          className="text-[8px] font-mono font-medium pointer-events-none select-none"
         >
           {lng}°E
         </text>
@@ -481,18 +481,8 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
   return (
     <div className="space-y-6 animate-fade-in-up" style={{ color: 'var(--text-primary)' }}>
       
-      {/* ── LIVE BRIDGES NOTIFICATION BANNER ── */}
-      {liveBridgeIds.size > 0 && (
-        <div 
-          className="px-4 py-2.5 rounded-xl flex items-center justify-between text-xs font-medium animate-fade-in-up"
-          style={{ background: 'var(--status-healthy-bg)', border: '1px solid var(--status-healthy-border)', color: 'var(--status-healthy)' }}
-        >
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: '#0F6E56' }} />
-            <span>{liveBridgeIds.size} {liveBridgeIds.size === 1 ? 'bridge is' : 'bridges are'} currently active for live telemetry stream monitoring.</span>
-          </div>
-        </div>
-      )}
+      {/* ── Status text line ── */}
+      <p className="text-xs text-slate-500 font-medium m-0">58 bridges monitored</p>
 
       {/* ── SECTION 1: MAP WITH INTEGRATED LEGEND ── */}
       <section className="relative">
@@ -590,7 +580,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
           <div className="w-full h-full flex items-center justify-center relative">
             <svg
               viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-              className="w-full max-w-[480px] h-full max-h-[480px] drop-shadow-[0_10px_20px_rgba(0,0,0,0.35)] relative overflow-hidden select-none"
+              className="w-full max-w-[480px] h-full max-h-[480px] relative overflow-hidden select-none"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -625,13 +615,13 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                 {GEOGRAPHIC_CITIES.map((city) => {
                   const pt = project(city.lat, city.lng);
                   return (
-                    <g key={`city-${city.name}`} className="opacity-30 pointer-events-none select-none">
-                      <circle cx={pt.x} cy={pt.y} r="2" fill="rgba(15,23,42,0.4)" />
+                    <g key={`city-${city.name}`} className="pointer-events-none select-none">
+                      <circle cx={pt.x} cy={pt.y} r="2" fill="#475569" />
                       <text
                         x={pt.x + 4}
                         y={pt.y + 2.5}
-                        fill="rgba(15,23,42,0.5)"
-                        className="text-[7px] font-medium tracking-wide font-sans"
+                        fill="#334155"
+                        className="text-[8px] font-semibold tracking-normal font-sans"
                       >
                         {city.name}
                       </text>
@@ -649,7 +639,6 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                   const isHovered = hoveredBridge?.id === bridge.id;
                   const isSelected = selectedPinBridgeId === bridge.id;
                   const pinColor = getPinColor(bridge.health_score);
-                  const isLive = liveBridgeIds.has(bridge.id);
                   
                   return (
                     <g
@@ -662,42 +651,14 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       }}
                       onMouseLeave={() => setHoveredBridge(null)}
                     >
-                      {/* Pulsing ring for live bridges using native SVG animations to prevent coordinate drift */}
-                      {isLive && (
-                        <circle
-                          cx={pt.x}
-                          cy={pt.y}
-                          fill="none"
-                          stroke={pinColor}
-                          strokeWidth="1.5"
-                        >
-                          <animate
-                            attributeName="r"
-                            values={isHovered || isSelected ? "8;22" : "6;16"}
-                            dur="1.8s"
-                            repeatCount="indefinite"
-                          />
-                          <animate
-                            attributeName="opacity"
-                            values="0.8;0"
-                            dur="1.8s"
-                            repeatCount="indefinite"
-                          />
-                        </circle>
-                      )}
-
-                      {/* Circle Pin - Solid filled with white border and drop shadow */}
+                      {/* Flat Circle Pin - Solid fill with thin white outline using shared status colors */}
                       <circle
                         cx={pt.x}
                         cy={pt.y}
-                        r={isHovered || isSelected ? 8 : 6}
+                        r={isHovered || isSelected ? 7 : 5.5}
                         fill={pinColor}
-                        stroke={isLive ? "#16a34a" : "#ffffff"}
-                        strokeWidth={isHovered || isSelected ? 1.8 : 1}
-                        style={{
-                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))',
-                          transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-                        }}
+                        stroke="#ffffff"
+                        strokeWidth={1}
                       />
                     </g>
                   );
@@ -716,7 +677,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
                       fill="#ffffff"
                       stroke="#cbd5e1"
                       strokeWidth="1"
-                      style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.4))' }}
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
                     />
                     {/* Arrow marker */}
                     <polygon points="0,0 -5,-6 5,-6" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />

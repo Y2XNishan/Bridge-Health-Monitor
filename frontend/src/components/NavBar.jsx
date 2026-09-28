@@ -204,7 +204,7 @@ export default function NavBar({ currentPage, setCurrentPage, isChatOpen, setIsC
             width: '8px', 
             height: '8px', 
             borderRadius: '50%', 
-            backgroundColor: '#0F6E56' 
+            backgroundColor: '#34D399' 
           }} 
         />
       </div>

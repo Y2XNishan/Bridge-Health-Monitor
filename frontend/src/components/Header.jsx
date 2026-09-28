@@ -131,12 +131,12 @@ export default function Header({ currentPage = 'dashboard', activeBridgeId, acti
         <span
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
           style={{
-            backgroundColor: 'rgba(15, 110, 86, 0.15)',
-            color: '#0F6E56',
-            border: '1px solid #0F6E56',
+            backgroundColor: 'rgba(52, 211, 153, 0.12)',
+            color: '#34D399',
+            border: '1px solid rgba(52, 211, 153, 0.35)',
           }}
         >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#0F6E56' }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#34D399' }} />
           Live
         </span>
 
