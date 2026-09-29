@@ -66,7 +66,7 @@ export default function MetricCards({ liveData }) {
               <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-mono">
                 <span>0</span>
                 <span>
-                  {THRESHOLDS[sensor].crit} {meta.unit} threshold
+                  Limit: {Number(THRESHOLDS[sensor].crit).toFixed(sensor === 'strain' ? 1 : 2)} {meta.unit}
                 </span>
               </div>
             </div>

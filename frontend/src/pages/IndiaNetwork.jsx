@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MapPin, Activity, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
-import { SENSOR_THRESHOLDS } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
 import IndiaMapLeaflet from '../components/IndiaMapLeaflet';
 import SelectedBridgePanel from '../components/SelectedBridgePanel';
 
@@ -163,34 +163,24 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
       return "No active alerts";
     }
 
+    const sensorConfigs = [
+      { id: "vibration", name: "Vibration" },
+      { id: "strain", name: "Strain" },
+      { id: "crack_gap", name: "Crack gap" },
+      { id: "water_level", name: "Water level" },
+    ];
+
     const sensorStatuses = [];
-
-    // Vibration (IRC:6-2017)
-    if (bridge.vibration > SENSOR_THRESHOLDS.vibration.crit) {
-      sensorStatuses.push({ sensor: "Vibration", level: "Critical", severity: 3 });
-    } else if (bridge.vibration > SENSOR_THRESHOLDS.vibration.warn) {
-      sensorStatuses.push({ sensor: "Vibration", level: "Monitor", severity: 2 });
-    }
-
-    // Strain (IRC:112-2011)
-    if (bridge.strain > SENSOR_THRESHOLDS.strain.crit) {
-      sensorStatuses.push({ sensor: "Strain", level: "Critical", severity: 3 });
-    } else if (bridge.strain > SENSOR_THRESHOLDS.strain.warn) {
-      sensorStatuses.push({ sensor: "Strain", level: "Monitor", severity: 2 });
-    }
-
-    // Crack Gap per IRC:112-2011 Table 12.1
-    if (bridge.crack_gap > SENSOR_THRESHOLDS.crack_gap.crit) {
-      sensorStatuses.push({ sensor: "Crack gap", level: "Critical", severity: 3 });
-    } else if (bridge.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn) {
-      sensorStatuses.push({ sensor: "Crack gap", level: "Monitor", severity: 2 });
-    }
-
-    // Water Level (IRC:6-2017 / CWC Flood standards)
-    if (bridge.water_level > SENSOR_THRESHOLDS.water_level.crit) {
-      sensorStatuses.push({ sensor: "Water level", level: "Critical", severity: 3 });
-    } else if (bridge.water_level > SENSOR_THRESHOLDS.water_level.warn) {
-      sensorStatuses.push({ sensor: "Water level", level: "Monitor", severity: 2 });
+    for (const sensor of sensorConfigs) {
+      const val = bridge[sensor.id];
+      if (val != null && !isNaN(Number(val))) {
+        const status = getSensorStatus(sensor.id, Number(val));
+        if (status === 'Critical') {
+          sensorStatuses.push({ sensor: sensor.name, level: "Critical", severity: 3 });
+        } else if (status === 'Monitor') {
+          sensorStatuses.push({ sensor: sensor.name, level: "Monitor", severity: 2 });
+        }
+      }
     }
 
     if (sensorStatuses.length > 0) {
@@ -209,7 +199,7 @@ export default function IndiaNetwork({ onSelectBridge, setCurrentPage }) {
     ratios.sort((a, b) => b.ratio - a.ratio);
 
     const topRatio = ratios[0];
-    const level = topRatio.ratio > 1.0 ? "Critical" : topRatio.ratio > 0.8 ? "Monitor" : "Healthy";
+    const level = topRatio.ratio >= 1.0 ? "Critical" : topRatio.ratio >= 0.8 ? "Monitor" : "Healthy";
     return `Top alert: ${topRatio.name} — ${level}`;
   };
 

@@ -43,6 +43,24 @@ CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS["crack_gap"]["warn"]   # 0.20 mm
 WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS["water_level"]["crit"]  # 5.50 m
 WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS["water_level"]["warn"]   # 4.00 m
 
+VIBRATION_LIMIT_G = SENSOR_THRESHOLDS["vibration"]["crit"]      # 1.20 g
+VIBRATION_WARN_G = SENSOR_THRESHOLDS["vibration"]["warn"]       # 0.80 g
+
+STRAIN_LIMIT_MPA = SENSOR_THRESHOLDS["strain"]["crit"]          # 210.0 MPa
+STRAIN_WARN_MPA = SENSOR_THRESHOLDS["strain"]["warn"]           # 180.0 MPa
+
+
+def get_sensor_status(sensor_name: str, value: float) -> str:
+    """Returns 'Critical', 'Monitor', or 'Healthy' matching UI standard status badges."""
+    if sensor_name not in SENSOR_THRESHOLDS or value is None:
+        return "Healthy"
+    t = SENSOR_THRESHOLDS[sensor_name]
+    if value >= t["crit"]:
+        return "Critical"
+    if value >= t["warn"]:
+        return "Monitor"
+    return "Healthy"
+
 
 def get_sensor_status_label(sensor_name: str, value: float) -> str:
     """Returns 'CRITICAL', 'WARNING', or 'NORMAL' based on standardized thresholds."""

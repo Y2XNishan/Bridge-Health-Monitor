@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { SENSOR_THRESHOLDS } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -312,29 +312,45 @@ export default function AgentInspector({ activeBridgeId }) {
   const vib = inspectionResult?.sensor_summary?.vibration ?? 0;
   const str = inspectionResult?.sensor_summary?.strain ?? 0;
   const crk = inspectionResult?.sensor_summary?.crack_gap ?? 0;
+  const wat = inspectionResult?.sensor_summary?.water_level ?? 0;
   const anom = selectedBridge?.anomaly_score ?? 0;
 
-  const hasExceeded = 
-    vib > SENSOR_THRESHOLDS.vibration.crit ||
-    str > SENSOR_THRESHOLDS.strain.crit ||
-    crk > SENSOR_THRESHOLDS.crack_gap.crit ||
-    anom > 0.5;
+  const vibStatus = getSensorStatus('vibration', vib);
+  const strStatus = getSensorStatus('strain', str);
+  const crkStatus = getSensorStatus('crack_gap', crk);
+  const watStatus = getSensorStatus('water_level', wat);
 
   const displayIssues = [];
   if (inspectionResult) {
     if (anom > 0.5) {
-      displayIssues.push(`Anomaly score ${anom} detected — further investigation required`);
+      displayIssues.push(`Anomaly score ${(anom * 100).toFixed(1)}% detected — ML pattern deviation requires investigation`);
     }
-    if (vib > SENSOR_THRESHOLDS.vibration.crit) {
-      displayIssues.push(`Vibration exceeds threshold: ${vib}g`);
+    if (vibStatus === 'Critical') {
+      displayIssues.push(`Vibration exceeds critical limit: ${Number(vib).toFixed(2)} g (Limit: ${SENSOR_THRESHOLDS.vibration.crit.toFixed(2)} g)`);
+    } else if (vibStatus === 'Monitor') {
+      displayIssues.push(`Vibration elevated: ${Number(vib).toFixed(2)} g (Watch: ${SENSOR_THRESHOLDS.vibration.warn.toFixed(2)} g)`);
     }
-    if (str > SENSOR_THRESHOLDS.strain.crit) {
-      displayIssues.push(`Strain exceeds threshold: ${str}MPa`);
+
+    if (strStatus === 'Critical') {
+      displayIssues.push(`Strain exceeds critical limit: ${Number(str).toFixed(1)} MPa (Limit: ${SENSOR_THRESHOLDS.strain.crit.toFixed(1)} MPa)`);
+    } else if (strStatus === 'Monitor') {
+      displayIssues.push(`Strain elevated: ${Number(str).toFixed(1)} MPa (Watch: ${SENSOR_THRESHOLDS.strain.warn.toFixed(1)} MPa)`);
     }
-    if (crk > SENSOR_THRESHOLDS.crack_gap.crit) {
-      displayIssues.push(`Crack gap exceeds threshold: ${crk}mm`);
+
+    if (crkStatus === 'Critical') {
+      displayIssues.push(`Crack gap exceeds critical limit: ${Number(crk).toFixed(2)} mm (Limit: ${SENSOR_THRESHOLDS.crack_gap.crit.toFixed(2)} mm)`);
+    } else if (crkStatus === 'Monitor') {
+      displayIssues.push(`Crack gap elevated: ${Number(crk).toFixed(2)} mm (Watch: ${SENSOR_THRESHOLDS.crack_gap.warn.toFixed(2)} mm)`);
+    }
+
+    if (watStatus === 'Critical') {
+      displayIssues.push(`Water level exceeds flood danger limit: ${Number(wat).toFixed(2)} m (IRC:6-2017 limit: ${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m)`);
+    } else if (watStatus === 'Monitor') {
+      displayIssues.push(`Water level elevated: ${Number(wat).toFixed(2)} m (Watch: ${SENSOR_THRESHOLDS.water_level.warn.toFixed(2)} m)`);
     }
   }
+
+  const hasExceeded = displayIssues.length > 0;
 
   if (bridgesLoading) {
     return (
@@ -563,60 +579,71 @@ export default function AgentInspector({ activeBridgeId }) {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   {
+                    id: 'vibration',
                     name: 'Vibration',
                     val: inspectionResult?.sensor_summary?.vibration,
                     unit: 'g',
-                    limit: `${SENSOR_THRESHOLDS.vibration.crit}g`,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.vibration.crit.toFixed(2)} g`,
                     icon: Activity,
-                    alert: typeof inspectionResult?.sensor_summary?.vibration === 'number' && inspectionResult.sensor_summary.vibration > SENSOR_THRESHOLDS.vibration.warn
                   },
                   {
+                    id: 'strain',
                     name: 'Strain',
                     val: inspectionResult?.sensor_summary?.strain,
                     unit: 'MPa',
-                    limit: `${SENSOR_THRESHOLDS.strain.crit}MPa`,
+                    decimals: 1,
+                    limit: `${SENSOR_THRESHOLDS.strain.crit.toFixed(1)} MPa`,
                     icon: Bot,
-                    alert: typeof inspectionResult?.sensor_summary?.strain === 'number' && inspectionResult.sensor_summary.strain > SENSOR_THRESHOLDS.strain.warn
                   },
                   {
+                    id: 'crack_gap',
                     name: 'Crack Gap',
                     val: inspectionResult?.sensor_summary?.crack_gap,
                     unit: 'mm',
-                    limit: `${SENSOR_THRESHOLDS.crack_gap.crit}mm`,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.crack_gap.crit.toFixed(2)} mm`,
                     icon: AlertTriangle,
-                    alert: typeof inspectionResult?.sensor_summary?.crack_gap === 'number' && inspectionResult.sensor_summary.crack_gap > SENSOR_THRESHOLDS.crack_gap.warn
                   },
                   {
+                    id: 'water_level',
                     name: 'Water Level',
                     val: inspectionResult?.sensor_summary?.water_level,
                     unit: 'm',
-                    limit: `${SENSOR_THRESHOLDS.water_level.crit}m`,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m`,
                     icon: Droplet,
-                    alert: typeof inspectionResult?.sensor_summary?.water_level === 'number' && inspectionResult.sensor_summary.water_level > SENSOR_THRESHOLDS.water_level.warn
                   }
                 ].map((sensor) => {
                   const Icon = sensor.icon;
-                  const hasVal = typeof sensor.val === 'number';
-                  const isExceeded = hasVal && sensor.val > parseFloat(sensor.limit);
+                  const hasVal = typeof sensor.val === 'number' && !isNaN(sensor.val);
+                  const status = hasVal ? getSensorStatus(sensor.id, sensor.val) : 'Healthy';
+                  const isCrit = status === 'Critical';
+                  const isWarn = status === 'Monitor';
                   return (
                     <div 
                       key={sensor.name} 
                       className="glass-card p-4 flex flex-col justify-between"
                       style={{
-                        borderLeft: sensor.alert 
-                          ? `3px solid ${isExceeded ? '#EF4444' : '#F59E0B'}` 
-                          : '1px solid var(--border-subtle)'
+                        borderLeft: isCrit 
+                          ? '3px solid #991B1B' 
+                          : isWarn 
+                            ? '3px solid #D97706' 
+                            : '1px solid var(--border-subtle)'
                       }}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">{sensor.name}</span>
-                        <Icon size={14} className={sensor.alert ? 'text-[var(--accent-yellow)]' : 'text-[var(--text-muted)]'} />
+                        <div className="flex items-center gap-1.5">
+                          <StatusBadge status={status} size="sm" />
+                          <Icon size={14} className={isCrit ? 'text-[#991B1B]' : isWarn ? 'text-[#D97706]' : 'text-[var(--text-muted)]'} />
+                        </div>
                       </div>
                       <div className="mt-2.5">
-                        <span className="text-lg font-black">{hasVal ? sensor.val.toFixed(3) : '--'}</span>
+                        <span className="text-lg font-black font-sans tabular-nums">{hasVal ? sensor.val.toFixed(sensor.decimals) : '--'}</span>
                         <span className="text-[10px] ml-0.5 text-[var(--text-secondary)]">{sensor.unit}</span>
                       </div>
-                      <span className="text-[8px] font-sans tabular-nums text-[var(--text-muted)] block mt-1">Limit: {sensor.limit}</span>
+                      <span className="text-[9px] font-sans tabular-nums text-[var(--text-muted)] block mt-1">Limit: {sensor.limit}</span>
                     </div>
                   );
                 })}

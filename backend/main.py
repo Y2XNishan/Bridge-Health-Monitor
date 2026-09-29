@@ -286,6 +286,11 @@ try:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        VIBRATION_LIMIT_G,
+        VIBRATION_WARN_G,
+        STRAIN_LIMIT_MPA,
+        STRAIN_WARN_MPA,
+        get_sensor_status,
         get_risk_alert_level,
         get_risk_severity_label,
     )
@@ -296,6 +301,11 @@ except ImportError:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        VIBRATION_LIMIT_G,
+        VIBRATION_WARN_G,
+        STRAIN_LIMIT_MPA,
+        STRAIN_WARN_MPA,
+        get_sensor_status,
         get_risk_alert_level,
         get_risk_severity_label,
     )
@@ -325,39 +335,40 @@ def calculate_health_score(
     """
     score = 100.0
 
-    # Water level penalties
-    if water_level > WATER_LEVEL_LIMIT_M:
+    # Water level penalties per IRC:6-2017 Clause 213 (Critical: 5.50m, Warning: 4.00m)
+    wat_mid = (WATER_LEVEL_LIMIT_M + WATER_LEVEL_WARN_M) / 2  # 4.75 m
+    if water_level >= WATER_LEVEL_LIMIT_M:
         score -= 40
-    elif water_level > 5.0:
+    elif water_level >= wat_mid:
         score -= 25
-    elif water_level > WATER_LEVEL_WARN_M:
+    elif water_level >= WATER_LEVEL_WARN_M:
         score -= 10
 
-    # Vibration penalties
-    if vibration > 1.2:
+    # Vibration penalties per IRC:6-2017 (Critical: 1.20g, Warning: 0.80g)
+    vib_mid = (VIBRATION_LIMIT_G + VIBRATION_WARN_G) / 2  # 1.00 g
+    if vibration >= VIBRATION_LIMIT_G:
         score -= 40
-    elif vibration > 0.9:
+    elif vibration >= vib_mid:
         score -= 25
-    elif vibration > 0.6:
+    elif vibration >= VIBRATION_WARN_G:
         score -= 10
 
-    # Strain penalties
-    if strain > 210:
+    # Strain penalties per IRC:112-2011 (Critical: 210.0 MPa, Warning: 180.0 MPa)
+    str_mid = (STRAIN_LIMIT_MPA + STRAIN_WARN_MPA) / 2  # 195.0 MPa
+    if strain >= STRAIN_LIMIT_MPA:
         score -= 40
-    elif strain > 190:
+    elif strain >= str_mid:
         score -= 25
-    elif strain > 170:
+    elif strain >= STRAIN_WARN_MPA:
         score -= 10
 
-    # Crack gap penalties per IRC:112-2011 Table 12.1
-    crack_crit = CRACK_GAP_LIMIT_MM      # 0.30 mm
-    crack_warn = CRACK_GAP_WARN_MM      # 0.20 mm
-    crack_mid = (crack_crit + crack_warn) / 2  # 0.25 mm
-    if crack_gap > crack_crit:
+    # Crack gap penalties per IRC:112-2011 Table 12.1 (Critical: 0.30mm, Warning: 0.20mm)
+    crack_mid = (CRACK_GAP_LIMIT_MM + CRACK_GAP_WARN_MM) / 2  # 0.25 mm
+    if crack_gap >= CRACK_GAP_LIMIT_MM:
         score -= 40
-    elif crack_gap > crack_mid:
+    elif crack_gap >= crack_mid:
         score -= 25
-    elif crack_gap > crack_warn:
+    elif crack_gap >= CRACK_GAP_WARN_MM:
         score -= 10
 
     # Pipeline A penalty (anomaly score × 20)
@@ -1316,10 +1327,30 @@ async def xai_explain(bridge_id: int = 1, user=Depends(get_current_user)):
     
     bridge_name = sim.name
     status_str = live.get("health_status", "").upper()
-    health_score = live.get("health_score", 100.0)
-    if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
+    wat = float(live.get("water_level", 0.0) or 0.0)
+    vib = float(live.get("vibration", 0.0) or 0.0)
+    strn = float(live.get("strain", 0.0) or 0.0)
+    crk = float(live.get("crack_gap", 0.0) or 0.0)
+
+    is_crit = (
+        status_str in ["CRITICAL", "FAIL"] or
+        health_score < 50.0 or
+        wat >= WATER_LEVEL_LIMIT_M or
+        vib >= VIBRATION_LIMIT_G or
+        strn >= STRAIN_LIMIT_MPA or
+        crk >= CRACK_GAP_LIMIT_MM
+    )
+    is_warn = (
+        status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or
+        health_score <= 74.0 or
+        wat >= WATER_LEVEL_WARN_M or
+        vib >= VIBRATION_WARN_G or
+        strn >= STRAIN_WARN_MPA or
+        crk >= CRACK_GAP_WARN_MM
+    )
+    if is_crit:
         alert_level = "Critical"
-    elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
+    elif is_warn:
         alert_level = "Monitor"
     else:
         alert_level = "Healthy"
@@ -1599,8 +1630,72 @@ def generate_varied_alerts(bridge_id: int, count: int = 20) -> list:
         {"sensor": "Crack Gap Widening",       "risk": 93.8},
     ]
 
+    ensure_simulator_exists(bridge_id)
+    sim = _simulators.get(bridge_id)
+    live = (sim.latest_data or sim.tick()) if sim else {}
+
+    dynamic_alerts = []
+    if live:
+        wat = float(live.get("water_level", 0.0) or 0.0)
+        vib = float(live.get("vibration", 0.0) or 0.0)
+        strn = float(live.get("strain", 0.0) or 0.0)
+        crk = float(live.get("crack_gap", 0.0) or 0.0)
+
+        if wat >= WATER_LEVEL_LIMIT_M:
+            dynamic_alerts.append({
+                "sensor": "Water Level Critical",
+                "message": f"Water level critical: {wat:.2f}m exceeds IRC:6-2017 flood danger limit ({WATER_LEVEL_LIMIT_M:.2f}m)",
+                "risk": 85.0
+            })
+        elif wat >= WATER_LEVEL_WARN_M:
+            dynamic_alerts.append({
+                "sensor": "Water Level Elevated",
+                "message": f"Water level elevated: {wat:.2f}m approaching IRC:6-2017 flood danger limit ({WATER_LEVEL_LIMIT_M:.2f}m)",
+                "risk": 55.0
+            })
+
+        if vib >= VIBRATION_LIMIT_G:
+            dynamic_alerts.append({
+                "sensor": "Vibration Critical",
+                "message": f"Vibration critical: {vib:.3f}g exceeds IRC:6-2017 limit ({VIBRATION_LIMIT_G:.2f}g)",
+                "risk": 88.0
+            })
+        elif vib >= VIBRATION_WARN_G:
+            dynamic_alerts.append({
+                "sensor": "Vibration Elevated",
+                "message": f"Vibration elevated: {vib:.3f}g approaching IRC:6-2017 limit ({VIBRATION_LIMIT_G:.2f}g)",
+                "risk": 58.0
+            })
+
+        if strn >= STRAIN_LIMIT_MPA:
+            dynamic_alerts.append({
+                "sensor": "Strain Critical",
+                "message": f"Strain critical: {strn:.1f} MPa exceeds IRC:112-2011 limit ({STRAIN_LIMIT_MPA:.1f} MPa)",
+                "risk": 90.0
+            })
+        elif strn >= STRAIN_WARN_MPA:
+            dynamic_alerts.append({
+                "sensor": "Strain Elevated",
+                "message": f"Strain elevated: {strn:.1f} MPa approaching IRC:112-2011 limit ({STRAIN_LIMIT_MPA:.1f} MPa)",
+                "risk": 52.0
+            })
+
+        if crk >= CRACK_GAP_LIMIT_MM:
+            dynamic_alerts.append({
+                "sensor": "Crack Gap Critical",
+                "message": f"Crack gap critical: {crk:.3f}mm exceeds IRC:112-2011 limit ({CRACK_GAP_LIMIT_MM:.2f}mm)",
+                "risk": 95.0
+            })
+        elif crk >= CRACK_GAP_WARN_MM:
+            dynamic_alerts.append({
+                "sensor": "Crack Gap Elevated",
+                "message": f"Crack gap elevated: {crk:.3f}mm approaching IRC:112-2011 limit ({CRACK_GAP_LIMIT_MM:.2f}mm)",
+                "risk": 60.0
+            })
+
+    combined_templates = dynamic_alerts + alert_templates
     alerts_list = []
-    for i, template in enumerate(alert_templates[:count]):
+    for i, template in enumerate(combined_templates[:count]):
         ts = datetime.now() - timedelta(minutes=i)
         risk = float(template["risk"])
         # Match Structural Risk Index bands: Low <40%, Moderate 40-70%, High >70%
@@ -1609,7 +1704,7 @@ def generate_varied_alerts(bridge_id: int, count: int = 20) -> list:
         alerts_list.append({
             "timestamp": ts.strftime("%Y-%m-%d %H:%M:%S"),
             "sensor": template["sensor"],
-            "message": template["sensor"],
+            "message": template.get("message", template["sensor"]),
             "level": level,
             "alert_level": level,
             "severity": severity,
@@ -2331,30 +2426,25 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
     story.append(Spacer(1, 8))
     
     def get_sensor_status(sensor_name, value):
+        if value is None:
+            return "Healthy", "#16A34A"
         if sensor_name == "water_level":
-            if value > WATER_LEVEL_LIMIT_M: return "Critical", "#DC2626"
-            if value > 5.0: return "Warning", "#EA580C"
-            if value > WATER_LEVEL_WARN_M: return "Elevated", "#CA8A04"
-            return "Normal", "#16A34A"
+            if value >= WATER_LEVEL_LIMIT_M: return "Critical", "#DC2626"
+            if value >= WATER_LEVEL_WARN_M: return "Monitor", "#CA8A04"
+            return "Healthy", "#16A34A"
         elif sensor_name == "vibration":
-            if value > 1.2: return "Critical", "#DC2626"
-            if value > 0.9: return "Warning", "#EA580C"
-            if value > 0.6: return "Elevated", "#CA8A04"
-            return "Normal", "#16A34A"
+            if value >= VIBRATION_LIMIT_G: return "Critical", "#DC2626"
+            if value >= VIBRATION_WARN_G: return "Monitor", "#CA8A04"
+            return "Healthy", "#16A34A"
         elif sensor_name == "strain":
-            if value > 210: return "Critical", "#DC2626"
-            if value > 190: return "Warning", "#EA580C"
-            if value > 170: return "Elevated", "#CA8A04"
-            return "Normal", "#16A34A"
+            if value >= STRAIN_LIMIT_MPA: return "Critical", "#DC2626"
+            if value >= STRAIN_WARN_MPA: return "Monitor", "#CA8A04"
+            return "Healthy", "#16A34A"
         elif sensor_name == "crack_gap":
-            crack_crit = CRACK_GAP_LIMIT_MM      # 0.30 mm
-            crack_warn = CRACK_GAP_WARN_MM      # 0.20 mm
-            crack_mid = (crack_crit + crack_warn) / 2  # 0.25 mm
-            if value > crack_crit: return "Critical", "#DC2626"
-            if value > crack_mid: return "Warning", "#EA580C"
-            if value > crack_warn: return "Elevated", "#CA8A04"
-            return "Normal", "#16A34A"
-        return "Unknown", "#6B7280"
+            if value >= CRACK_GAP_LIMIT_MM: return "Critical", "#DC2626"
+            if value >= CRACK_GAP_WARN_MM: return "Monitor", "#CA8A04"
+            return "Healthy", "#16A34A"
+        return "Healthy", "#16A34A"
 
     wl_status, wl_color = get_sensor_status("water_level", live_data["water_level"])
     vib_status, vib_color = get_sensor_status("vibration", live_data["vibration"])
@@ -2570,7 +2660,7 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
         [Paragraph("Pipeline Weights", table_cell_style), Paragraph("Random Forest: 40%  |  XGBoost: 60%", table_cell_style)],
         [Paragraph("Data Sampling Interval", table_cell_style), Paragraph("1 telemetry reading / minute", table_cell_style)],
         [Paragraph("FastAPI Server Core Engine", table_cell_style), Paragraph("Python 3.x, FastAPI, Uvicorn ASGI Server", table_cell_style)],
-        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph(f"Static Thresholds: Water &gt; {WATER_LEVEL_LIMIT_M:.1f}m, Vib &gt; {SENSOR_THRESHOLDS['vibration']['crit']}g, Strain &gt; {SENSOR_THRESHOLDS['strain']['crit']:.0f}MPa, Crack &gt; {CRACK_GAP_LIMIT_MM:.2f}mm", table_cell_style)],
+        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph(f"Static Thresholds: Water &gt; {WATER_LEVEL_LIMIT_M:.2f}m, Vib &gt; {VIBRATION_LIMIT_G:.2f}g, Strain &gt; {STRAIN_LIMIT_MPA:.1f}MPa, Crack &gt; {CRACK_GAP_LIMIT_MM:.2f}mm", table_cell_style)],
         [Paragraph("Pipeline Processing Latency", table_cell_style), Paragraph("&lt; 15 ms / request (Model evaluation)", table_cell_style)],
         [Paragraph("Inference Confidence Index", table_cell_style), Paragraph(f"{maint['confidence']} (Based on {len(sim.health_history)} health records)", table_cell_style)],
     ]
@@ -3130,13 +3220,13 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
     
     def get_status_label(name, val):
         if name == "vibration":
-            return "CRITICAL" if val > SENSOR_THRESHOLDS["vibration"]["crit"] else "WARNING" if val > SENSOR_THRESHOLDS["vibration"]["warn"] else "NORMAL"
+            return "CRITICAL" if val >= VIBRATION_LIMIT_G else "WARNING" if val >= VIBRATION_WARN_G else "NORMAL"
         elif name == "strain":
-            return "CRITICAL" if val > SENSOR_THRESHOLDS["strain"]["crit"] else "WARNING" if val > SENSOR_THRESHOLDS["strain"]["warn"] else "NORMAL"
+            return "CRITICAL" if val >= STRAIN_LIMIT_MPA else "WARNING" if val >= STRAIN_WARN_MPA else "NORMAL"
         elif name == "crack_gap":
-            return "CRITICAL" if val > CRACK_GAP_LIMIT_MM else "WARNING" if val > CRACK_GAP_WARN_MM else "NORMAL"
+            return "CRITICAL" if val >= CRACK_GAP_LIMIT_MM else "WARNING" if val >= CRACK_GAP_WARN_MM else "NORMAL"
         elif name == "water_level":
-            return "CRITICAL" if val > WATER_LEVEL_LIMIT_M else "WARNING" if val > WATER_LEVEL_WARN_M else "NORMAL"
+            return "CRITICAL" if val >= WATER_LEVEL_LIMIT_M else "WARNING" if val >= WATER_LEVEL_WARN_M else "NORMAL"
         return "NORMAL"
         
     def get_status_color(lbl):
@@ -3144,8 +3234,8 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
 
     sensor_data = [
         [Paragraph("Sensor Type", table_header_style), Paragraph("Current Reading", table_header_style), Paragraph("Safe Limit Threshold", table_header_style), Paragraph("Status", table_header_style)],
-        [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['vibration']['crit']:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
-        [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{SENSOR_THRESHOLDS['strain']['crit']:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
+        [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{VIBRATION_LIMIT_G:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
+        [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{STRAIN_LIMIT_MPA:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
         [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
         [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_LIMIT_M:.2f} m (IRC:6-2017 Flood Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
     ]
@@ -3444,7 +3534,7 @@ def get_bridge_pdf_report(bridge_id: int, user = Depends(get_current_user)):
     
     # Section 2 — Sensor Readings
     def check_sensor(val, limit):
-        return "EXCEEDED" if val > limit else "NORMAL"
+        return "EXCEEDED" if val >= limit else "NORMAL"
         
     def check_color(status):
         return "#EF4444" if status == "EXCEEDED" else "#10B981"
@@ -3452,12 +3542,12 @@ def get_bridge_pdf_report(bridge_id: int, user = Depends(get_current_user)):
     sensor_data = [
         [Paragraph("Sensor Parameter", table_header_style), Paragraph("Current Value", table_header_style), Paragraph("Safe Threshold Limit", table_header_style), Paragraph("Status", table_header_style)],
         [
-            Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph("1.200 g (IRC:6-2017)", table_cell_style),
-            Paragraph(f"<font color='{check_color(check_sensor(vib, 1.2))}'><b>{check_sensor(vib, 1.2)}</b></font>", table_cell_style)
+            Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{VIBRATION_LIMIT_G:.3f} g (IRC:6-2017)", table_cell_style),
+            Paragraph(f"<font color='{check_color(check_sensor(vib, VIBRATION_LIMIT_G))}'><b>{check_sensor(vib, VIBRATION_LIMIT_G)}</b></font>", table_cell_style)
         ],
         [
-            Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph("210.0 MPa (IRC:112-2011)", table_cell_style),
-            Paragraph(f"<font color='{check_color(check_sensor(strn, 210.0))}'><b>{check_sensor(strn, 210.0)}</b></font>", table_cell_style)
+            Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{STRAIN_LIMIT_MPA:.1f} MPa (IRC:112-2011)", table_cell_style),
+            Paragraph(f"<font color='{check_color(check_sensor(strn, STRAIN_LIMIT_MPA))}'><b>{check_sensor(strn, STRAIN_LIMIT_MPA)}</b></font>", table_cell_style)
         ],
         [
             Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style),

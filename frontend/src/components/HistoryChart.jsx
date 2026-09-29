@@ -180,7 +180,7 @@ export default function HistoryChart({ historyData: externalData, activeBridgeId
               strokeDasharray="4 2"
               strokeWidth={1}
               label={{
-                value: `Critical limit (${WATER_LEVEL_LIMIT_M}m)`,
+                value: `Critical limit (${WATER_LEVEL_LIMIT_M.toFixed(2)} m)`,
                 position: 'right',
                 fill: '#991B1B',
                 fontSize: 10,

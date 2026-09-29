@@ -46,6 +46,12 @@ export const CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS.crack_gap.warn;  // 0.20 mm
 export const WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS.water_level.crit; // 5.50 m
 export const WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS.water_level.warn;  // 4.00 m
 
+export const VIBRATION_LIMIT_G = SENSOR_THRESHOLDS.vibration.crit;     // 1.20 g
+export const VIBRATION_WARN_G = SENSOR_THRESHOLDS.vibration.warn;      // 0.80 g
+
+export const STRAIN_LIMIT_MPA = SENSOR_THRESHOLDS.strain.crit;         // 210.0 MPa
+export const STRAIN_WARN_MPA = SENSOR_THRESHOLDS.strain.warn;          // 180.0 MPa
+
 /**
  * Returns standardized status string: 'Critical', 'Monitor', or 'Healthy'
  */
@@ -53,8 +59,10 @@ export function getSensorStatus(sensor, value) {
   if (value == null) return 'Offline';
   const t = SENSOR_THRESHOLDS[sensor];
   if (!t) return 'Healthy';
-  if (value >= t.crit) return 'Critical';
-  if (value >= t.warn) return 'Monitor';
+  const num = Number(value);
+  if (isNaN(num)) return 'Offline';
+  if (num >= t.crit) return 'Critical';
+  if (num >= t.warn) return 'Monitor';
   return 'Healthy';
 }
 

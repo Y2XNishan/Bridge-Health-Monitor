@@ -16,6 +16,10 @@ try:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        VIBRATION_LIMIT_G,
+        VIBRATION_WARN_G,
+        STRAIN_LIMIT_MPA,
+        STRAIN_WARN_MPA,
     )
 except ImportError:
     from constants import (
@@ -24,6 +28,10 @@ except ImportError:
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
         WATER_LEVEL_WARN_M,
+        VIBRATION_LIMIT_G,
+        VIBRATION_WARN_G,
+        STRAIN_LIMIT_MPA,
+        STRAIN_WARN_MPA,
     )
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
@@ -70,37 +78,37 @@ def analyze_sensors(live_data: dict) -> dict:
     health_score = live_data.get("health_score", 100)
     alert_level = live_data.get("alert_level", "NORMAL")
 
-    if vibration > 1.2:
-        issues.append(f"CRITICAL: Vibration {vibration:.3f}g exceeds IRC threshold of 1.2g")
+    if vibration >= VIBRATION_LIMIT_G:
+        issues.append(f"CRITICAL: Vibration {vibration:.3f}g exceeds IRC threshold of {VIBRATION_LIMIT_G:.2f}g")
         recommendations.append("Immediate load restriction required per IRC:6-2017 Section 4")
         severity = "CRITICAL"
-    elif vibration > 0.8:
-        issues.append(f"WARNING: Vibration {vibration:.3f}g approaching threshold")
+    elif vibration >= VIBRATION_WARN_G:
+        issues.append(f"WARNING: Vibration {vibration:.3f}g approaching threshold ({VIBRATION_LIMIT_G:.2f}g)")
         recommendations.append("Monitor vibration every 30 minutes")
         if severity != "CRITICAL":
             severity = "WARNING"
 
-    if strain > 210:
-        issues.append(f"CRITICAL: Strain {strain:.1f} MPa exceeds IRC:112-2011 limit of 210 MPa")
+    if strain >= STRAIN_LIMIT_MPA:
+        issues.append(f"CRITICAL: Strain {strain:.1f} MPa exceeds IRC:112-2011 limit of {STRAIN_LIMIT_MPA:.1f} MPa")
         recommendations.append("Structural assessment required within 24 hours")
         severity = "CRITICAL"
-    elif strain > 180:
-        issues.append(f"WARNING: Strain {strain:.1f} MPa approaching design limit")
+    elif strain >= STRAIN_WARN_MPA:
+        issues.append(f"WARNING: Strain {strain:.1f} MPa approaching design limit ({STRAIN_LIMIT_MPA:.1f} MPa)")
         recommendations.append("Schedule structural inspection within 7 days")
 
-    if crack_gap > CRACK_GAP_LIMIT_MM:
+    if crack_gap >= CRACK_GAP_LIMIT_MM:
         issues.append(f"CRITICAL: Crack gap {crack_gap:.3f}mm exceeds IRC:112-2011 safe limit of {CRACK_GAP_LIMIT_MM:.2f}mm")
         recommendations.append("Emergency crack sealing required per IRC:112-2011 and NHAI inspection manual")
         severity = "CRITICAL"
-    elif crack_gap > CRACK_GAP_WARN_MM:
+    elif crack_gap >= CRACK_GAP_WARN_MM:
         issues.append(f"WARNING: Crack gap {crack_gap:.3f}mm requires monitoring (approaching {CRACK_GAP_LIMIT_MM:.2f}mm limit)")
         recommendations.append("Schedule crack repair within 30 days")
 
-    if water_level > WATER_LEVEL_LIMIT_M:
+    if water_level >= WATER_LEVEL_LIMIT_M:
         issues.append(f"CRITICAL: Water level {water_level:.2f}m exceeds IRC:6-2017 flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
         recommendations.append("Emergency bridge closure and scour assessment required per IRC:6-2017")
         severity = "CRITICAL"
-    elif water_level > WATER_LEVEL_WARN_M:
+    elif water_level >= WATER_LEVEL_WARN_M:
         issues.append(f"WARNING: Water level {water_level:.2f}m approaching flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
         recommendations.append("Activate flood monitoring protocol and monitor pier scour daily")
         if severity != "CRITICAL":
@@ -145,10 +153,10 @@ Bridge Inspection Request:
 - Alert Level: {live_data.get('alert_level', 'N/A')}
 
 SENSOR READINGS:
-- Vibration: {live_data.get('vibration', 'N/A')}g (threshold: 1.2g)
-- Strain: {live_data.get('strain', 'N/A')} MPa (limit: 210 MPa)  
+- Vibration: {live_data.get('vibration', 'N/A')}g (IRC:6-2017 limit: {VIBRATION_LIMIT_G:.2f}g)
+- Strain: {live_data.get('strain', 'N/A')} MPa (IRC:112-2011 limit: {STRAIN_LIMIT_MPA:.1f} MPa)  
 - Crack Gap: {live_data.get('crack_gap', 'N/A')}mm (IRC:112-2011 limit: {CRACK_GAP_LIMIT_MM:.2f}mm)
-- Water Level: {live_data.get('water_level', 'N/A')}m
+- Water Level: {live_data.get('water_level', 'N/A')}m (IRC:6-2017 flood danger limit: {WATER_LEVEL_LIMIT_M:.2f}m)
 - Anomaly Score: {live_data.get('anomaly_score', 'N/A')}
 
 ML ANALYSIS:

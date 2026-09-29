@@ -173,9 +173,9 @@ def vague_questions() -> list[dict]:
            "Recommend immediate on-site inspection and temporarily restrict heavy vehicles."),
         ex("water is high",
            "Water level alert noted. Current reading for this bridge: 4.2 m. "
-           "Warning threshold: 3.5 m. Critical threshold: 5.0 m. "
+           "Warning threshold: 4.00 m. Critical threshold: 5.50 m. "
            "At current level, monitor every 15 minutes. "
-           "If it reaches 5.0 m, implement bridge closure protocol per NHAI flood guidelines."),
+           "If it reaches 5.50 m, implement bridge closure protocol per NHAI flood guidelines."),
         ex("something happened last night",
            "Reviewing overnight sensor logs. Between 00:00-06:00 IST: "
            "Spike detected in vibration sensor at 02:34 IST (2.8 g peak, duration 4 seconds). "
@@ -419,9 +419,9 @@ def disaster_scenarios() -> list[dict]:
            "Do not reopen based on sensor data alone after seismic event."),
         ex("flood water is rising fast — when should I close the bridge",
            "Bridge closure thresholds during flood: "
-           "(1) WATCH: Water level above 3.5 m — increase monitoring frequency to every 5 minutes. "
-           "(2) WARNING: Water level above 4.5 m OR scour detected — restrict heavy vehicles. "
-           "(3) CRITICAL/CLOSE: Water level above 5.0 m OR rate of rise > 0.5 m/hour — "
+           "(1) WATCH: Water level above 4.00 m — increase monitoring frequency to every 5 minutes. "
+           "(2) WARNING: Water level approaching flood limit OR scour detected — restrict heavy vehicles. "
+           "(3) CRITICAL/CLOSE: Water level above 5.50 m OR rate of rise > 0.5 m/hour — "
            "immediate closure, no exceptions. "
            "Per IRC:6-2017 Section 214, design flood level must never be exceeded with traffic load. "
            "When in doubt, close the bridge. Human safety takes absolute priority."),

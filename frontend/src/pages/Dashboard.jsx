@@ -13,6 +13,7 @@ import {
 
 import { CheckCircle2, AlertTriangle, AlertCircle, Loader2, Search, List, Activity, Bell, X } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
+import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
 import {
   BarChart,
   Bar,
@@ -1399,8 +1400,8 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 <div className="flex items-center gap-6">
                   <div>
                     <span className="text-[10px] font-medium text-[var(--text-muted)] block">Health score</span>
-                    <span className="text-lg font-bold" style={{ color: xaiData.health_score >= 75 ? '#0F6E56' : xaiData.health_score >= 50 ? '#D97706' : '#991B1B' }}>
-                      {xaiData.health_score ?? 'N/A'}/100
+                    <span className="text-lg font-bold font-sans tabular-nums" style={{ color: xaiData.health_score >= 75 ? '#0F6E56' : xaiData.health_score >= 50 ? '#D97706' : '#991B1B' }}>
+                      {formatHealthScore(xaiData.health_score)}/100
                     </span>
                   </div>
                   <div>
@@ -1418,6 +1419,76 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                 </div>
               </div>
 
+              {/* 4 Sensor Telemetry Summary & Limits */}
+              {(() => {
+                const sData = xaiData.sensor_data || bridge;
+                if (!sData) return null;
+                const sensors = [
+                  {
+                    id: 'water_level',
+                    label: 'Water level',
+                    val: sData.water_level,
+                    unit: SENSOR_THRESHOLDS.water_level.unit,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m`
+                  },
+                  {
+                    id: 'crack_gap',
+                    label: 'Crack gap',
+                    val: sData.crack_gap,
+                    unit: SENSOR_THRESHOLDS.crack_gap.unit,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.crack_gap.crit.toFixed(2)} mm`
+                  },
+                  {
+                    id: 'vibration',
+                    label: 'Vibration',
+                    val: sData.vibration,
+                    unit: SENSOR_THRESHOLDS.vibration.unit,
+                    decimals: 2,
+                    limit: `${SENSOR_THRESHOLDS.vibration.crit.toFixed(2)} g`
+                  },
+                  {
+                    id: 'strain',
+                    label: 'Strain',
+                    val: sData.strain,
+                    unit: SENSOR_THRESHOLDS.strain.unit,
+                    decimals: 1,
+                    limit: `${SENSOR_THRESHOLDS.strain.crit.toFixed(1)} MPa`
+                  },
+                ];
+                return (
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-semibold text-[var(--text-muted)]">Live telemetry vs IRC limits</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {sensors.map((s) => {
+                        const hasVal = s.val != null && !isNaN(Number(s.val));
+                        const numVal = hasVal ? Number(s.val) : null;
+                        const status = hasVal ? getSensorStatus(s.id, numVal) : 'Healthy';
+                        return (
+                          <div
+                            key={s.id}
+                            className="p-3 rounded-lg border flex flex-col justify-between"
+                            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[10px] font-medium text-[var(--text-secondary)]">{s.label}</span>
+                              <StatusBadge status={status} size="sm" />
+                            </div>
+                            <div className="text-lg font-bold font-sans tabular-nums text-[var(--text-primary)]">
+                              {hasVal ? numVal.toFixed(s.decimals) : '—'} <span className="text-xs font-normal text-[var(--text-muted)]">{s.unit}</span>
+                            </div>
+                            <span className="text-[9px] font-sans tabular-nums text-[var(--text-muted)] mt-1">
+                              Limit: {s.limit}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Triggered Sensors Badges */}
               {xaiData.triggered_sensors && xaiData.triggered_sensors.length > 0 && (
                 <div className="space-y-2">
@@ -1427,15 +1498,15 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                       const text = typeof sensor === 'string'
                         ? sensor.replace(/CRITICAL\s+breach/gi, 'Critical breach').replace(/CRITICAL/g, 'Critical')
                         : sensor;
-                      const isCritical = typeof sensor === 'string' && sensor.toUpperCase().includes('CRITICAL');
+                      const isCritical = typeof sensor === 'string' && sensor.includes('Critical');
                       return (
                         <span 
                           key={i} 
                           className="px-3 py-1 rounded-full text-xs font-medium border flex items-center gap-1.5"
                           style={{
                             background: isCritical ? '#FDF2F2' : '#FFFBEB',
-                            borderColor: isCritical ? '#FECACA' : '#FDE68A',
-                            color: isCritical ? '#991B1B' : '#B45309'
+                            borderColor: isCritical ? '#FECACA' : '#FEF3C7',
+                            color: isCritical ? '#991B1B' : '#D97706'
                           }}
                         >
                           <span 
