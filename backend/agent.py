@@ -12,6 +12,7 @@ except ImportError:
 try:
     from backend.constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -24,6 +25,7 @@ try:
 except ImportError:
     from constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -105,11 +107,11 @@ def analyze_sensors(live_data: dict) -> dict:
         recommendations.append("Schedule crack repair within 30 days")
 
     if water_level >= WATER_LEVEL_LIMIT_M:
-        issues.append(f"CRITICAL: Water level {water_level:.2f}m exceeds IRC:6-2017 flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
+        issues.append(f"CRITICAL: Water level {water_level:.2f}m exceeds IRC:6-2017 flood danger limit of {WATER_LEVEL_THRESHOLD}m")
         recommendations.append("Emergency bridge closure and scour assessment required per IRC:6-2017")
         severity = "CRITICAL"
     elif water_level >= WATER_LEVEL_WARN_M:
-        issues.append(f"WARNING: Water level {water_level:.2f}m approaching flood danger limit of {WATER_LEVEL_LIMIT_M:.2f}m")
+        issues.append(f"WARNING: Water level {water_level:.2f}m approaching flood danger limit of {WATER_LEVEL_THRESHOLD}m")
         recommendations.append("Activate flood monitoring protocol and monitor pier scour daily")
         if severity != "CRITICAL":
             severity = "WARNING"
@@ -156,7 +158,7 @@ SENSOR READINGS:
 - Vibration: {live_data.get('vibration', 'N/A')}g (IRC:6-2017 limit: {VIBRATION_LIMIT_G:.2f}g)
 - Strain: {live_data.get('strain', 'N/A')} MPa (IRC:112-2011 limit: {STRAIN_LIMIT_MPA:.1f} MPa)  
 - Crack Gap: {live_data.get('crack_gap', 'N/A')}mm (IRC:112-2011 limit: {CRACK_GAP_LIMIT_MM:.2f}mm)
-- Water Level: {live_data.get('water_level', 'N/A')}m (IRC:6-2017 flood danger limit: {WATER_LEVEL_LIMIT_M:.2f}m)
+- Water Level: {live_data.get('water_level', 'N/A')}m (IRC:6-2017 flood danger limit: {WATER_LEVEL_THRESHOLD}m)
 - Anomaly Score: {live_data.get('anomaly_score', 'N/A')}
 
 ML ANALYSIS:

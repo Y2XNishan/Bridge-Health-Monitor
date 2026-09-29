@@ -282,6 +282,7 @@ except ImportError:
 try:
     from backend.constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -297,6 +298,7 @@ try:
 except ImportError:
     from constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -335,8 +337,8 @@ def calculate_health_score(
     """
     score = 100.0
 
-    # Water level penalties per IRC:6-2017 Clause 213 (Critical: 5.50m, Warning: 4.00m)
-    wat_mid = (WATER_LEVEL_LIMIT_M + WATER_LEVEL_WARN_M) / 2  # 4.75 m
+    # Water level penalties per IRC:6-2017 Clause 213 (Critical: 4.5m, Warning: 3.5m)
+    wat_mid = (WATER_LEVEL_LIMIT_M + WATER_LEVEL_WARN_M) / 2  # 4.0 m
     if water_level >= WATER_LEVEL_LIMIT_M:
         score -= 40
     elif water_level >= wat_mid:
@@ -1641,16 +1643,16 @@ def generate_varied_alerts(bridge_id: int, count: int = 20) -> list:
         strn = float(live.get("strain", 0.0) or 0.0)
         crk = float(live.get("crack_gap", 0.0) or 0.0)
 
-        if wat >= WATER_LEVEL_LIMIT_M:
+        if wat >= WATER_LEVEL_THRESHOLD:
             dynamic_alerts.append({
                 "sensor": "Water Level Critical",
-                "message": f"Water level critical: {wat:.2f}m exceeds IRC:6-2017 flood danger limit ({WATER_LEVEL_LIMIT_M:.2f}m)",
+                "message": f"Water level critical: {wat:.2f}m exceeds IRC:6-2017 flood danger limit ({WATER_LEVEL_THRESHOLD}m)",
                 "risk": 85.0
             })
         elif wat >= WATER_LEVEL_WARN_M:
             dynamic_alerts.append({
                 "sensor": "Water Level Elevated",
-                "message": f"Water level elevated: {wat:.2f}m approaching IRC:6-2017 flood danger limit ({WATER_LEVEL_LIMIT_M:.2f}m)",
+                "message": f"Water level elevated: {wat:.2f}m approaching IRC:6-2017 flood danger limit ({WATER_LEVEL_THRESHOLD}m)",
                 "risk": 55.0
             })
 
@@ -2660,7 +2662,7 @@ def get_report(bridge_id: int = 1, user = Depends(get_current_user)):
         [Paragraph("Pipeline Weights", table_cell_style), Paragraph("Random Forest: 40%  |  XGBoost: 60%", table_cell_style)],
         [Paragraph("Data Sampling Interval", table_cell_style), Paragraph("1 telemetry reading / minute", table_cell_style)],
         [Paragraph("FastAPI Server Core Engine", table_cell_style), Paragraph("Python 3.x, FastAPI, Uvicorn ASGI Server", table_cell_style)],
-        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph(f"Static Thresholds: Water &gt; {WATER_LEVEL_LIMIT_M:.2f}m, Vib &gt; {VIBRATION_LIMIT_G:.2f}g, Strain &gt; {STRAIN_LIMIT_MPA:.1f}MPa, Crack &gt; {CRACK_GAP_LIMIT_MM:.2f}mm", table_cell_style)],
+        [Paragraph("Sensor Limits Calibration", table_cell_style), Paragraph(f"Static Thresholds: Water &gt; {WATER_LEVEL_THRESHOLD}m, Vib &gt; {VIBRATION_LIMIT_G:.2f}g, Strain &gt; {STRAIN_LIMIT_MPA:.1f}MPa, Crack &gt; {CRACK_GAP_LIMIT_MM:.2f}mm", table_cell_style)],
         [Paragraph("Pipeline Processing Latency", table_cell_style), Paragraph("&lt; 15 ms / request (Model evaluation)", table_cell_style)],
         [Paragraph("Inference Confidence Index", table_cell_style), Paragraph(f"{maint['confidence']} (Based on {len(sim.health_history)} health records)", table_cell_style)],
     ]
@@ -3237,7 +3239,7 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
         [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{VIBRATION_LIMIT_G:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
         [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{STRAIN_LIMIT_MPA:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
         [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
-        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_LIMIT_M:.2f} m (IRC:6-2017 Flood Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
+        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_THRESHOLD} m (IRC:6-2017 Flood Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
     ]
     
     sensor_table = Table(sensor_data, colWidths=[130, 130, 150, 110])
@@ -3554,7 +3556,7 @@ def get_bridge_pdf_report(bridge_id: int, user = Depends(get_current_user)):
             Paragraph(f"<font color='{check_color(check_sensor(crk, CRACK_GAP_LIMIT_MM))}'><b>{check_sensor(crk, CRACK_GAP_LIMIT_MM)}</b></font>", table_cell_style)
         ],
         [
-            Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_LIMIT_M:.2f} m (IRC:6-2017 Flood Limit)", table_cell_style),
+            Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_THRESHOLD} m (IRC:6-2017 Flood Limit)", table_cell_style),
             Paragraph(f"<font color='{check_color(check_sensor(wat, WATER_LEVEL_LIMIT_M))}'><b>{check_sensor(wat, WATER_LEVEL_LIMIT_M)}</b></font>", table_cell_style)
         ]
     ]

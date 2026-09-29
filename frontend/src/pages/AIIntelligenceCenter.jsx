@@ -749,7 +749,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       vibration: SENSOR_THRESHOLDS.vibration.crit,   // 1.2 g (IRC:6-2017)
       strain: SENSOR_THRESHOLDS.strain.crit,          // 210 MPa (IRC:112-2011)
       crack_gap: SENSOR_THRESHOLDS.crack_gap.crit,    // 0.30 mm (IRC:112-2011)
-      water_level: SENSOR_THRESHOLDS.water_level.crit, // 5.50 m (IRC:6-2017)
+      water_level: SENSOR_THRESHOLDS.water_level.crit, // 4.5 m (IRC:6-2017)
     };
 
     // Health score color helper

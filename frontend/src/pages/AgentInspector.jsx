@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, WATER_LEVEL_THRESHOLD, getSensorStatus } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -344,9 +344,9 @@ export default function AgentInspector({ activeBridgeId }) {
     }
 
     if (watStatus === 'Critical') {
-      displayIssues.push(`Water level exceeds flood danger limit: ${Number(wat).toFixed(2)} m (IRC:6-2017 limit: ${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m)`);
+      displayIssues.push(`Water level exceeds flood danger limit: ${Number(wat).toFixed(2)} m (IRC:6-2017 limit: ${WATER_LEVEL_THRESHOLD} m)`);
     } else if (watStatus === 'Monitor') {
-      displayIssues.push(`Water level elevated: ${Number(wat).toFixed(2)} m (Watch: ${SENSOR_THRESHOLDS.water_level.warn.toFixed(2)} m)`);
+      displayIssues.push(`Water level elevated: ${Number(wat).toFixed(2)} m (Watch: ${SENSOR_THRESHOLDS.water_level.warn} m)`);
     }
   }
 
@@ -611,7 +611,7 @@ export default function AgentInspector({ activeBridgeId }) {
                     val: inspectionResult?.sensor_summary?.water_level,
                     unit: 'm',
                     decimals: 2,
-                    limit: `${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m`,
+                    limit: `${WATER_LEVEL_THRESHOLD} m`,
                     icon: Droplet,
                   }
                 ].map((sensor) => {

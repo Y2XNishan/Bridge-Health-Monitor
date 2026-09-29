@@ -28,10 +28,20 @@ UNITS = {
     "strain": "MPa",
     "crack_gap": "mm",
 }
+try:
+    from backend.constants import WATER_LEVEL_THRESHOLD, VIBRATION_LIMIT_G, CRACK_GAP_LIMIT_MM
+except ImportError:
+    try:
+        from constants import WATER_LEVEL_THRESHOLD, VIBRATION_LIMIT_G, CRACK_GAP_LIMIT_MM
+    except ImportError:
+        WATER_LEVEL_THRESHOLD = 4.5
+        VIBRATION_LIMIT_G = 1.2
+        CRACK_GAP_LIMIT_MM = 0.30
+
 THRESHOLDS = {
-    "water_level": 5.5,
-    "vibration": 1.2,
-    "crack_gap": 0.30,
+    "water_level": WATER_LEVEL_THRESHOLD,
+    "vibration": VIBRATION_LIMIT_G,
+    "crack_gap": CRACK_GAP_LIMIT_MM,
 }
 
 

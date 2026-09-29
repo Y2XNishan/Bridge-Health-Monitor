@@ -13,7 +13,7 @@ import {
 
 import { CheckCircle2, AlertTriangle, AlertCircle, Loader2, Search, List, Activity, Bell, X } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
-import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, WATER_LEVEL_THRESHOLD, getSensorStatus } from '../constants/thresholds';
 import {
   BarChart,
   Bar,
@@ -1430,7 +1430,7 @@ function XaiExplanationModal({ bridge, token, onClose }) {
                     val: sData.water_level,
                     unit: SENSOR_THRESHOLDS.water_level.unit,
                     decimals: 2,
-                    limit: `${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m`
+                    limit: `${WATER_LEVEL_THRESHOLD} m`
                   },
                   {
                     id: 'crack_gap',

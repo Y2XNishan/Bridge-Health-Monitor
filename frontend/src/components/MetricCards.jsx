@@ -1,5 +1,5 @@
 import { Waves, Activity, Gauge, ScanLine } from 'lucide-react';
-import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, WATER_LEVEL_THRESHOLD, getSensorStatus } from '../constants/thresholds';
 import StatusBadge from './StatusBadge';
 
 const THRESHOLDS = SENSOR_THRESHOLDS;
@@ -66,7 +66,7 @@ export default function MetricCards({ liveData }) {
               <div className="flex justify-between mt-1.5 text-[10px] text-slate-400 font-mono">
                 <span>0</span>
                 <span>
-                  Limit: {Number(THRESHOLDS[sensor].crit).toFixed(sensor === 'strain' ? 1 : 2)} {meta.unit}
+                  Limit: {sensor === 'water_level' ? `${WATER_LEVEL_THRESHOLD} ${meta.unit}` : `${Number(THRESHOLDS[sensor].crit).toFixed(sensor === 'strain' ? 1 : 2)} ${meta.unit}`}
                 </span>
               </div>
             </div>

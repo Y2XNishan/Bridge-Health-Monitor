@@ -6,16 +6,21 @@ Standards Reference:
 - Vibration: IRC:6-2017 Clause 204 / 219 (Dynamic allowance and vibration limits) -> 1.20 g
 - Strain: IRC:112-2011 Section 12 (Serviceability Limit State tensile strain) -> 210.0 MPa
 - Crack Gap: IRC:112-2011 Table 12.1 / IRC:SP:44-1996 (Crack control in RC structures) -> Safe limit: 0.30 mm, Watch: 0.20 mm
-- Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 5.50 m, Watch: 4.00 m
+# - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 4.5 m, Watch: 3.5 m
 """
+
+# Single shared water level threshold (4.5 m)
+WATER_LEVEL_THRESHOLD = 4.5
+WATER_LEVEL_LIMIT_M = WATER_LEVEL_THRESHOLD
+WATER_LEVEL_WARN_M = 3.5
 
 SENSOR_THRESHOLDS = {
     "water_level": {
-        "warn": 4.0,
-        "crit": 5.5,
-        "flood": 5.5,
+        "warn": WATER_LEVEL_WARN_M,
+        "crit": WATER_LEVEL_THRESHOLD,
+        "flood": WATER_LEVEL_THRESHOLD,
         "unit": "m",
-        "standard": "IRC:6-2017 Cl. 213 / CWC",
+        "standard": "IRC:6-2017 (4.5m limit)",
     },
     "vibration": {
         "warn": 0.8,
@@ -39,9 +44,6 @@ SENSOR_THRESHOLDS = {
 
 CRACK_GAP_LIMIT_MM = SENSOR_THRESHOLDS["crack_gap"]["crit"]  # 0.30 mm
 CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS["crack_gap"]["warn"]   # 0.20 mm
-
-WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS["water_level"]["crit"]  # 5.50 m
-WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS["water_level"]["warn"]   # 4.00 m
 
 VIBRATION_LIMIT_G = SENSOR_THRESHOLDS["vibration"]["crit"]      # 1.20 g
 VIBRATION_WARN_G = SENSOR_THRESHOLDS["vibration"]["warn"]       # 0.80 g

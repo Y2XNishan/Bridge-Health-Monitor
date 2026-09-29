@@ -19,11 +19,22 @@ BASELINE = {
     "crack_gap": 0.20,
 }
 
+try:
+    from backend.constants import WATER_LEVEL_THRESHOLD, VIBRATION_LIMIT_G, STRAIN_LIMIT_MPA, CRACK_GAP_LIMIT_MM
+except ImportError:
+    try:
+        from constants import WATER_LEVEL_THRESHOLD, VIBRATION_LIMIT_G, STRAIN_LIMIT_MPA, CRACK_GAP_LIMIT_MM
+    except ImportError:
+        WATER_LEVEL_THRESHOLD = 4.5
+        VIBRATION_LIMIT_G = 1.2
+        STRAIN_LIMIT_MPA = 210.0
+        CRACK_GAP_LIMIT_MM = 0.30
+
 THRESHOLDS = {
-    "water_level": 5.5,
-    "vibration": 1.2,
-    "strain": 210.0,
-    "crack_gap": 0.30,
+    "water_level": WATER_LEVEL_THRESHOLD,
+    "vibration": VIBRATION_LIMIT_G,
+    "strain": STRAIN_LIMIT_MPA,
+    "crack_gap": CRACK_GAP_LIMIT_MM,
 }
 
 

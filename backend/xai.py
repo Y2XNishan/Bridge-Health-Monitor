@@ -5,6 +5,7 @@ from groq import Groq
 try:
     from backend.constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -13,6 +14,7 @@ try:
 except ImportError:
     from constants import (
         SENSOR_THRESHOLDS,
+        WATER_LEVEL_THRESHOLD,
         CRACK_GAP_LIMIT_MM,
         CRACK_GAP_WARN_MM,
         WATER_LEVEL_LIMIT_M,
@@ -55,7 +57,7 @@ def reconcile_explanation_with_triggered_sensors(
     crk_warn = CRACK_GAP_WARN_MM
     crk_crit = CRACK_GAP_LIMIT_MM
     wat_warn = WATER_LEVEL_WARN_M
-    wat_crit = WATER_LEVEL_LIMIT_M
+    wat_crit = WATER_LEVEL_THRESHOLD
 
     rc_idx = explanation.upper().find("ROOT CAUSE")
     if rc_idx == -1:
@@ -98,9 +100,9 @@ def reconcile_explanation_with_triggered_sensors(
 
     if water_level >= wat_warn and not any(term in rc_block_lower for term in ["water", "flood", "scour", "hydraulic"]):
         if water_level >= wat_crit:
-            missing_parts.append(f"Water level has breached the IRC:6-2017 flood danger limit at {water_level:.2f}m (critical limit: {wat_crit:.2f}m).")
+            missing_parts.append(f"Water level has breached the IRC:6-2017 flood danger limit at {water_level:.2f}m (critical limit: {wat_crit}m).")
         else:
-            missing_parts.append(f"Water level is elevated at {water_level:.2f}m, approaching the flood danger limit of {wat_crit:.2f}m.")
+            missing_parts.append(f"Water level is elevated at {water_level:.2f}m, approaching the flood danger limit of {wat_crit}m.")
 
     if not missing_parts:
         return explanation
@@ -126,7 +128,7 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
     str_warn = SENSOR_THRESHOLDS["strain"]["warn"]
     crk_crit = CRACK_GAP_LIMIT_MM
     crk_warn = CRACK_GAP_WARN_MM
-    wat_crit = WATER_LEVEL_LIMIT_M
+    wat_crit = WATER_LEVEL_THRESHOLD
     wat_warn = WATER_LEVEL_WARN_M
 
     triggered_sensors = []
@@ -146,9 +148,9 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
         triggered_sensors.append(f"Crack gap {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm) — Monitor")
     
     if water_level >= wat_crit:
-        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m) — Critical")
+        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit}m) — Critical")
     elif water_level >= wat_warn:
-        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m) — Monitor")
+        triggered_sensors.append(f"Water level {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit}m) — Monitor")
     
     # Determine root cause indicators for every triggered sensor
     root_cause_hints = []
@@ -168,9 +170,9 @@ def explain_anomaly(bridge_name: str, sensor_data: dict, anomaly_data: dict, ale
         root_cause_hints.append(f"crack gap at {crack_gap:.3f}mm is widening above warning limit ({crk_warn:.2f}mm)")
 
     if water_level >= wat_crit:
-        root_cause_hints.append(f"water level at {water_level:.2f}m breaches flood danger limit ({wat_crit:.2f}m), indicating severe hydrodynamic pressure and scour threat")
+        root_cause_hints.append(f"water level at {water_level:.2f}m breaches flood danger limit ({wat_crit}m), indicating severe hydrodynamic pressure and scour threat")
     elif water_level >= wat_warn:
-        root_cause_hints.append(f"water level at {water_level:.2f}m is elevated above flood warning threshold ({wat_warn:.2f}m)")
+        root_cause_hints.append(f"water level at {water_level:.2f}m is elevated above flood warning threshold ({wat_warn}m)")
 
     # Compound interactions
     if vibration >= vib_warn and strain >= str_warn:
@@ -206,7 +208,7 @@ FULL SENSOR READINGS:
 - Vibration: {vibration:.3f}g (IRC:6-2017 limit: {vib_crit:.2f}g)
 - Strain: {strain:.1f} MPa (IRC:112-2011 limit: {str_crit:.1f} MPa)  
 - Crack Gap: {crack_gap:.3f}mm (IRC:112-2011 limit: {crk_crit:.2f}mm)
-- Water Level: {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit:.2f}m)
+- Water Level: {water_level:.2f}m (IRC:6-2017 flood danger limit: {wat_crit}m)
 
 CRITICAL INSTRUCTION:
 Every sensor listed under TRIGGERED SENSORS must be explicitly analyzed and mentioned with its actual value in the ROOT CAUSE narrative. Do NOT omit or drop any sensor listed under TRIGGERED SENSORS.
@@ -265,9 +267,9 @@ Generate an XAI explanation with exactly these 4 sections:
             rc_parts.append(f"Crack gap sensor shows progressive widening at {crack_gap:.3f}mm approaching the {crk_crit:.2f}mm limit.")
             
         if water_level >= wat_crit:
-            rc_parts.append(f"Water level has breached the IRC:6-2017 flood danger limit at {water_level:.2f}m (critical limit: {wat_crit:.2f}m).")
+            rc_parts.append(f"Water level has breached the IRC:6-2017 flood danger limit at {water_level:.2f}m (critical limit: {wat_crit}m).")
         elif water_level >= wat_warn:
-            rc_parts.append(f"Water level is elevated at {water_level:.2f}m, approaching the flood danger limit of {wat_crit:.2f}m.")
+            rc_parts.append(f"Water level is elevated at {water_level:.2f}m, approaching the flood danger limit of {wat_crit}m.")
 
         if not rc_parts:
             rc_parts.append(f"An anomaly was detected by the ML models due to pattern deviations in sensor correlations (Anomaly Score: {anomaly_score:.2f}).")

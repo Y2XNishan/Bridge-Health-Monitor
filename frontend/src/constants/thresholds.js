@@ -6,16 +6,21 @@
  * - Vibration: IRC:6-2017 Clause 204 / 219 (Live load vibration & dynamic limits) -> Limit: 1.20 g
  * - Strain: IRC:112-2011 Section 12 (Serviceability Limit State tensile strain) -> Limit: 210.0 MPa
  * - Crack Gap: IRC:112-2011 Table 12.1 / IRC:SP:44-1996 (Crack control in concrete bridges) -> Limit: 0.30 mm, Warn: 0.20 mm
- * - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 5.50 m, Watch: 4.00 m
+ * - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 4.5 m, Watch: 3.5 m
  */
+
+// Single shared water level threshold (4.5 m)
+export const WATER_LEVEL_THRESHOLD = 4.5;
+export const WATER_LEVEL_LIMIT_M = WATER_LEVEL_THRESHOLD;
+export const WATER_LEVEL_WARN_M = 3.5;
 
 export const SENSOR_THRESHOLDS = {
   water_level: {
-    warn: 4.0,
-    crit: 5.5,
+    warn: WATER_LEVEL_WARN_M,
+    crit: WATER_LEVEL_THRESHOLD,
     unit: 'm',
     label: 'Water level',
-    standard: 'IRC:6-2017 Cl. 213 / CWC (5.50m limit)',
+    standard: 'IRC:6-2017 (4.5m limit)',
   },
   vibration: {
     warn: 0.8,
@@ -42,9 +47,6 @@ export const SENSOR_THRESHOLDS = {
 
 export const CRACK_GAP_LIMIT_MM = SENSOR_THRESHOLDS.crack_gap.crit; // 0.30 mm
 export const CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS.crack_gap.warn;  // 0.20 mm
-
-export const WATER_LEVEL_LIMIT_M = SENSOR_THRESHOLDS.water_level.crit; // 5.50 m
-export const WATER_LEVEL_WARN_M = SENSOR_THRESHOLDS.water_level.warn;  // 4.00 m
 
 export const VIBRATION_LIMIT_G = SENSOR_THRESHOLDS.vibration.crit;     // 1.20 g
 export const VIBRATION_WARN_G = SENSOR_THRESHOLDS.vibration.warn;      // 0.80 g

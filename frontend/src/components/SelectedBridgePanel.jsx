@@ -1,6 +1,6 @@
 import { MapPin, Activity, Zap, Maximize2, Droplets, Bot, AlertTriangle, Radio } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from './StatusBadge';
-import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';
+import { SENSOR_THRESHOLDS, WATER_LEVEL_THRESHOLD, getSensorStatus } from '../constants/thresholds';
 
 export default function SelectedBridgePanel({
   bridge,
@@ -71,7 +71,7 @@ export default function SelectedBridgePanel({
       value: bridge.water_level != null ? Number(bridge.water_level).toFixed(2) : '--',
       unit: SENSOR_THRESHOLDS.water_level.unit,
       status: getSensorStatus('water_level', bridge.water_level),
-      limit: `Limit: ${SENSOR_THRESHOLDS.water_level.crit.toFixed(2)} m`,
+      limit: `Limit: ${WATER_LEVEL_THRESHOLD} m`,
       icon: Droplets,
     },
   ];
