@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field
 from rag import retrieve_context
 
 router = APIRouter()
+_last_inference_timestamp = time.time()
 
 SYSTEM_PROMPT = (
     "You are BridgeIQ Assistant, an AI for structural health monitoring of Indian bridges.\n"
@@ -134,6 +136,10 @@ class ModelInfoResponse(BaseModel):
     model_type: str
     local_model_path: str
     local_model_available: bool
+    models_loaded: bool = True
+    last_inference_time: str = "Just now"
+    last_inference_timestamp: float = 0.0
+    status: str = "operational"
 
 
 async def _fetch_context_item(
@@ -249,23 +255,45 @@ def _ensure_reply(reply: str | None) -> str:
 
 @router.get("/api/chat/model-info", response_model=ModelInfoResponse)
 async def model_info() -> ModelInfoResponse:
+    global _last_inference_timestamp
+    has_groq = bool(os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY") != "your_groq_key_here")
+    models_loaded = bool(_use_local_model or has_groq)
+
+    now = time.time()
+    time_since_inference = now - _last_inference_timestamp
+    inference_within_window = time_since_inference <= 180.0
+
+    is_operational = models_loaded and inference_within_window
+    status_str = "operational" if is_operational else "degraded"
+    time_str = "Just now" if time_since_inference < 60 else f"{int(time_since_inference)}s ago"
+
     if _use_local_model:
         return ModelInfoResponse(
             active_model="BridgeIQ Fine-tuned (LLaMA 3.2 3B + LoRA)",
             model_type="local",
             local_model_path=str(LORA_MODEL_PATH),
             local_model_available=True,
+            models_loaded=models_loaded,
+            last_inference_time=time_str,
+            last_inference_timestamp=_last_inference_timestamp,
+            status=status_str,
         )
     return ModelInfoResponse(
         active_model=f"Groq API ({GROQ_MODEL_NAME})",
         model_type="groq",
         local_model_path=str(LORA_MODEL_PATH),
         local_model_available=LORA_MODEL_PATH.exists(),
+        models_loaded=models_loaded,
+        last_inference_time=time_str,
+        last_inference_timestamp=_last_inference_timestamp,
+        status=status_str,
     )
 
 
 @router.post("/api/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
+    global _last_inference_timestamp
+    _last_inference_timestamp = time.time()
     context = await _fetch_bridge_context(request.bridge_id)
     clean_context = _clean_bridge_context(context)
     retrieved_context = retrieve_context(request.message)
