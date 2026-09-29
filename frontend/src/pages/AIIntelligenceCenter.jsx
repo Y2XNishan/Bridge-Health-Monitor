@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
+import ReactMarkdown from 'react-markdown';
 import {
   LineChart,
   Line,
@@ -1524,6 +1525,78 @@ const STARTER_CHIPS = [
   "Estimate repair cost for all critical bridges",
 ];
 
+const chatMarkdownComponents = {
+  p: ({ children }) => (
+    <p className="my-1.5 first:mt-0 last:mb-0 leading-relaxed text-[12px]">{children}</p>
+  ),
+  strong: ({ children }) => (
+    <strong className="font-bold text-[var(--text-primary)]" style={{ color: C.text1 }}>
+      {children}
+    </strong>
+  ),
+  em: ({ children }) => <em className="italic">{children}</em>,
+  h1: ({ children }) => (
+    <h1 className="text-[14px] font-bold mt-3 mb-1.5 first:mt-0 text-[var(--text-primary)]" style={{ color: C.text1 }}>
+      {children}
+    </h1>
+  ),
+  h2: ({ children }) => (
+    <h2 className="text-[13px] font-bold mt-2.5 mb-1 first:mt-0 text-[var(--text-primary)]" style={{ color: C.text1 }}>
+      {children}
+    </h2>
+  ),
+  h3: ({ children }) => (
+    <h3 className="text-[12px] font-bold mt-2 mb-1 first:mt-0 text-[var(--text-primary)]" style={{ color: C.text1 }}>
+      {children}
+    </h3>
+  ),
+  h4: ({ children }) => (
+    <h4 className="text-[12px] font-semibold mt-1.5 mb-0.5 first:mt-0 text-[var(--text-primary)]" style={{ color: C.text1 }}>
+      {children}
+    </h4>
+  ),
+  ul: ({ children }) => (
+    <ul className="my-1.5 pl-4 list-disc space-y-1 text-[12px]">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="my-1.5 pl-4 list-decimal space-y-1 text-[12px]">{children}</ol>
+  ),
+  li: ({ children }) => (
+    <li className="leading-relaxed pl-0.5">{children}</li>
+  ),
+  code: ({ children }) => (
+    <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ background: 'rgba(0,0,0,0.06)' }}>
+      {children}
+    </code>
+  ),
+  pre: ({ children }) => (
+    <pre className="p-2.5 rounded-lg overflow-x-auto text-[11px] font-mono my-2 border" style={{ background: 'rgba(0,0,0,0.04)', borderColor: C.border }}>
+      {children}
+    </pre>
+  ),
+  blockquote: ({ children }) => (
+    <blockquote className="border-l-2 pl-3 my-2 italic" style={{ borderColor: C.purple, color: C.text2 }}>
+      {children}
+    </blockquote>
+  ),
+  hr: () => <hr className="my-2 border-t" style={{ borderColor: C.border }} />,
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-2 rounded border" style={{ borderColor: C.border }}>
+      <table className="w-full text-left text-[11px] border-collapse">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="px-2.5 py-1.5 font-semibold border-b" style={{ background: 'rgba(0,0,0,0.04)', borderColor: C.border, color: C.text1 }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-2.5 py-1.5 border-b" style={{ borderColor: C.border, color: C.text2 }}>
+      {children}
+    </td>
+  ),
+};
+
 function BridgeIntelligenceTab() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -1798,20 +1871,27 @@ function BridgeIntelligenceTab() {
                         <span className="text-[9px] font-bold tracking-wider" style={{ color: C.purple }}>
                           Bridge intelligence AI
                         </span>
-                        <span className="text-[8px]" style={{ color: C.text4 }}>
+                        <span className="text-[8px]" style={{ color: C.text3 }}>
                           {formatTime(msg.time)}
                         </span>
                       </div>
                     )}
-                    <div
-                      className="text-[12px] leading-relaxed whitespace-pre-wrap"
-                      style={{
-                        fontWeight: msg.role === 'user' ? 500 : 400,
-                        lineHeight: '1.6',
-                      }}
-                    >
-                      {msg.content}
-                    </div>
+                    {msg.role === 'assistant' ? (
+                      <div className="text-[12px] leading-relaxed chat-markdown">
+                        <ReactMarkdown components={chatMarkdownComponents}>
+                          {String(msg.content || '')}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div
+                        className="text-[12px] leading-relaxed whitespace-pre-wrap font-medium"
+                        style={{
+                          lineHeight: '1.6',
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                    )}
                     {msg.role === 'user' && (
                       <div className="flex justify-end mt-1">
                         <span className="text-[8px]" style={{ color: 'rgba(255,255,255,0.6)' }}>
