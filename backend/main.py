@@ -4536,6 +4536,41 @@ def is_critical_bridge(bridge: dict) -> bool:
             pass
     return False
 
+IRC_SENSOR_LIMITS = [
+    {"key": "crack_gap", "name": "Crack gap", "limit": 0.30, "unit": "mm"},
+    {"key": "water_level", "name": "Water level", "limit": 4.5, "unit": "m"},
+    {"key": "strain", "name": "Strain", "limit": 210.0, "unit": "MPa"},
+    {"key": "vibration", "name": "Vibration", "limit": 1.20, "unit": "g"},
+]
+
+def get_bridge_breached_sensors(bridge: dict):
+    """
+    Find all breached sensors for a bridge, sorted with the primary driver
+    (highest ratio value / limit, matching the Root Cause Analysis panel logic) first.
+    """
+    breached = []
+    for s in IRC_SENSOR_LIMITS:
+        val = bridge.get(s["key"])
+        if val is not None:
+            try:
+                f_val = float(val)
+                limit = s["limit"]
+                if f_val > limit:
+                    ratio = f_val / limit
+                    breached.append({
+                        "name": s["name"],
+                        "value": f_val,
+                        "limit": limit,
+                        "unit": s["unit"],
+                        "ratio": ratio,
+                        "text": f"{s['name']} {f_val:.2f} {s['unit']} (limit {limit})"
+                    })
+            except (ValueError, TypeError):
+                pass
+    # Sort descending by ratio (primary driver first, exactly matching root cause panel)
+    breached.sort(key=lambda x: x["ratio"], reverse=True)
+    return breached
+
 
 class BridgeIntelligenceRequest(BaseModel):
     question: str
@@ -4598,24 +4633,18 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
                 if not filtered_bridges:
                     filtered_bridges = sorted(bridges_data, key=lambda b: float(b.get("health_score") or 100))[:9]
             
-    # Build a compact/simplified list of bridges to prevent token limits / HTTP 400
-    simplified_bridges = [
-        {
+    # Pass all breached sensors with primary driver first
+    simplified_bridges = []
+    for b in filtered_bridges:
+        breached_list = get_bridge_breached_sensors(b)
+        breached_texts = [s["text"] for s in breached_list]
+        health = round(float(b.get("health_score", 100)), 1)
+        simplified_bridges.append({
             "name": b.get("name"),
-            "health_score": b.get("health_score"),
+            "health_score": health,
             "status": "Critical" if is_critical_bridge(b) else _get_bridge_status(b),
-            "vibration": b.get("vibration"),
-            "strain": b.get("strain"),
-            "crack_gap": b.get("crack_gap"),
-            "location": b.get("location") or b.get("state") or b.get("city"),
-            "alert_level": (
-                "CRITICAL" if (b.get("health_score") or 100) < 50
-                else "WARNING" if (b.get("health_score") or 100) < 75 and b.get("alert_level") in [None, "NORMAL"]
-                else b.get("alert_level", "NORMAL")
-            )
-        }
-        for b in filtered_bridges
-    ]
+            "breached_sensors": ", ".join(breached_texts) if breached_texts else "None (within limits)"
+        })
         
     system_prompt = (
         "You are Bridge Intelligence AI for NHAI (National Highways Authority of India).\n"
@@ -4625,21 +4654,32 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         "- Strain limit: 210.0 MPa (IRC:112-2011)\n"
         "- Vibration limit: 1.20 g (IRC:6-2017)\n\n"
         "Strict Formatting Rules:\n"
-        "1. Answer engineers' questions concisely and technically using only the official limits above.\n"
-        "2. Always reference specific bridge names, health scores, and sensor values when relevant.\n"
-        "3. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
+        "1. For each bridge, output strictly ONE line with the exact format:\n"
+        "   * **[Name]** (Health: [Score]/100): [Breached Sensor 1] [Value] [Unit] (limit [Limit]), [Breached Sensor 2] [Value] [Unit] (limit [Limit])\n"
+        "   Example: * **Ellis Bridge** (Health: 47.3/100): Crack gap 0.45 mm (limit 0.30), Vibration 1.25 g (limit 1.20), Water level 4.61 m (limit 4.5)\n"
+        "2. For each bridge, list ALL breached sensors (value vs limit), not just the first, with the primary driver (highest ratio to its limit) listed first.\n"
+        "3. NEVER list bridges that are within limits.\n"
+        "4. Include ALL critical bridges provided in the data. Do NOT omit any bridge.\n"
+        "5. Keep strictly to ONE line per bridge. Output ONLY the bulleted answer. Do NOT include thinking, preambles, or conversational filler.\n"
+        "6. Never include emojis or emoticons."
     )
     
     # 3. Call Groq API
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key or api_key == "your_groq_key_here":
+        fallback_text = _generate_fallback_summary(simplified_bridges)
+        referenced_bridges = [
+            b for b in bridges_data
+            if b.get("name") and b["name"].lower() in fallback_text.lower()
+        ]
         return JSONResponse(content={
             "answer": (
                 "Bridge Intelligence AI is currently offline because the GROQ_API_KEY "
                 "environment variable is not set. Please configure it to enable AI-powered "
                 "bridge analysis.\n\nIn the meantime, here's a quick summary from the data:\n\n"
-                + _generate_fallback_summary(simplified_bridges)
-            )
+                + fallback_text
+            ),
+            "referenced_bridges": referenced_bridges
         })
         
     try:
@@ -4652,7 +4692,7 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are Bridge Intelligence AI, an expert structural health monitoring assistant for NHAI. Answer concisely, reference specific bridge names and sensor values, use bullet points. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
+                    "content": system_prompt
                 },
                 {
                     "role": "user", 
@@ -4676,13 +4716,27 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         raw_reply = completion.choices[0].message.content or ""
         reply_text = _strip_reasoning(raw_reply)
         if not reply_text:
-            reply_text = "No response generated. Please try again."
+            reply_text = "No breached bridges detected from the current dataset."
             
-        return {"answer": reply_text}
+        referenced_bridges = [
+            b for b in bridges_data
+            if b.get("name") and b["name"].lower() in reply_text.lower()
+        ]
+
+        return {
+            "answer": reply_text,
+            "referenced_bridges": referenced_bridges
+        }
             
     except Exception as exc:
+        fallback_text = _generate_fallback_summary(simplified_bridges)
+        referenced_bridges = [
+            b for b in bridges_data
+            if b.get("name") and b["name"].lower() in fallback_text.lower()
+        ]
         return JSONResponse(content={
-            "answer": f"Bridge Intelligence request failed: {exc}\n\nFallback summary:\n\n" + _generate_fallback_summary(simplified_bridges)
+            "answer": f"Bridge Intelligence request failed: {exc}\n\nFallback summary:\n\n" + fallback_text,
+            "referenced_bridges": referenced_bridges
         })
 
 
