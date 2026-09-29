@@ -4526,6 +4526,17 @@ def _strip_reasoning(text: str) -> str:
     return res if res else text.strip()
 
 
+def is_critical_bridge(bridge: dict) -> bool:
+    """Exact Critical status definition matching network summary card: health_score < 50."""
+    score = bridge.get("health_score")
+    if score is not None:
+        try:
+            return float(score) < 50.0
+        except (ValueError, TypeError):
+            pass
+    return False
+
+
 class BridgeIntelligenceRequest(BaseModel):
     question: str
     bridges: list = []
@@ -4541,13 +4552,58 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
             bridges_data = get_india_bridges()
         except Exception:
             bridges_data = []
+
+    question_lower = request.question.lower()
+
+    # 2. Server-side pre-filtering:
+    # For "repair/critical/immediate" questions send only Critical-status bridges. Never send all 58 raw.
+    is_critical_q = any(k in question_lower for k in [
+        "repair", "critical", "immediate", "urgent", "attention", "danger", 
+        "failing", "fail", "degraded", "worst", "priority", "fix", "risk"
+    ])
+
+    if is_critical_q:
+        # Use exact same Critical definition as the network summary card: health_score < 50
+        filtered_bridges = [b for b in bridges_data if is_critical_bridge(b)]
+        if not filtered_bridges:
+            filtered_bridges = sorted(
+                bridges_data, key=lambda b: float(b.get("health_score") or 100)
+            )[:9]
+    else:
+        # Check if specific bridge name is mentioned in question
+        named_bridges = [
+            b for b in bridges_data
+            if b.get("name") and b["name"].lower() in question_lower
+        ]
+        if named_bridges:
+            filtered_bridges = named_bridges
+        else:
+            sensor_sort = None
+            if "vibration" in question_lower:
+                sensor_sort = lambda b: float(b.get("vibration") or 0)
+            elif "water" in question_lower or "flood" in question_lower:
+                sensor_sort = lambda b: float(b.get("water_level") or 0)
+            elif "strain" in question_lower:
+                sensor_sort = lambda b: float(b.get("strain") or 0)
+            elif "crack" in question_lower:
+                sensor_sort = lambda b: float(b.get("crack_gap") or 0)
+
+            if sensor_sort:
+                filtered_bridges = sorted(bridges_data, key=sensor_sort, reverse=True)[:9]
+            else:
+                filtered_bridges = [
+                    b for b in bridges_data
+                    if (is_critical_bridge(b) or (b.get("health_score") is not None and float(b["health_score"]) < 75.0))
+                ][:9]
+                if not filtered_bridges:
+                    filtered_bridges = sorted(bridges_data, key=lambda b: float(b.get("health_score") or 100))[:9]
             
-    # 2. Build a compact/simplified list of bridges to prevent token limits / HTTP 400
+    # Build a compact/simplified list of bridges to prevent token limits / HTTP 400
     simplified_bridges = [
         {
             "name": b.get("name"),
             "health_score": b.get("health_score"),
-            "status": _get_bridge_status(b),
+            "status": "Critical" if is_critical_bridge(b) else _get_bridge_status(b),
             "vibration": b.get("vibration"),
             "strain": b.get("strain"),
             "crack_gap": b.get("crack_gap"),
@@ -4558,7 +4614,7 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
                 else b.get("alert_level", "NORMAL")
             )
         }
-        for b in bridges_data
+        for b in filtered_bridges
     ]
         
     system_prompt = (
