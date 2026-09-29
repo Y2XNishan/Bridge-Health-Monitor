@@ -235,13 +235,14 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           water_level: b.water_level,
           anomaly_score: b.anomaly_score,
           risk_score: b.risk_score,
+          combined_score: b.combined_score ?? b.anomaly_score,
           traffic_load: b.traffic_load,
           vehicle_count: b.vehicle_count,
           degradation_rate: b.degradation_rate
         };
         
         am[b.id] = {
-          combined_score: b.anomaly_score,
+          combined_score: b.combined_score ?? b.anomaly_score,
           anomaly_score: b.anomaly_score,
           alert_level: b.alert_level
         };
@@ -308,25 +309,40 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     const list = timelineBridges.map((b) => {
       const live = b.live || {};
       const riskScore = live.risk_score || 0;
-      const anomalyScore = live.anomaly_score || 0;
-      const combinedRisk = riskScore * 0.6 + anomalyScore * 0.4;
       const health = live.health_score ?? 100;
+
+      // Anomaly score directly represents structural health degradation: (100 - health) / 100
+      const degradationScore = Math.max(0, Math.min(1, (100 - health) / 100));
+      const anomalyScore = live.anomaly_score != null ? live.anomaly_score : degradationScore;
 
       // Calculate days until failure: days = (health - 20) / degradation_rate
       const degradationRate = live.degradation_rate || 1.5;
       const days = Math.round((health - 20) / degradationRate);
       const daysText = health >= 75 ? "90+ days" : `~${days} days`;
 
-      const riskPct = Math.round(riskScore * 100);
+      // Derive unified combined score that reflects structural degradation and matches Days:
+      // When healthy (health >= 75, 90+ days), the combined score remains in the healthy range (< 0.25).
+      // When degraded, it accurately reflects the degradation score (or elevated supervised risk).
+      const combinedScore = health >= 75
+        ? Math.min(anomalyScore, 0.24)
+        : Math.max(anomalyScore, riskScore);
+
+      const combinedRisk = combinedScore;
+      const riskPct = Math.round(combinedScore * 100);
+
+      // Categorize risk aligned with failure timeline, degradation score, and health thresholds:
+      // - Critical: Health < 50, riskPct >= 50, or days <= 15 -> "Critical — Immediate attention required"
+      // - Monitor: Health < 75, riskPct >= 26, or days < 90 -> "Monitor — Moderate risk"
+      // - Healthy: Health >= 75, riskPct < 26, and days >= 90 -> "Healthy — No immediate risk"
       let status = "Healthy — No immediate risk";
       let statusColor = C.green;
       let statusIcon = "";
 
-      if (riskPct >= 50) {
+      if (health < 50 || riskPct >= 50 || (days <= 15 && health < 75)) {
         status = "Critical — Immediate attention required";
         statusColor = C.red;
         statusIcon = "";
-      } else if (riskPct >= 30) {
+      } else if (health < 75 || riskPct >= 26 || days < 90) {
         status = "Monitor — Moderate risk";
         statusColor = C.yellow;
         statusIcon = "";
@@ -336,17 +352,24 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         id: b.id,
         name: b.name,
         combinedRisk,
+        combinedScore,
         daysText,
         status,
         statusColor,
         statusIcon,
         anomalyScore,
-        riskScore
+        riskScore,
+        riskPct,
+        health,
+        days
       };
     });
 
-    // Sort by risk highest first
-    list.sort((a, b) => b.riskScore - a.riskScore);
+    // Sort by risk highest first (most degraded / urgent bridges at the top)
+    list.sort((a, b) => {
+      if (b.riskPct !== a.riskPct) return b.riskPct - a.riskPct;
+      return a.health - b.health;
+    });
     return list;
   }, [timelineBridges]);
 
@@ -367,11 +390,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
         <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
           {timelineData.map((b) => {
-            const pct = Math.min((b.anomalyScore || 0) * 100, 100);
+            const pct = Math.min(Math.max(b.riskPct, 2), 100);
             const barGrad =
-              pct > 70
+              b.riskPct >= 50
                 ? `linear-gradient(90deg, ${C.yellow}, ${C.red})`
-                : pct > 30
+                : b.riskPct >= 26
                 ? `linear-gradient(90deg, ${C.green}, ${C.yellow})`
                 : `linear-gradient(90deg, ${C.green}90, ${C.green})`;
             const isSelected = selectedBridgeId === b.id;
@@ -389,7 +412,6 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    
                     <span className="text-[12px] font-bold" style={{ color: C.text1 }}>{b.name}</span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -408,7 +430,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                   >
                     <div
                       className="h-full rounded-full transition-all duration-1000 relative"
-                      style={{ width: `${Math.max(pct, 2)}%`, background: barGrad }}
+                      style={{ width: `${pct}%`, background: barGrad }}
                     >
                       <div
                         className="absolute inset-0 rounded-full"
@@ -424,7 +446,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                   {/* Sparkline: 5 dots */}
                   <div className="flex items-end gap-[3px] h-4 shrink-0">
                     {[0.8, 0.6, 0.7, 0.9, 1.0].map((m, i) => {
-                      const v = b.anomalyScore * m * (0.7 + Math.random() * 0.6);
+                      const v = (b.combinedScore || b.anomalyScore) * m * (0.7 + Math.random() * 0.6);
                       const dotH = Math.max(3, Math.min(v * 16, 16));
                       const dotColor = v > 0.5 ? C.red : v > 0.3 ? C.yellow : C.green;
                       return (
@@ -437,12 +459,12 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                     })}
                   </div>
 
-                  {/* % risk badge scales consistently with risk_score: % risk = risk_score * 100 */}
+                  {/* % risk badge scales consistently with combined degradation score */}
                   <span
                     className="text-[10px] font-mono font-bold shrink-0 w-12 text-right"
                     style={{ color: b.statusColor }}
                   >
-                    {Math.round(b.riskScore * 100)}% risk
+                    {b.riskPct}% risk
                   </span>
                 </div>
 

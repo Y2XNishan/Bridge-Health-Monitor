@@ -1896,6 +1896,7 @@ def get_india_bridges():
             "crack_gap": data.get("crack_gap", 0.0),
             "water_level": data.get("water_level", 0.0),
             "anomaly_score": data.get("anomaly_score", 0.0),
+            "combined_score": data.get("combined_score", data.get("anomaly_score", 0.0)),
             "risk_score": data.get("risk_score", 0.0),
             "traffic_load": traffic_load,
             "vehicle_count": vehicle_count,
