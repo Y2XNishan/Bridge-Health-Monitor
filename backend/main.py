@@ -708,6 +708,12 @@ class BridgeSimulator:
         health["health_score"] = score
         health["health_grade"] = grade
         health["health_status"] = status
+
+        # Synchronize alert_level with overall health score
+        if score < 50.0 or status == "Critical":
+            alert_level = "CRITICAL"
+        elif (score < 75.0 or status in ["Poor", "Fair"]) and alert_level == "NORMAL":
+            alert_level = "WARNING"
         
         # Store in health history buffer
         self.health_history.append({
@@ -1884,13 +1890,21 @@ def get_india_bridges():
         )
         degradation_rate = degradation.get("daily_degradation_rate", 0.1)
         
+        # Ensure status and alert_level reflect standard health score bands
+        effective_status = "Critical" if score < 50.0 else "Monitor" if score < 75.0 else "Healthy"
+        effective_alert_level = (
+            "CRITICAL" if score < 50.0
+            else "WARNING" if score < 75.0 and data.get("alert_level") in [None, "NORMAL"]
+            else data.get("alert_level", "NORMAL")
+        )
+        
         res.append({
             **bridge,
             "health_score": score,
             "health_grade": grade,
-            "status": status,
+            "status": effective_status,
             "alert_count": alert_count,
-            "alert_level": data["alert_level"],
+            "alert_level": effective_alert_level,
             "vibration": data.get("vibration", 0.0),
             "strain": data.get("strain", 0.0),
             "crack_gap": data.get("crack_gap", 0.0),
@@ -2976,6 +2990,27 @@ async def rag_chat(request: RAGChatRequest):
         })
 
 
+def _get_bridge_status(bridge: dict) -> str:
+    """Derive standard structural health status ('Critical', 'Monitor', 'Healthy') from health score."""
+    score = bridge.get("health_score")
+    if score is not None:
+        try:
+            val = float(score)
+            if val < 50.0:
+                return "Critical"
+            elif val < 75.0:
+                return "Monitor"
+            return "Healthy"
+        except (ValueError, TypeError):
+            pass
+    raw = str(bridge.get("status") or bridge.get("alert_level") or "").upper()
+    if any(k in raw for k in ["CRIT", "FAIL", "DANGER", "SEVERE"]):
+        return "Critical"
+    if any(k in raw for k in ["WARN", "MONITOR", "WATCH", "POOR", "FAIR"]):
+        return "Monitor"
+    return "Healthy"
+
+
 def _generate_fallback_summary(bridges):
     """Generate a basic data summary when the LLM is unavailable."""
     if not bridges:
@@ -2993,7 +3028,8 @@ def _generate_fallback_summary(bridges):
     if critical:
         lines.append("\n**Bridges needing immediate attention:**")
         for b in critical[:5]:
-            lines.append(f"- {b['name']} \u2014 Health: {b.get('health_score', 'N/A')}, Alert: {b.get('alert_level', 'N/A')}")
+            status = _get_bridge_status(b)
+            lines.append(f"- {b['name']} \u2014 Health: {b.get('health_score', 'N/A')}, Status: {status}")
 
     return "\n".join(lines)
 
@@ -4467,12 +4503,16 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         {
             "name": b.get("name"),
             "health_score": b.get("health_score"),
-            "status": b.get("status"),
+            "status": _get_bridge_status(b),
             "vibration": b.get("vibration"),
             "strain": b.get("strain"),
             "crack_gap": b.get("crack_gap"),
             "location": b.get("location") or b.get("state") or b.get("city"),
-            "alert_level": b.get("alert_level")
+            "alert_level": (
+                "CRITICAL" if (b.get("health_score") or 100) < 50
+                else "WARNING" if (b.get("health_score") or 100) < 75 and b.get("alert_level") in [None, "NORMAL"]
+                else b.get("alert_level", "NORMAL")
+            )
         }
         for b in bridges_data
     ]

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
@@ -1562,37 +1562,65 @@ const chatMarkdownComponents = {
     <ol className="my-1.5 pl-4 list-decimal space-y-1 text-[12px]">{children}</ol>
   ),
   li: ({ children }) => {
-    const matchStatus = (text) => {
-      if (typeof text !== 'string') return null;
-      const clean = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]/gu, '').trim();
-      const m = clean.match(/^(Critical|Monitor|Healthy)(?::\s*|\s+-\s*|\s+—\s*|\s+)(.*)$/i);
-      if (m) {
-        return { status: m[1], rest: m[2] };
+    const formatContent = (content) => {
+      if (typeof content !== 'string') return content;
+      const clean = content.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]/gu, '');
+
+      // 1. Check if line starts with Critical: / Monitor: / Healthy:
+      const mStart = clean.trim().match(/^(Critical|Monitor|Healthy)(?::\s*|\s+-\s*|\s+—\s*|\s+)(.*)$/i);
+      if (mStart) {
+        return (
+          <span className="inline-flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={mStart[1]} size="sm" />
+            <span>{mStart[2]}</span>
+          </span>
+        );
       }
-      return null;
+
+      // 2. Check if line contains Status: (Critical|Monitor|Healthy) or Alert: (Critical|Monitor|Healthy)
+      const regex = /(?:Status|Alert):\s*(Critical|Monitor|Healthy)/gi;
+      if (regex.test(clean)) {
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+        regex.lastIndex = 0;
+        while ((match = regex.exec(clean)) !== null) {
+          if (match.index > lastIndex) {
+            parts.push(clean.substring(lastIndex, match.index));
+          }
+          const status = match[1];
+          parts.push(
+            <span key={match.index} className="inline-flex items-center gap-1 font-semibold">
+              <span className="text-[var(--text-secondary)]">Status:</span>
+              <StatusBadge status={status} size="sm" />
+            </span>
+          );
+          lastIndex = regex.lastIndex;
+        }
+        if (lastIndex < clean.length) {
+          parts.push(clean.substring(lastIndex));
+        }
+        return parts;
+      }
+
+      return clean;
     };
 
     if (typeof children === 'string') {
-      const found = matchStatus(children);
-      if (found) {
-        return (
-          <li className="leading-relaxed pl-0.5 flex items-center gap-1.5 flex-wrap">
-            <StatusBadge status={found.status} size="sm" />
-            <span>{found.rest}</span>
-          </li>
-        );
-      }
-    } else if (Array.isArray(children) && typeof children[0] === 'string') {
-      const found = matchStatus(children[0]);
-      if (found) {
-        return (
-          <li className="leading-relaxed pl-0.5 flex items-center gap-1.5 flex-wrap">
-            <StatusBadge status={found.status} size="sm" />
-            <span>{found.rest}</span>
-            {children.slice(1)}
-          </li>
-        );
-      }
+      return (
+        <li className="leading-relaxed pl-0.5">
+          {formatContent(children)}
+        </li>
+      );
+    }
+    if (Array.isArray(children)) {
+      return (
+        <li className="leading-relaxed pl-0.5">
+          {children.map((child, idx) => (
+            typeof child === 'string' ? <React.Fragment key={idx}>{formatContent(child)}</React.Fragment> : child
+          ))}
+        </li>
+      );
     }
 
     return (
