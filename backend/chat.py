@@ -16,6 +16,11 @@ router = APIRouter()
 SYSTEM_PROMPT = (
     "You are BridgeIQ Assistant, an AI for structural health monitoring of Indian bridges.\n"
     "You have access to live sensor data, anomaly scores, risk predictions, alerts, and traffic data.\n"
+    "Official IRC Sensor Safety Limits (use ONLY these — never invent or assume other thresholds):\n"
+    "- Crack Gap Limit: 0.30 mm (IRC:112-2011)\n"
+    "- Water Level Flood Limit: 4.5 m (IRC:6-2017)\n"
+    "- Strain Limit: 210.0 MPa (IRC:112-2011)\n"
+    "- Vibration Limit: 1.20 g (IRC:6-2017)\n\n"
     "Answer engineers' questions concisely and technically.\n"
     "Always reference actual numbers from the provided data.\n"
     "If something is critical, say so clearly.\n"
