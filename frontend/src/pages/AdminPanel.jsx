@@ -125,8 +125,8 @@ export default function AdminPanel() {
     return (
       <div className="flex flex-col items-center justify-center p-20 space-y-4">
         <div className="w-10 h-10 rounded-full border-4 border-t-2 animate-spin" style={{ borderColor: 'rgba(88, 166, 255, 0.2)', borderTopColor: '#58a6ff' }} />
-        <p className="text-xs uppercase tracking-widest font-bold" style={{ color: 'var(--text-secondary)' }}>
-          Decrypting Security Database...
+        <p className="text-xs tracking-widest font-bold" style={{ color: 'var(--text-secondary)' }}>
+          Decrypting security database...
         </p>
       </div>
     );
@@ -141,11 +141,11 @@ export default function AdminPanel() {
         <div className="flex justify-center">
           <AlertCircle size={32} color="#991B1B" />
         </div>
-        <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: '#991B1B' }}>Access denied</h3>
+        <h3 className="text-sm font-bold tracking-wider" style={{ color: '#991B1B' }}>Access denied</h3>
         <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{error}</p>
         <button
           onClick={fetchData}
-          className="mt-3 text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition"
+          className="mt-3 text-[10px] font-bold tracking-wider px-4 py-2 rounded-lg transition"
           style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
         >
           Retry authorization
@@ -172,7 +172,7 @@ export default function AdminPanel() {
               style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
             >
               <div className="space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-[10px] font-bold tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                   {stat.label}
                 </p>
                 <p className="text-2xl font-bold font-mono tracking-tight" style={{ color: stat.color }}>
@@ -301,7 +301,7 @@ export default function AdminPanel() {
 
           {/* Filter dropdown */}
           <div className="flex items-center gap-2">
-            <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>Filter status</span>
+            <span className="text-[9px] tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>Filter status</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

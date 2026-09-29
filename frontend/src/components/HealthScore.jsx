@@ -171,7 +171,7 @@ export default function HealthScore({ liveData, healthHistory }) {
                 className="rounded-xl p-3"
                 style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}
               >
-                <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <p className="text-[10px] tracking-wider font-semibold" style={{ color: 'var(--text-muted)' }}>
                   {item.label}
                 </p>
                 <p
@@ -187,8 +187,8 @@ export default function HealthScore({ liveData, healthHistory }) {
 
           {/* Sparkline */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
-              Health Trend (Last {sparkData.length} readings)
+            <p className="text-[10px] tracking-wider font-semibold mb-2" style={{ color: 'var(--text-muted)' }}>
+              Health trend (last {sparkData.length} readings)
             </p>
             <div className="h-16 rounded-xl overflow-hidden" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
               {sparkData.length > 1 ? (

@@ -75,7 +75,7 @@ function CollapsibleSection({ title, content }) {
     <div className="border-b border-[var(--border-subtle)] pb-2 mb-2">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between py-2 text-left font-bold text-xs uppercase tracking-wider text-[var(--text-primary)] hover:opacity-85 transition cursor-pointer font-sans"
+        className="w-full flex items-center justify-between py-2 text-left font-bold text-xs tracking-wider text-[var(--text-primary)] hover:opacity-85 transition cursor-pointer font-sans"
       >
         <div className="flex items-center gap-2">
           <ChevronRight
@@ -403,8 +403,8 @@ export default function AgentInspector({ activeBridgeId }) {
       {/* Main Glass Control Panel */}
       <div className="glass-card p-6 flex flex-col md:flex-row items-center gap-6">
         <div className="flex-1 w-full space-y-2">
-          <label className="text-[10px] uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>
-            Select Bridge for Inspection
+          <label className="text-[10px] tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>
+            Select bridge for inspection
           </label>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <select
@@ -424,7 +424,7 @@ export default function AgentInspector({ activeBridgeId }) {
             <button
               onClick={handleRunInspection}
               disabled={loading || !selectedBridge}
-              className="h-11 px-6 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="h-11 px-6 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               style={{
                 background: '#1C1F26',
                 color: 'white',
@@ -436,7 +436,7 @@ export default function AgentInspector({ activeBridgeId }) {
               ) : (
                 <Play size={14} fill="white" />
               )}
-              {loading ? 'Analyzing...' : 'Run Inspection'}
+              {loading ? 'Analyzing...' : 'Run inspection'}
             </button>
           </div>
           {selectedBridge && (
@@ -455,8 +455,8 @@ export default function AgentInspector({ activeBridgeId }) {
             <Loader2 size={32} className="animate-spin text-[var(--accent-blue)]" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-sm font-extrabold uppercase tracking-wider text-[var(--text-primary)]">
-              AI Bridge Inspector in Progress
+            <h3 className="text-sm font-extrabold tracking-wider text-[var(--text-primary)]">
+              AI bridge inspector in progress
             </h3>
             <p className="text-xs text-[var(--text-secondary)]">
               Analyzing structural health data, comparing design limit standards, and generating report.
@@ -501,7 +501,7 @@ export default function AgentInspector({ activeBridgeId }) {
         <div className="glass-card p-6 flex items-center gap-4 border-l-4 border-l-[var(--accent-red)]">
           <AlertCircle className="text-[var(--accent-red)]" size={24} />
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>Inspection Failed</h3>
+            <h3 className="text-sm font-bold tracking-wider" style={{ color: 'var(--text-primary)' }}>Inspection failed</h3>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{error}</p>
           </div>
         </div>
@@ -561,7 +561,7 @@ export default function AgentInspector({ activeBridgeId }) {
                     {formatHealthScore(displayScore)}
                     <span className="text-xs font-semibold text-slate-500 ml-0.5">/100</span>
                   </span>
-                  <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">Health Score</span>
+                  <span className="text-[9px] font-bold text-[var(--text-muted)]">Health score</span>
                 </div>
               </div>
 
@@ -573,8 +573,8 @@ export default function AgentInspector({ activeBridgeId }) {
 
             {/* 4 Sensor Telemetry Cards */}
             <div className="space-y-4">
-              <h3 className="text-xs uppercase tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>
-                Sensor Readings Summary
+              <h3 className="text-xs tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>
+                Sensor readings summary
               </h3>
               <div className="grid grid-cols-2 gap-4">
                 {[
@@ -633,7 +633,7 @@ export default function AgentInspector({ activeBridgeId }) {
                       }}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] uppercase font-bold text-[var(--text-muted)]">{sensor.name}</span>
+                        <span className="text-[9px] font-bold text-[var(--text-muted)]">{sensor.name}</span>
                         <div className="flex items-center gap-1.5">
                           <StatusBadge status={status} size="sm" />
                           <Icon size={14} className={isCrit ? 'text-[#991B1B]' : isWarn ? 'text-[#D97706]' : 'text-[var(--text-muted)]'} />
@@ -654,7 +654,7 @@ export default function AgentInspector({ activeBridgeId }) {
             <div className="glass-card p-5 space-y-3">
               <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-3">
                 <AlertCircle className="text-[var(--accent-red)]" size={16} />
-                <h3 className="text-xs uppercase tracking-wider font-bold">Issues Detected</h3>
+                <h3 className="text-xs tracking-wider font-bold">Issues detected</h3>
               </div>
               {hasExceeded ? (
                 <div className="space-y-2.5">
@@ -688,8 +688,8 @@ export default function AgentInspector({ activeBridgeId }) {
               <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4 mb-4">
                 <div className="flex items-center gap-2">
                   <FileText className="text-[var(--accent-blue)]" size={18} />
-                  <h2 className="text-sm font-extrabold uppercase tracking-wider">
-                    Full AI Inspection Report (RAG + Llama 3.3)
+                  <h2 className="text-sm font-extrabold tracking-wider">
+                    Full AI inspection report (RAG + Llama 3.3)
                   </h2>
                 </div>
                 <button
@@ -727,7 +727,7 @@ export default function AgentInspector({ activeBridgeId }) {
               {/* Recommendations list */}
               {inspectionResult.recommendations?.length > 0 && (
                 <div className="mt-6 border-t border-[var(--border-subtle)] pt-4 space-y-3">
-                  <h3 className="text-xs uppercase tracking-wider font-bold flex items-center gap-2 text-[var(--text-primary)]">
+                  <h3 className="text-xs tracking-wider font-bold flex items-center gap-2 text-[var(--text-primary)]">
                     <FileText size={14} className="text-slate-600" />
                     Recommendations and actions summary
                   </h3>

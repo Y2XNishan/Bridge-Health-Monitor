@@ -383,8 +383,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2.5">
           <Activity size={14} className="text-slate-500" />
-          <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-            Predictive Failure Timeline
+          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            Predictive failure timeline
           </h2>
         </div>
 
@@ -514,19 +514,19 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
     let label, cause, color;
     if (high.length >= 10 && isCorrelated) {
-      label = 'MULTI-BRIDGE EVENT DETECTED';
+      label = 'Multi-bridge event detected';
       cause = 'Possible seismic activity, weather event, or heavy convoy';
       color = C.purple;
     } else if (high.length >= 2) {
-      label = 'ELEVATED READINGS DETECTED';
+      label = 'Elevated readings detected';
       cause = 'Multiple bridges showing independent degradation — schedule prioritized maintenance';
       color = C.yellow;
     } else if (high.length === 1) {
-      label = 'ISOLATED ANOMALY';
+      label = 'Isolated anomaly';
       cause = 'Localized structural issue or sensor drift';
       color = C.yellow;
     } else {
-      label = 'NO CORRELATION';
+      label = 'No correlation';
       cause = 'All bridges operating independently within normal parameters';
       color = C.green;
     }
@@ -555,8 +555,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Activity size={14} />
-          <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-            Anomaly Correlation Engine
+          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            Anomaly correlation engine
           </h2>
         </div>
 
@@ -566,7 +566,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           style={{ background: `${correlation.color}08`, border: `1px solid ${correlation.color}25` }}
         >
           <span
-            className="text-[11px] font-black uppercase tracking-widest"
+            className="text-[11px] font-black tracking-wider"
             style={{ color: correlation.color }}
           >
             {correlation.label}
@@ -622,7 +622,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         {/* Confidence + detection time */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-[9px] font-bold uppercase" style={{ color: C.text3 }}>Confidence</span>
+            <span className="text-[9px] font-bold" style={{ color: C.text3 }}>Confidence</span>
             <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: C.border }}>
               <div
                 className="h-full rounded-full"
@@ -678,8 +678,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Settings size={14} />
-          <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-            Auto-Decision Log
+          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            Auto-decision log
           </h2>
         </div>
 
@@ -702,13 +702,13 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <span
-                      className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
+                      className="text-[8px] font-bold px-1.5 py-0.5 rounded"
                       style={{ color: C.purple, background: `${C.purple}15`, border: `1px solid ${C.purple}25` }}
                     >
-                      AI Decision
+                      AI decision
                     </span>
                     <span
-                      className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded"
+                      className="text-[8px] font-bold px-1.5 py-0.5 rounded"
                       style={{
                         color: d.isAuto ? C.cyan : C.text3,
                         background: d.isAuto ? `${C.cyan}12` : `${C.text3}12`,
@@ -961,8 +961,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Activity size={14} />
-            <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-              Root Cause Analysis Chain
+            <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+              Root cause analysis chain
             </h2>
           </div>
           <div className="flex items-center text-[10px] font-medium" style={{ color: C.text2 }}>
@@ -1002,7 +1002,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               ) : (
                 <>
                   <FileText size={14} />
-                  Download Report
+                  Download report
                 </>
               )}
             </button>
@@ -1031,10 +1031,10 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 >
                   {isHighlighted && (
                     <div
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 text-[7px] font-bold uppercase px-1.5 py-0.5 rounded"
+                      className="absolute -top-2 left-1/2 -translate-x-1/2 text-[7px] font-bold px-1.5 py-0.5 rounded"
                       style={{ background: C.red, color: '#fff' }}
                     >
-                      Root Cause
+                      Root cause
                     </div>
                   )}
                   <div className="text-center">
@@ -1140,8 +1140,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <DollarSign size={14} />
-              <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-                Cost Intelligence
+              <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+                Cost intelligence
               </h2>
             </div>
             <button
@@ -1164,7 +1164,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               ) : (
                 <>
                   <FileText size={14} />
-                  Download Network Report
+                  Download network report
                 </>
               )}
             </button>
@@ -1219,8 +1219,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <DollarSign size={14} />
-            <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-              Cost Intelligence
+            <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+              Cost intelligence
             </h2>
           </div>
           <button
@@ -1243,7 +1243,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
             ) : (
               <>
                 <FileText size={14} />
-                Download Network Report
+                Download network report
               </>
             )}
           </button>
@@ -1349,8 +1349,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Activity size={14} />
-          <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: C.purple }}>
-            Model Performance Intelligence
+          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            Model performance intelligence
           </h2>
         </div>
 
@@ -1382,7 +1382,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               <Brain size={22} color={C.purple} />
             </div>
             <span className="text-[10px] font-bold mt-1" style={{ color: C.text1 }}>LLaMA 3.2</span>
-            <Badge label={isLocal ? 'LOCAL' : 'GROQ'} color={isLocal ? C.green : C.purple} />
+            <Badge label={isLocal ? 'Local' : 'Groq'} color={isLocal ? C.green : C.purple} />
           </div>
         </div>
 
@@ -1451,7 +1451,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         </div>
 
         <button
-          className="mt-3 w-full py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-default"
+          className="mt-3 w-full py-2 rounded-lg text-[10px] font-bold tracking-wider transition-all cursor-default"
           style={{
             background: anyLow ? `${C.red}15` : `${C.purple}10`,
             border: `1px solid ${anyLow ? C.red : C.purple}30`,
@@ -1695,7 +1695,7 @@ function BridgeIntelligenceTab() {
         style={{ background: C.card, border: `1px solid ${C.border}` }}
       >
         <div>
-          <h1 className="text-[14px] font-extrabold tracking-tight uppercase" style={{ color: C.text1 }}>
+          <h1 className="text-[14px] font-extrabold tracking-tight" style={{ color: C.text1 }}>
             Bridge intelligence — AI Q&A
           </h1>
           <p className="text-[11px] mt-1" style={{ color: C.text3 }}>
@@ -1704,11 +1704,11 @@ function BridgeIntelligenceTab() {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-bold tracking-wider"
             style={{ color: C.green, background: `${C.green}12`, border: `1px solid ${C.green}30` }}
           >
             <Pulse color={C.green} s={5} />
-            {bridges.length} Bridges Live
+            {bridges.length} bridges live
           </span>
         </div>
       </div>
@@ -1729,15 +1729,15 @@ function BridgeIntelligenceTab() {
             >
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full" style={{ background: C.purple, animation: 'aio-pulse-purple 2.5s ease-in-out infinite' }} />
-                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.text2 }}>
-                  AI Assistant Chat Session
+                <span className="text-[10px] font-bold tracking-wider" style={{ color: C.text2 }}>
+                  AI assistant chat session
                 </span>
               </div>
               {messages.some(m => m.role === 'assistant') && (
                 <button
                   onClick={handleExportReport}
                   disabled={isExporting}
-                  className="px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
+                  className="px-3 py-1.5 rounded-lg text-[9px] font-bold tracking-wider cursor-pointer disabled:opacity-50 transition-all flex items-center gap-1.5"
                   style={{
                     background: '#1C1F26',
                     color: '#ffffff',
@@ -1795,7 +1795,7 @@ function BridgeIntelligenceTab() {
                   >
                     {msg.role === 'assistant' && (
                       <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.purple }}>
+                        <span className="text-[9px] font-bold tracking-wider" style={{ color: C.purple }}>
                           Bridge intelligence AI
                         </span>
                         <span className="text-[8px]" style={{ color: C.text4 }}>
@@ -1901,7 +1901,7 @@ function BridgeIntelligenceTab() {
               <button
                 onClick={() => sendMessage(input)}
                 disabled={isTyping || !input.trim()}
-                className="px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                className="px-4 py-2.5 rounded-lg text-[11px] font-bold tracking-wider cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
                   background: '#1C1F26',
                   color: '#ffffff',
@@ -1923,10 +1923,10 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold uppercase tracking-wider mb-4 flex items-center gap-2"
+              className="text-[11px] font-bold tracking-wider mb-4 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
-              <span style={{ color: C.purple }}>◆</span> Referenced Bridges
+              <span style={{ color: C.purple }}>◆</span> Referenced bridges
             </h3>
 
             {referencedBridges.length === 0 ? (
@@ -1991,10 +1991,10 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold uppercase tracking-wider mb-4 flex items-center gap-2"
+              className="text-[11px] font-bold tracking-wider mb-4 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
-              <span style={{ color: C.green }}>◆</span> Data Sources
+              <span style={{ color: C.green }}>◆</span> Data sources
             </h3>
             <div className="space-y-2.5">
               {[
@@ -2031,10 +2031,10 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold uppercase tracking-wider mb-3 flex items-center gap-2"
+              className="text-[11px] font-bold tracking-wider mb-3 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
-              <span style={{ color: C.blue }}>◆</span> Network Summary
+              <span style={{ color: C.blue }}>◆</span> Network summary
             </h3>
             <div className="grid grid-cols-3 gap-2">
               {(() => {
@@ -2055,7 +2055,7 @@ function BridgeIntelligenceTab() {
                   <p className="text-[16px] font-extrabold font-mono" style={{ color: item.color }}>
                     {item.count}
                   </p>
-                  <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5" style={{ color: item.color }}>
+                  <p className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: item.color }}>
                     {item.label}
                   </p>
                 </div>
@@ -2083,7 +2083,7 @@ export default function AIIntelligenceCenter() {
           <button
             onClick={() => setActiveTab('aiops')}
             style={{ transition: 'all 0.2s ease' }}
-            className={`px-4 py-1.5 rounded-md font-bold uppercase tracking-wider text-[10px] cursor-pointer ${
+            className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
               activeTab === 'aiops'
                 ? 'bg-[#3b82f6] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
@@ -2094,7 +2094,7 @@ export default function AIIntelligenceCenter() {
           <button
             onClick={() => setActiveTab('federated')}
             style={{ transition: 'all 0.2s ease' }}
-            className={`px-4 py-1.5 rounded-md font-bold uppercase tracking-wider text-[10px] cursor-pointer ${
+            className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
               activeTab === 'federated'
                 ? 'bg-[#3b82f6] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
@@ -2107,7 +2107,7 @@ export default function AIIntelligenceCenter() {
         {activeTab === 'aiops' && (
           <div className="flex items-center gap-3">
             <span
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest"
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black tracking-wider"
               style={{
                 color: C.purple,
                 background: `${C.purple}12`,
@@ -2116,7 +2116,7 @@ export default function AIIntelligenceCenter() {
               }}
             >
               <Pulse color={C.purple} s={5} />
-              Autonomous Mode
+              Autonomous mode
             </span>
           </div>
         )}

@@ -376,7 +376,7 @@ export default function SurvivalAnalysis() {
           className="border-b"
         >
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+            <h3 className="text-xs font-bold tracking-wider flex items-center gap-1.5">
               <span>What-if repair simulator</span>
             </h3>
             <p className="text-[10px] opacity-80 mt-0.5">Simulate the impact of repair timing and type</p>
@@ -405,7 +405,7 @@ export default function SurvivalAnalysis() {
             {/* 3. REPAIR DATE SLIDER */}
             <div className="space-y-1.5">
               <div className="flex justify-between items-center">
-                <label className="font-bold uppercase tracking-wider text-[10px] text-slate-500">Repair Date</label>
+                <label className="font-bold tracking-wider text-[10px] text-slate-500">Repair date</label>
                 <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
                   Day {repairDay} — {getSliderDate(repairDay)}
                 </span>
@@ -431,7 +431,7 @@ export default function SurvivalAnalysis() {
 
             {/* 4. REPAIR TYPE SELECTOR */}
             <div className="space-y-1.5">
-              <label className="font-black uppercase tracking-wider text-[10px] text-slate-500">Repair Type</label>
+              <label className="font-black tracking-wider text-[10px] text-slate-500">Repair type</label>
               <div className="flex flex-col gap-1.5">
                 {[
                   { id: 'full', label: 'Full Structural Repair (+60)' },
@@ -477,7 +477,7 @@ export default function SurvivalAnalysis() {
                   <span className="font-bold text-green-600">{healthAfterRepair.toFixed(1)}/100</span>
                 </div>
                 <div className="text-center py-1.5 border-b border-green-200/50">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-green-700">Extended Lifetime</span>
+                  <span className="block text-[10px] font-bold tracking-wider text-green-700">Extended lifetime</span>
                   <span className="text-lg font-black text-green-700">{totalSurvivalDays} more days</span>
                 </div>
                 <div className="flex justify-between pt-1 text-[10px]">
@@ -493,7 +493,7 @@ export default function SurvivalAnalysis() {
 
             {/* 6. COMPARISON CHART */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <label className="font-black uppercase tracking-wider text-[10px] text-slate-500">Repair Trajectory Graph</label>
+              <label className="font-black tracking-wider text-[10px] text-slate-500">Repair trajectory graph</label>
               <div style={{ width: '100%', height: 200 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
@@ -561,7 +561,7 @@ export default function SurvivalAnalysis() {
 
             {/* 7. QUICK COMPARISON TABLE */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
-              <label className="font-black uppercase tracking-wider text-[10px] text-slate-500">Timing Comparison Table</label>
+              <label className="font-black tracking-wider text-[10px] text-slate-500">Timing comparison table</label>
               <table className="w-full text-left text-[11px] border border-slate-200 rounded-lg overflow-hidden">
                 <thead className="bg-slate-50 text-slate-500">
                   <tr>
@@ -669,7 +669,7 @@ export default function SurvivalAnalysis() {
             <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-2">
                 <TrendingDown className="text-orange-400" size={16} />
-                <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>Bridges Health Degradation Priority</span>
+                <span className="text-xs font-black tracking-wider" style={{ color: 'var(--text-primary)' }}>Bridges health degradation priority</span>
               </div>
               
               <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -811,7 +811,7 @@ export default function SurvivalAnalysis() {
             {/* Control selector */}
             <div className="mb-4 space-y-3 pb-4 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <div>
-                <span className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>SELECT BRIDGE TO ANALYZE</span>
+                <span className="block text-[10px] font-bold tracking-wider mb-1.5" style={{ color: 'var(--text-secondary)' }}>Select bridge to analyze</span>
                 <select
                   className="w-full rounded-lg border bg-[var(--bg-secondary)] px-3 py-2 text-xs font-bold outline-none cursor-pointer"
                   style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
@@ -912,14 +912,14 @@ export default function SurvivalAnalysis() {
 
                 {/* Predictions Grid */}
                 <div className="space-y-2">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-secondary)]">Survival Forecast (Days remaining)</span>
+                  <span className="text-[9px] font-black tracking-widest text-[var(--text-secondary)]">Survival forecast (days remaining)</span>
                   <div className="grid grid-cols-3 gap-2">
                     
                     {(() => {
                       const prediction = selectedBridgeData.survival_predictions?.days_to_warning;
                       return (
                         <div className="p-3 rounded-lg border text-center border-amber-500/20" style={{ background: 'var(--bg-secondary)' }}>
-                          <span className="block text-[8px] font-black uppercase tracking-widest text-amber-500 mb-1">To Warning</span>
+                          <span className="block text-[8px] font-black tracking-widest text-amber-500 mb-1">To warning</span>
                           <span className="text-sm font-black block" style={{ color: prediction === 0 ? '#ef4444' : prediction > 365 ? '#10b981' : '#f59e0b' }}>
                             {prediction === 0 ? 'Immediate' : prediction > 365 ? '365+ days' : `${prediction} days`}
                           </span>
@@ -932,7 +932,7 @@ export default function SurvivalAnalysis() {
                       const prediction = selectedBridgeData.survival_predictions?.days_to_critical;
                       return (
                         <div className="p-3 rounded-lg border text-center border-orange-500/20" style={{ background: 'var(--bg-secondary)' }}>
-                          <span className="block text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">To Critical</span>
+                          <span className="block text-[8px] font-black tracking-widest text-orange-500 mb-1">To critical</span>
                           <span className="text-sm font-black block" style={{ color: prediction === 0 ? '#ef4444' : prediction > 365 ? '#10b981' : '#f59e0b' }}>
                             {prediction === 0 ? 'Immediate' : prediction > 365 ? '365+ days' : `${prediction} days`}
                           </span>
@@ -945,7 +945,7 @@ export default function SurvivalAnalysis() {
                       const prediction = selectedBridgeData.survival_predictions?.days_to_failure;
                       return (
                         <div className="p-3 rounded-lg border text-center border-red-500/20" style={{ background: 'var(--bg-secondary)' }}>
-                          <span className="block text-[8px] font-black uppercase tracking-widest text-red-500 mb-1">To Failure</span>
+                          <span className="block text-[8px] font-black tracking-widest text-red-500 mb-1">To failure</span>
                           <span className="text-sm font-black block" style={{ color: prediction === 0 ? '#ef4444' : prediction > 500 ? '#10b981' : '#ef4444' }}>
                             {prediction === 0 ? 'Immediate' : prediction > 500 ? '500+ days' : `${prediction} days`}
                           </span>
@@ -960,7 +960,7 @@ export default function SurvivalAnalysis() {
                 {/* Degradation Details */}
                 <div className="p-3 rounded-lg border space-y-3 bg-[var(--bg-secondary)]" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="flex justify-between items-center">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Degradation rate dynamics</span>
+                    <span className="text-[9px] font-bold tracking-widest text-[var(--text-secondary)]">Degradation rate dynamics</span>
                     <TrendingDown size={14} className="text-slate-500" />
                   </div>
                   <div className="flex justify-between items-baseline">
@@ -1014,7 +1014,7 @@ export default function SurvivalAnalysis() {
 
                 {/* Sensor Risk Predictions */}
                 <div className="space-y-2">
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">Telemetry sensor defect risks</span>
+                  <span className="text-[9px] font-bold tracking-widest text-[var(--text-secondary)]">Telemetry sensor defect risks</span>
                   {selectedBridgeData.sensor_risks?.length === 0 ? (
                     <div className="p-3 rounded-lg border border-dashed text-center text-xs" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-muted)' }}>
                       No sensors at immediate failure risk
@@ -1070,7 +1070,7 @@ export default function SurvivalAnalysis() {
                 <div id="maintenance-schedule" className="space-y-4">
                   <div className="flex items-center gap-2 border-b pb-2" style={{ borderColor: 'var(--border-subtle)' }}>
                     <HardHat className="text-slate-600" size={15} />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-primary)]">AI-generated maintenance schedule</span>
+                    <span className="text-[10px] font-bold tracking-wider text-[var(--text-primary)]">AI-generated maintenance schedule</span>
                   </div>
 
                   {(() => {
@@ -1088,7 +1088,7 @@ export default function SurvivalAnalysis() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />
-                            <h3 className="text-xs font-black text-red-400 uppercase tracking-wider">IMMEDIATE ACTIONS (within 7 days)</h3>
+                            <h3 className="text-xs font-black text-red-400 tracking-wider">Immediate actions (within 7 days)</h3>
                           </div>
                           <div className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                             <ReactMarkdown
@@ -1112,7 +1112,7 @@ export default function SurvivalAnalysis() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0" />
-                            <h3 className="text-xs font-black text-orange-400 uppercase tracking-wider">SCHEDULED MAINTENANCE (7-30 days)</h3>
+                            <h3 className="text-xs font-black text-orange-400 tracking-wider">Scheduled maintenance (7-30 days)</h3>
                           </div>
                           <div className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                             <ReactMarkdown
@@ -1136,7 +1136,7 @@ export default function SurvivalAnalysis() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                            <h3 className="text-xs font-black text-emerald-400 uppercase tracking-wider">LONG-TERM MONITORING (30+ days)</h3>
+                            <h3 className="text-xs font-black text-emerald-400 tracking-wider">Long-term monitoring (30+ days)</h3>
                           </div>
                           <div className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
                             <ReactMarkdown
@@ -1161,7 +1161,7 @@ export default function SurvivalAnalysis() {
                 {/* Title */}
                 <div className="flex items-center gap-2 mb-1">
                   <BarChart2 className="text-blue-500" size={16} />
-                  <span className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--text-primary)' }}>
+                  <span className="text-xs font-black tracking-wider" style={{ color: 'var(--text-primary)' }}>
                     Network survival overview
                   </span>
                 </div>

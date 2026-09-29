@@ -221,11 +221,11 @@ export default function Maintenance() {
         </div>
         {admin && (
           <button
-            className="rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest text-white transition hover:opacity-90"
+            className="rounded-xl px-5 py-3 text-xs font-black tracking-widest text-white transition hover:opacity-90"
             style={{ background: 'var(--accent-blue-light)', border: '1px solid #58a6ff' }}
             onClick={() => setIsModalOpen(true)}
           >
-            New Assignment
+            New assignment
           </button>
         )}
       </div>
@@ -240,13 +240,13 @@ export default function Maintenance() {
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             {[
-              ['PENDING', stats.PENDING],
-              ['IN PROGRESS', stats.IN_PROGRESS],
-              ['COMPLETED', stats.COMPLETED],
-              ['TOTAL ASSIGNMENTS', stats.TOTAL],
+              ['Pending', stats.PENDING],
+              ['In progress', stats.IN_PROGRESS],
+              ['Completed', stats.COMPLETED],
+              ['Total assignments', stats.TOTAL],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+                <p className="text-[10px] font-black tracking-widest" style={{ color: 'var(--text-secondary)' }}>{label}</p>
                 <p className="mt-3 text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{value}</p>
               </div>
             ))}
@@ -281,7 +281,7 @@ export default function Maintenance() {
                       </td>
                       <td className="px-4 py-4" style={{ color: 'var(--text-secondary)' }}>{assignment.due_date || 'No due date'}</td>
                       <td className="px-4 py-4">
-                        <button className="rounded-lg border px-3 py-2 text-xs font-black uppercase" style={{ borderColor: '#ff7b72', color: '#ff7b72' }} onClick={() => handleDelete(assignment.id)}>
+                        <button className="rounded-lg border px-3 py-2 text-xs font-black" style={{ borderColor: '#ff7b72', color: '#ff7b72' }} onClick={() => handleDelete(assignment.id)}>
                           Delete
                         </button>
                       </td>
@@ -312,8 +312,8 @@ export default function Maintenance() {
                 <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Due: {assignment.due_date || 'No due date'}</span>
               </div>
               {assignment.status === 'PENDING' && (
-                <button className="mt-5 rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }} onClick={() => handleStatusChange(assignment.id, 'IN_PROGRESS')}>
-                  Start Task
+                <button className="mt-5 rounded-xl px-4 py-2 text-xs font-black tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }} onClick={() => handleStatusChange(assignment.id, 'IN_PROGRESS')}>
+                  Start task
                 </button>
               )}
               {assignment.status === 'IN_PROGRESS' && (
@@ -325,7 +325,7 @@ export default function Maintenance() {
                     value={notesById[assignment.id] || ''}
                     onChange={(e) => setNotesById((prev) => ({ ...prev, [assignment.id]: e.target.value }))}
                   />
-                  <button className="rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white" style={{ background: '#3fb950' }} onClick={() => handleStatusChange(assignment.id, 'COMPLETED', notesById[assignment.id] || '')}>
+                  <button className="rounded-xl px-4 py-2 text-xs font-black tracking-widest text-white" style={{ background: '#3fb950' }} onClick={() => handleStatusChange(assignment.id, 'COMPLETED', notesById[assignment.id] || '')}>
                     Complete
                   </button>
                 </div>
@@ -377,11 +377,11 @@ export default function Maintenance() {
               </Field>
             </div>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" className="rounded-xl border px-5 py-3 text-xs font-black uppercase tracking-widest" style={{ borderColor: 'var(--border-hover)', color: 'var(--text-secondary)' }} onClick={() => setIsModalOpen(false)}>
+              <button type="button" className="rounded-xl border px-5 py-3 text-xs font-black tracking-widest" style={{ borderColor: 'var(--border-hover)', color: 'var(--text-secondary)' }} onClick={() => setIsModalOpen(false)}>
                 Cancel
               </button>
-              <button type="submit" className="rounded-xl px-5 py-3 text-xs font-black uppercase tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }}>
-                Submit Assignment
+              <button type="submit" className="rounded-xl px-5 py-3 text-xs font-black tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }}>
+                Submit assignment
               </button>
             </div>
           </form>
