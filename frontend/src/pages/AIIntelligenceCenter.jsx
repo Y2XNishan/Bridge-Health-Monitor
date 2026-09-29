@@ -392,12 +392,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="space-y-4 max-h-[450px] overflow-y-auto pr-2">
           {timelineData.map((b) => {
             const pct = Math.min(Math.max(b.riskPct, 2), 100);
-            const barGrad =
-              b.riskPct >= 50
-                ? `linear-gradient(90deg, ${C.yellow}, ${C.red})`
-                : b.riskPct >= 26
-                ? `linear-gradient(90deg, ${C.green}, ${C.yellow})`
-                : `linear-gradient(90deg, ${C.green}90, ${C.green})`;
+            const barColor = b.riskPct >= 50 ? C.red : b.riskPct >= 26 ? C.yellow : C.green;
             const isSelected = selectedBridgeId === b.id;
 
             return (
@@ -430,18 +425,9 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                     style={{ background: `${C.border}` }}
                   >
                     <div
-                      className="h-full rounded-full transition-all duration-1000 relative"
-                      style={{ width: `${pct}%`, background: barGrad }}
-                    >
-                      <div
-                        className="absolute inset-0 rounded-full"
-                        style={{
-                          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
-                          backgroundSize: '200% 100%',
-                          animation: 'aio-shimmer 2s ease-in-out infinite',
-                        }}
-                      />
-                    </div>
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${pct}%`, background: barColor }}
+                    />
                   </div>
 
                   {/* Sparkline: 5 dots */}
@@ -2228,7 +2214,7 @@ export default function AIIntelligenceCenter() {
             style={{ transition: 'all 0.2s ease' }}
             className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
               activeTab === 'aiops'
-                ? 'bg-[#3b82f6] text-white shadow-sm'
+                ? 'bg-[#1C1F26] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
             }`}
           >
@@ -2239,7 +2225,7 @@ export default function AIIntelligenceCenter() {
             style={{ transition: 'all 0.2s ease' }}
             className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
               activeTab === 'federated'
-                ? 'bg-[#3b82f6] text-white shadow-sm'
+                ? 'bg-[#1C1F26] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
             }`}
           >
