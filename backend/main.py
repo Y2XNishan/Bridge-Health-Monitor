@@ -4482,6 +4482,50 @@ def get_chat_pdf_report(request: ChatReportRequest, user = Depends(get_current_u
     )
 
 
+def _strip_reasoning(text: str) -> str:
+    """Strip internal reasoning tags, thinking blocks, and reasoning preambles from model output."""
+    if not text:
+        return ""
+    import re
+    # Strip <think>...</think> blocks and unclosed <think>
+    text = re.sub(r"(?is)<think>.*?</think>", "", text)
+    text = re.sub(r"(?is)<think>.*", "", text)
+    
+    # If the model output has a final answer section marker
+    for marker in ["Final Answer:", "### Final Answer", "**Final Answer**:", "Answer:"]:
+        if marker.lower() in text.lower():
+            idx = text.lower().find(marker.lower())
+            text = text[idx + len(marker):]
+            break
+
+    # Strip any leading lines that sound like reasoning thoughts before the actual bullet points
+    lines = text.strip().split("\n")
+    cleaned = []
+    found_answer = False
+    
+    reasoning_prefixes = (
+        "we need to", "let's scan", "let's check", "let's look", "let's analyze",
+        "let me check", "let me scan", "first, let's", "scanning data", "looking at the",
+        "i need to", "i will scan", "to determine which", "analyzing the", "we have to",
+        "based on the prompt", "let us", "the user is asking"
+    )
+    
+    for line in lines:
+        stripped = line.strip()
+        if not found_answer:
+            lower = stripped.lower()
+            if any(lower.startswith(prefix) for prefix in reasoning_prefixes):
+                continue
+            if stripped.startswith(("-", "*", "•", "1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "#")) or stripped:
+                found_answer = True
+                cleaned.append(line)
+        else:
+            cleaned.append(line)
+            
+    res = "\n".join(cleaned).strip()
+    return res if res else text.strip()
+
+
 class BridgeIntelligenceRequest(BaseModel):
     question: str
     bridges: list = []
@@ -4543,9 +4587,10 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         from groq import Groq
         client = Groq(api_key=api_key)
         groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-        completion = client.chat.completions.create(
-            model=groq_model,
-            messages=[
+        
+        call_kwargs = {
+            "model": groq_model,
+            "messages": [
                 {
                     "role": "system",
                     "content": "You are Bridge Intelligence AI, an expert structural health monitoring assistant for NHAI. Answer concisely, reference specific bridge names and sensor values, use bullet points. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
@@ -4555,13 +4600,22 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
                     "content": f"Question: {request.question}\n\nBridge data:\n{json.dumps(simplified_bridges)}"
                 }
             ],
-            max_tokens=1024,
-            temperature=0.7
-        )
+            "max_tokens": 2048,
+            "temperature": 0.1,
+        }
+
+        try:
+            completion = client.chat.completions.create(
+                **call_kwargs,
+                reasoning_format="hidden"
+            )
+        except Exception:
+            completion = client.chat.completions.create(
+                **call_kwargs
+            )
         
-        reply_text = completion.choices[0].message.content
-        if not reply_text and hasattr(completion.choices[0].message, "reasoning"):
-            reply_text = completion.choices[0].message.reasoning
+        raw_reply = completion.choices[0].message.content or ""
+        reply_text = _strip_reasoning(raw_reply)
         if not reply_text:
             reply_text = "No response generated. Please try again."
             
