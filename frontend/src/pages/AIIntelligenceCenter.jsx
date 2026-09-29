@@ -1011,9 +1011,9 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         </div>
 
         {/* Chain visualization */}
-        <div className="flex items-stretch gap-0 overflow-x-auto pb-3" style={{ scrollbarWidth: 'thin' }}>
+        <div className="flex items-stretch gap-0 overflow-x-auto pt-3 pb-3" style={{ scrollbarWidth: 'thin' }}>
           {rootCause.chain.map((step, idx) => {
-            const isHighlighted = rootCause.highAnomaly && idx === rootCause.firstAbnIdx;
+            const isHighlighted = Boolean(rootCause.primaryDriver && step.label === rootCause.primaryDriver);
             const boxBorder = step.abnormal ? C.red : step.warn ? C.yellow : isHighlighted ? C.yellow : C.border;
             const arrowColor = step.abnormal ? C.red : C.green;
             const valueColor = step.abnormal ? C.red : step.warn ? C.yellow : C.green;
