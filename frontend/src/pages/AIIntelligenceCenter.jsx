@@ -549,8 +549,8 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
         {/* Correlation badge */}
         <div
-          className="p-4 rounded-xl mb-4 text-center"
-          style={{ background: `${correlation.color}08`, border: `1px solid ${correlation.color}25` }}
+          className="p-3.5 rounded-xl mb-4 text-center"
+          style={{ background: '#ffffff', border: `1px solid ${correlation.color}40` }}
         >
           <span
             className="text-[11px] font-black tracking-wider"
@@ -563,19 +563,18 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         {/* Contributing bridges */}
         <div className="space-y-2 mb-4 flex-1 max-h-[180px] overflow-y-auto pr-1">
           {correlation.entries.map((e) => {
-            const barColor = e.score > 0.7 ? C.red : e.score > 0.3 ? C.yellow : C.green;
-            const isHigh = e.score > 0.3;
+            const rowStatusColor = e.score >= 0.5 || e.health < 50 ? C.red : e.score >= 0.25 || e.health < 75 ? C.yellow : C.green;
             const isSelected = selectedBridgeId === e.id;
             return (
               <div
                 key={e.id}
                 onClick={() => setSelectedBridgeId(e.id)}
                 className={`flex items-center gap-3 p-2.5 rounded-lg transition-all cursor-pointer ${
-                  isSelected ? 'bg-purple-50/10' : 'hover:bg-slate-50'
+                  isSelected ? 'bg-slate-50' : 'hover:bg-slate-50'
                 }`}
                 style={{
-                  background: isSelected ? 'rgba(139, 92, 246, 0.05)' : (isHigh ? `${barColor}08` : 'transparent'),
-                  border: `1px solid ${isSelected ? C.purple : (isHigh ? `${barColor}25` : C.border)}`,
+                  background: '#ffffff',
+                  border: `1px solid ${isSelected ? C.purple : '#E2E8F0'}`,
                 }}
               >
                 <span className="text-[11px] font-bold flex-1" style={{ color: C.text1 }}>
@@ -584,13 +583,13 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: C.border }}>
                   <div
                     className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${Math.min(e.score * 100, 100)}%`, background: barColor }}
+                    style={{ width: `${Math.min(e.score * 100, 100)}%`, background: rowStatusColor }}
                   />
                 </div>
-                <span className="text-[10px] font-mono font-bold w-10 text-right" style={{ color: barColor }}>
+                <span className="text-[10px] font-mono font-bold w-10 text-right" style={{ color: rowStatusColor }}>
                   {e.score.toFixed(2)}
                 </span>
-                {isHigh && <span className="w-1.5 h-1.5 rounded-full bg-red-600 inline-block" />}
+                <span className="w-1.5 h-1.5 rounded-full shrink-0 inline-block" style={{ background: rowStatusColor }} />
               </div>
             );
           })}
