@@ -1561,9 +1561,44 @@ const chatMarkdownComponents = {
   ol: ({ children }) => (
     <ol className="my-1.5 pl-4 list-decimal space-y-1 text-[12px]">{children}</ol>
   ),
-  li: ({ children }) => (
-    <li className="leading-relaxed pl-0.5">{children}</li>
-  ),
+  li: ({ children }) => {
+    const matchStatus = (text) => {
+      if (typeof text !== 'string') return null;
+      const clean = text.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{27BF}]/gu, '').trim();
+      const m = clean.match(/^(Critical|Monitor|Healthy)(?::\s*|\s+-\s*|\s+—\s*|\s+)(.*)$/i);
+      if (m) {
+        return { status: m[1], rest: m[2] };
+      }
+      return null;
+    };
+
+    if (typeof children === 'string') {
+      const found = matchStatus(children);
+      if (found) {
+        return (
+          <li className="leading-relaxed pl-0.5 flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={found.status} size="sm" />
+            <span>{found.rest}</span>
+          </li>
+        );
+      }
+    } else if (Array.isArray(children) && typeof children[0] === 'string') {
+      const found = matchStatus(children[0]);
+      if (found) {
+        return (
+          <li className="leading-relaxed pl-0.5 flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={found.status} size="sm" />
+            <span>{found.rest}</span>
+            {children.slice(1)}
+          </li>
+        );
+      }
+    }
+
+    return (
+      <li className="leading-relaxed pl-0.5">{children}</li>
+    );
+  },
   code: ({ children }) => (
     <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ background: 'rgba(0,0,0,0.06)' }}>
       {children}

@@ -2903,7 +2903,7 @@ async def rag_chat(request: RAGChatRequest):
         "Answer questions clearly and concisely. Always reference specific bridge names, "
         "health scores, and sensor values when relevant. Format numbers clearly. "
         "Use bullet points for lists. Keep responses under 150 words unless the question "
-        "requires more detail."
+        "requires more detail. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
     )
 
     # Build messages array
@@ -2986,9 +2986,9 @@ def _generate_fallback_summary(bridges):
     healthy = [b for b in bridges if (b.get("health_score") or 100) >= 75]
 
     lines = [f"**Network Overview**: {len(bridges)} bridges monitored"]
-    lines.append(f"- \U0001f534 Critical: {len(critical)} bridges")
-    lines.append(f"- \U0001f7e1 Monitor: {len(monitor)} bridges")
-    lines.append(f"- \U0001f7e2 Healthy: {len(healthy)} bridges")
+    lines.append(f"- Critical: {len(critical)} bridges")
+    lines.append(f"- Monitor: {len(monitor)} bridges")
+    lines.append(f"- Healthy: {len(healthy)} bridges")
 
     if critical:
         lines.append("\n**Bridges needing immediate attention:**")
@@ -4484,7 +4484,7 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         "Answer questions clearly and concisely. Always reference specific bridge names, "
         "health scores, and sensor values when relevant. Format numbers clearly. "
         "Use bullet points for lists. Keep responses under 150 words unless the question "
-        "requires more detail."
+        "requires more detail. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
     )
     
     # 3. Call Groq API
@@ -4508,7 +4508,7 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are Bridge Intelligence AI, an expert structural health monitoring assistant for NHAI. Answer concisely, reference specific bridge names and sensor values, use bullet points."
+                    "content": "You are Bridge Intelligence AI, an expert structural health monitoring assistant for NHAI. Answer concisely, reference specific bridge names and sensor values, use bullet points. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."
                 },
                 {
                     "role": "user", 
