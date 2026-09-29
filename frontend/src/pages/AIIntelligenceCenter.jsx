@@ -144,7 +144,7 @@ function CircGauge({ pct, color, size = 72, stroke = 5, label, sub, badge }) {
             style={{ transition: 'stroke-dashoffset 1s ease' }}
           />
         </svg>
-        <span className="text-[11px] font-extrabold font-mono relative z-10" style={{ color }}>
+        <span className="text-[11px] font-extrabold relative z-10" style={{ color, fontVariantNumeric: 'tabular-nums' }}>
           {pct.toFixed(1)}%
         </span>
       </div>
@@ -164,7 +164,7 @@ function CustomTooltip({ active, payload, label }) {
       className="rounded-lg px-3 py-2 shadow-xl text-[10px]"
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)' }}
     >
-      <p className="font-mono mb-1" style={{ color: 'var(--text-secondary)' }}>Round {label}</p>
+      <p className="mb-1" style={{ color: 'var(--text-secondary)' }}>Round {label}</p>
       {payload.map((item, idx) => (
         <p key={idx} style={{ color: item.color }} className="font-bold">
           {item.name}: {item.value !== null && item.value !== undefined ? `${item.value.toFixed(2)}%` : '—'}
@@ -384,7 +384,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2.5">
           <Activity size={14} className="text-slate-500" />
-          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+          <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
             Predictive failure timeline
           </h2>
         </div>
@@ -448,14 +448,14 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
                   {/* % risk badge scales consistently with combined degradation score */}
                   <span
-                    className="text-[10px] font-mono font-bold shrink-0 w-12 text-right"
-                    style={{ color: b.statusColor }}
+                    className="text-[10px] font-bold shrink-0 w-12 text-right"
+                    style={{ color: b.statusColor, fontVariantNumeric: 'tabular-nums' }}
                   >
                     {b.riskPct}% risk
                   </span>
                 </div>
 
-                <div className="flex gap-4 text-[9px] font-mono" style={{ color: C.text3 }}>
+                <div className="flex gap-4 text-[9px] tabular-nums" style={{ color: C.text3 }}>
                   <span>Risk: {b.riskScore.toFixed(3)}</span>
                   <span>Anomaly: {b.anomalyScore.toFixed(3)}</span>
                   <span>Combined: {b.combinedRisk.toFixed(3)}</span>
@@ -542,7 +542,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Activity size={14} />
-          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+          <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
             Anomaly correlation engine
           </h2>
         </div>
@@ -586,7 +586,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                     style={{ width: `${Math.min(e.score * 100, 100)}%`, background: rowStatusColor }}
                   />
                 </div>
-                <span className="text-[10px] font-mono font-bold w-10 text-right" style={{ color: rowStatusColor }}>
+                <span className="text-[10px] font-bold w-10 text-right" style={{ color: rowStatusColor, fontVariantNumeric: 'tabular-nums' }}>
                   {e.score.toFixed(2)}
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full shrink-0 inline-block" style={{ background: rowStatusColor }} />
@@ -615,11 +615,11 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 style={{ width: `${correlation.confidence}%`, background: C.purple }}
               />
             </div>
-            <span className="text-[10px] font-mono font-bold" style={{ color: C.purple }}>
+            <span className="text-[10px] font-bold" style={{ color: C.purple, fontVariantNumeric: 'tabular-nums' }}>
               {correlation.confidence}%
             </span>
           </div>
-          <span className="text-[9px] font-mono" style={{ color: C.text3 }}>
+          <span className="text-[9px] tabular-nums" style={{ color: C.text3 }}>
             {new Date().toLocaleTimeString()}
           </span>
         </div>
@@ -664,7 +664,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Settings size={14} />
-          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+          <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
             Auto-decision log
           </h2>
         </div>
@@ -708,12 +708,12 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                     {d.desc}
                   </p>
                   {d.user_email && (
-                    <p className="text-[9px] font-mono truncate mt-0.5" style={{ color: C.text3 }}>
+                    <p className="text-[9px] truncate mt-0.5" style={{ color: C.text3 }}>
                       {d.user_email}
                     </p>
                   )}
                 </div>
-                <span className="text-[8px] font-mono shrink-0" style={{ color: C.text4 }}>
+                <span className="text-[8px] tabular-nums shrink-0" style={{ color: C.text4 }}>
                   {d.time}
                 </span>
               </div>
@@ -947,7 +947,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Activity size={14} />
-            <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
               Root cause analysis chain
             </h2>
           </div>
@@ -1029,14 +1029,14 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                       {step.label}
                     </span>
                     <span
-                      className="text-[13px] font-extrabold font-mono block mt-1"
-                      style={{ color: valueColor }}
+                      className="text-[13px] font-extrabold block mt-1"
+                      style={{ color: valueColor, fontVariantNumeric: 'tabular-nums' }}
                     >
                       {typeof step.value === 'number' ? step.value.toFixed(2) : step.value}
                       <span className="text-[8px] font-normal" style={{ color: C.text3 }}> {step.unit}</span>
                     </span>
                     {step.threshold != null && (
-                      <span className="text-[8px] font-mono" style={{ color: C.text4 }}>
+                      <span className="text-[8px]" style={{ color: C.text4 }}>
                         threshold: {step.threshold}{step.unit}
                       </span>
                     )}
@@ -1126,7 +1126,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <DollarSign size={14} />
-              <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+              <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
                 Cost intelligence
               </h2>
             </div>
@@ -1178,7 +1178,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               style={{ background: `${C.green}06`, border: `1px solid ${C.green}18` }}
             >
               <p className="text-[10px] mb-1" style={{ color: C.text3 }}>Estimated savings from proactive monitoring</p>
-              <p className="text-[18px] font-extrabold font-mono" style={{ color: C.green }}>₹{proactiveSavings}</p>
+              <p className="text-[18px] font-extrabold" style={{ color: C.green, fontVariantNumeric: 'tabular-nums' }}>₹{proactiveSavings}</p>
               <p className="text-[9px] mt-0.5" style={{ color: C.text3 }}>over 30 days</p>
             </div>
           </div>
@@ -1205,7 +1205,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <DollarSign size={14} />
-            <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+            <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
               Cost intelligence
             </h2>
           </div>
@@ -1271,7 +1271,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: C.red }} />
                 <span className="text-[10px]" style={{ color: C.text2 }}>Deferred Risk (30d)</span>
               </div>
-              <span className="text-[12px] font-extrabold font-mono" style={{ color: C.red, flexShrink: 0, textAlign: 'right', minWidth: '65px' }}>
+              <span className="text-[12px] font-extrabold" style={{ color: C.red, flexShrink: 0, textAlign: 'right', minWidth: '65px', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtLakhs(costData.deferredRisk)}
               </span>
             </div>
@@ -1281,7 +1281,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: C.yellow }} />
                 <span className="text-[10px]" style={{ color: C.text2 }}>Immediate Repair</span>
               </div>
-              <span className="text-[12px] font-extrabold font-mono" style={{ color: C.yellow, flexShrink: 0, textAlign: 'right', minWidth: '65px' }}>
+              <span className="text-[12px] font-extrabold" style={{ color: C.yellow, flexShrink: 0, textAlign: 'right', minWidth: '65px', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtLakhs(costData.repairCost)}
               </span>
             </div>
@@ -1294,7 +1294,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ background: C.green }} />
                 <span className="text-[10px] font-bold" style={{ color: C.green }}>Potential Savings</span>
               </div>
-              <span className="text-[14px] font-extrabold font-mono" style={{ color: C.green, flexShrink: 0, textAlign: 'right', minWidth: '65px' }}>
+              <span className="text-[14px] font-extrabold" style={{ color: C.green, flexShrink: 0, textAlign: 'right', minWidth: '65px', fontVariantNumeric: 'tabular-nums' }}>
                 {fmtLakhs(costData.savings)}
               </span>
             </div>
@@ -1335,7 +1335,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Activity size={14} />
-          <h2 className="text-[11px] font-bold tracking-wider" style={{ color: C.purple }}>
+          <h2 className="font-sans text-[12px] font-semibold" style={{ color: C.purple }}>
             Model performance intelligence
           </h2>
         </div>
@@ -1416,15 +1416,15 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <div className="space-y-1.5 mt-auto">
           <div className="flex justify-between text-[9px]" style={{ color: C.text3 }}>
             <span>Last Inference</span>
-            <span className="font-mono" style={{ color: C.text2 }}>Just now</span>
+            <span style={{ color: C.text2 }}>Just now</span>
           </div>
           <div className="flex justify-between text-[9px]" style={{ color: C.text3 }}>
             <span>Active Model</span>
-            <span className="font-mono" style={{ color: C.text2 }}>{modelType}</span>
+            <span style={{ color: C.text2 }}>{modelType}</span>
           </div>
           <div className="flex justify-between text-[9px]" style={{ color: C.text3 }}>
             <span>Federated Rounds</span>
-            <span className="font-mono" style={{ color: C.purple }}>{fedRounds} completed</span>
+            <span style={{ color: C.purple }}>{fedRounds} completed</span>
           </div>
         </div>
 
@@ -1605,12 +1605,12 @@ const chatMarkdownComponents = {
     );
   },
   code: ({ children }) => (
-    <code className="px-1.5 py-0.5 rounded text-[11px] font-mono" style={{ background: 'rgba(0,0,0,0.06)' }}>
+    <code className="px-1.5 py-0.5 rounded text-[11px]" style={{ background: 'rgba(0,0,0,0.06)' }}>
       {children}
     </code>
   ),
   pre: ({ children }) => (
-    <pre className="p-2.5 rounded-lg overflow-x-auto text-[11px] font-mono my-2 border" style={{ background: 'rgba(0,0,0,0.04)', borderColor: C.border }}>
+    <pre className="p-2.5 rounded-lg overflow-x-auto text-[11px] my-2 border" style={{ background: 'rgba(0,0,0,0.04)', borderColor: C.border }}>
       {children}
     </pre>
   ),
@@ -2043,7 +2043,7 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold tracking-wider mb-4 flex items-center gap-2"
+              className="font-sans text-[12px] font-semibold mb-4 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
               <span style={{ color: C.purple }}>◆</span> Referenced bridges
@@ -2093,7 +2093,7 @@ function BridgeIntelligenceTab() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[11px] font-mono font-medium" style={{ color: C.text1 }}>
+                        <span className="text-[11px] font-medium tabular-nums" style={{ color: C.text1 }}>
                           {formatHealthScore(b.health_score)}<span className="text-[10px]" style={{ color: C.text3 }}>/100</span>
                         </span>
                         <StatusBadge healthScore={b.health_score ?? 100} size="sm" />
@@ -2111,7 +2111,7 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold tracking-wider mb-4 flex items-center gap-2"
+              className="font-sans text-[12px] font-semibold mb-4 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
               <span style={{ color: C.green }}>◆</span> Data sources
@@ -2151,7 +2151,7 @@ function BridgeIntelligenceTab() {
             style={{ background: C.card, border: `1px solid ${C.border}` }}
           >
             <h3
-              className="text-[11px] font-bold tracking-wider mb-3 flex items-center gap-2"
+              className="font-sans text-[12px] font-semibold mb-3 flex items-center gap-2"
               style={{ color: C.text1 }}
             >
               <span style={{ color: C.blue }}>◆</span> Network summary
@@ -2172,7 +2172,7 @@ function BridgeIntelligenceTab() {
                   className="text-center p-2.5 rounded-lg"
                   style={{ background: '#ffffff', border: '1px solid #E2E8F0' }}
                 >
-                  <p className="text-[16px] font-extrabold font-mono" style={{ color: item.color }}>
+                  <p className="text-[16px] font-extrabold" style={{ color: item.color, fontVariantNumeric: 'tabular-nums' }}>
                     {item.count}
                   </p>
                   <p className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: C.text2 }}>
@@ -2203,7 +2203,7 @@ export default function AIIntelligenceCenter() {
           <button
             onClick={() => setActiveTab('aiops')}
             style={{ transition: 'all 0.2s ease' }}
-            className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
+            className={`px-4 py-1.5 rounded-md font-sans font-semibold text-[11px] cursor-pointer ${
               activeTab === 'aiops'
                 ? 'bg-[#1C1F26] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
@@ -2214,7 +2214,7 @@ export default function AIIntelligenceCenter() {
           <button
             onClick={() => setActiveTab('federated')}
             style={{ transition: 'all 0.2s ease' }}
-            className={`px-4 py-1.5 rounded-md font-bold tracking-wider text-[10px] cursor-pointer ${
+            className={`px-4 py-1.5 rounded-md font-sans font-semibold text-[11px] cursor-pointer ${
               activeTab === 'federated'
                 ? 'bg-[#1C1F26] text-white shadow-sm'
                 : 'text-slate-500 hover:text-slate-800 bg-transparent'
