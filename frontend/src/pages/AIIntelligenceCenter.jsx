@@ -1322,7 +1322,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
     const models = [
       { name: 'Isolation Forest', auc: 0.985, color: C.green },
-      { name: 'LSTM Autoencoder', auc: 0.992, color: C.blue },
+      { name: 'LSTM Autoencoder', auc: 0.992, color: C.purple },
       { name: 'Federated Model', auc: 0.991, color: C.purple },
     ];
 
@@ -1355,21 +1355,13 @@ function AIOpsOperationsTab({ onSwitchTab }) {
               />
             );
           })}
-          <div className="flex flex-col items-center gap-1.5">
-            <div
-              className="rounded-full flex items-center justify-center"
-              style={{
-                width: 72,
-                height: 72,
-                background: `${isLocal ? C.green : C.purple}10`,
-                border: `2px solid ${isLocal ? C.green : C.purple}30`,
-              }}
-            >
-              <Brain size={22} color={C.purple} />
-            </div>
-            <span className="text-[10px] font-bold mt-1" style={{ color: C.text1 }}>LLaMA 3.2</span>
-            <Badge label={isLocal ? 'Local' : 'Groq'} color={isLocal ? C.green : C.purple} />
-          </div>
+          <CircGauge
+            pct={96.4}
+            color={C.purple}
+            label="LLaMA 3.2"
+            sub={isLocal ? 'Local LoRA' : 'Groq API'}
+            badge={<Badge label={isLocal ? 'Local' : 'Groq'} color={isLocal ? C.green : C.purple} />}
+          />
         </div>
 
         {/* Model Drift Alerts */}
@@ -2178,12 +2170,12 @@ function BridgeIntelligenceTab() {
                 <div
                   key={i}
                   className="text-center p-2.5 rounded-lg"
-                  style={{ background: `${item.color}08`, border: `1px solid ${item.color}20` }}
+                  style={{ background: '#ffffff', border: '1px solid #E2E8F0' }}
                 >
                   <p className="text-[16px] font-extrabold font-mono" style={{ color: item.color }}>
                     {item.count}
                   </p>
-                  <p className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: item.color }}>
+                  <p className="text-[9px] font-bold tracking-wider mt-0.5" style={{ color: C.text2 }}>
                     {item.label}
                   </p>
                 </div>
