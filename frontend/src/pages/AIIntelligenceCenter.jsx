@@ -704,7 +704,18 @@ function AIOpsOperationsTab({ onSwitchTab }) {
                       {d.isAuto ? 'Automated' : 'Manual'}
                     </span>
                   </div>
-                  <p className="text-[11px] font-semibold truncate" style={{ color: C.text1 }}>
+                  <p
+                    className="text-[11px] font-semibold leading-snug"
+                    style={{
+                      color: C.text1,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      wordBreak: 'break-word',
+                    }}
+                    title={d.desc}
+                  >
                     {d.desc}
                   </p>
                   {d.user_email && (
@@ -1237,13 +1248,13 @@ function AIOpsOperationsTab({ onSwitchTab }) {
 
         {/* Dynamic Grade Count Breakdown */}
         <div
-          className="p-2.5 rounded-lg mb-4 text-center font-bold text-[10px]"
+          className="p-2.5 rounded-lg mb-2 text-center font-bold text-[10px]"
           style={{ background: `${C.purple}08`, border: `1px solid ${C.purple}20`, color: C.text1 }}
         >
           Status Summary: <span style={{ color: C.green }}>{costData.healthyCount} Healthy</span>, <span style={{ color: C.yellow }}>{costData.monitorCount} Monitor</span>, <span style={{ color: C.red }}>{costData.criticalCount} Critical</span>
         </div>
 
-        <div className="flex gap-5 flex-1 items-center">
+        <div className="flex gap-5 items-center pt-2 pb-2">
           <div className="shrink-0 relative">
             <div
               className="rounded-full"
@@ -1302,7 +1313,7 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         </div>
 
         <div
-          className="mt-4 p-3 rounded-lg text-[10px]"
+          className="mt-3 p-3 rounded-lg text-[10px]"
           style={{ background: `${C.green}08`, border: `1px solid ${C.green}18`, color: C.text2 }}
         >
           <span className="font-bold" style={{ color: C.green }}>AI recommendation: </span>
@@ -1718,12 +1729,6 @@ function BridgeIntelligenceTab() {
         found.push(b);
       }
     }
-    // If none found explicitly, show top critical bridges
-    if (found.length === 0) {
-      return [...bridges]
-        .sort((a, b) => (a.health_score ?? 100) - (b.health_score ?? 100))
-        .slice(0, 3);
-    }
     return found.slice(0, 8);
   }, [bridges]);
 
@@ -1776,7 +1781,11 @@ function BridgeIntelligenceTab() {
 
       const aiMessage = { role: 'assistant', content: reply, time: new Date() };
       setMessages(prev => [...prev, aiMessage]);
-      setReferencedBridges(extractReferencedBridges(reply));
+      setReferencedBridges(
+        Array.isArray(data.referenced_bridges) && data.referenced_bridges.length > 0
+          ? data.referenced_bridges.slice(0, 8)
+          : extractReferencedBridges(reply)
+      );
     } catch (err) {
       console.error('[rag-chat]', err);
       const errMsg = { role: 'assistant', content: `Request failed: ${err.message}. Please check your connection and try again.`, time: new Date() };
