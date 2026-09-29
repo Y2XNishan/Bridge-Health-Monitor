@@ -178,6 +178,8 @@ function CustomTooltip({ active, payload, label }) {
    TAB 1: AIOPS OPERATIONS
    ═══════════════════════════════════════════════════════════════════════════ */
 function AIOpsOperationsTab({ onSwitchTab }) {
+  const { user, isAdmin } = useAuth();
+  const admin = Boolean(isAdmin?.() || user?.role === 'admin');
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
 
@@ -1338,6 +1340,12 @@ function AIOpsOperationsTab({ onSwitchTab }) {
     ];
 
     const anyLow = models.some((m) => m.auc < 0.8);
+    const hasDrift = fedRounds < 10 || anyLow;
+
+    // For non-admin roles: Model performance intelligence is hidden (rendered for admins only)
+    if (!admin) return null;
+
+    if (loading) return <Skel h={340} />;
 
     return (
       <div
@@ -1376,53 +1384,39 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         </div>
 
         {/* Model Drift Alerts */}
-        {(() => {
-          const alerts = [];
-          if (fedRounds < 10) {
-            alerts.push({
-              level: 'warning', icon: '', color: C.yellow,
-              isDrift: true,
-              message: `Federated model has completed only ${fedRounds} training round${fedRounds !== 1 ? 's' : ''}. Minimum 10 rounds recommended for optimal accuracy. Run more federated rounds in the Federated ML page.`,
-              action: 'Go to Federated ML →',
-            });
-          } else {
-            alerts.push({
-              level: 'success', icon: null, color: C.green,
-              isDrift: false,
-              message: `Federated model fully trained (10/10 rounds)`,
-              action: null,
-            });
-          }
-          return alerts.map((alert, i) => (
-            <div
-              key={i}
-              className="p-2.5 rounded-lg mb-3 flex items-start gap-2 text-[10px]"
-              style={{ background: `${alert.color}08`, border: `1px solid ${alert.color}25` }}
-            >
-              {alert.icon && <span className="shrink-0 mt-0.5">{alert.icon}</span>}
-              <div className="flex-1">
-                <span style={{ color: alert.color }}>
-                  {alert.isDrift ? (
-                    <><strong>Model Drift Alert:</strong> {alert.message}</>
-                  ) : (
-                    <strong>{alert.message}</strong>
-                  )}
-                </span>
-                {alert.action && (
-                  <span
-                    onClick={() => {
-                      if (onSwitchTab) onSwitchTab('federated');
-                    }}
-                    className="block mt-1 font-bold cursor-pointer"
-                    style={{ color: alert.color, textDecoration: 'underline', textUnderlineOffset: 2 }}
-                  >
-                    {alert.action}
-                  </span>
-                )}
-              </div>
+        {hasDrift ? (
+          <div
+            className="p-2.5 rounded-lg mb-3 flex items-start gap-2 text-[10px]"
+            style={{ background: '#ffffff', border: '1px solid #E2E8F0' }}
+          >
+            <div className="flex-1">
+              <span style={{ color: C.yellow }}>
+                <strong>Model Drift Alert:</strong> Federated model has completed only {fedRounds} training round{fedRounds !== 1 ? 's' : ''}. Minimum 10 rounds recommended for optimal accuracy. Run more federated rounds in the Federated ML page.
+              </span>
+              <span
+                onClick={() => {
+                  if (onSwitchTab) onSwitchTab('federated');
+                }}
+                className="block mt-1 font-bold cursor-pointer"
+                style={{ color: C.yellow, textDecoration: 'underline', textUnderlineOffset: 2 }}
+              >
+                Go to Federated ML →
+              </span>
             </div>
-          ));
-        })()}
+          </div>
+        ) : (
+          <div
+            className="p-2.5 rounded-lg mb-3 flex items-center justify-between text-[10px]"
+            style={{ background: '#ffffff', border: '1px solid #E2E8F0' }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ background: C.green }} />
+              <span className="font-bold" style={{ color: C.text1 }}>
+                All models performant
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-1.5 mt-auto">
           <div className="flex justify-between text-[9px]" style={{ color: C.text3 }}>
@@ -1442,14 +1436,14 @@ function AIOpsOperationsTab({ onSwitchTab }) {
         <button
           className="mt-3 w-full py-2 rounded-lg text-[10px] font-bold tracking-wider transition-all cursor-default"
           style={{
-            background: anyLow ? `${C.red}15` : `${C.purple}10`,
-            border: `1px solid ${anyLow ? C.red : C.purple}30`,
-            color: anyLow ? C.red : C.purple,
+            background: hasDrift ? (anyLow ? `${C.red}15` : `${C.yellow}15`) : `${C.purple}10`,
+            border: `1px solid ${hasDrift ? (anyLow ? C.red : C.yellow) : C.purple}30`,
+            color: hasDrift ? (anyLow ? C.red : C.yellow) : C.purple,
             boxShadow: 'none',
             animation: anyLow ? 'aio-glow 2s ease-in-out infinite' : 'none',
           }}
         >
-          {anyLow ? 'Retraining recommended' : 'All models performant'}
+          {hasDrift ? 'Retraining recommended' : 'All models performant'}
         </button>
       </div>
     );
@@ -1494,9 +1488,9 @@ function AIOpsOperationsTab({ onSwitchTab }) {
       <section>{renderRootCause()}</section>
 
       {/* ── SECTIONS 5 & 6: Cost Intel + Model Perf ──────────────── */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <section className={admin ? "grid grid-cols-1 lg:grid-cols-2 gap-6" : ""}>
         <div>{renderCostIntel()}</div>
-        <div>{renderModelPerf()}</div>
+        {admin && <div>{renderModelPerf()}</div>}
       </section>
     </div>
   );
@@ -1649,6 +1643,8 @@ const chatMarkdownComponents = {
 };
 
 function BridgeIntelligenceTab() {
+  const { user, isAdmin } = useAuth();
+  const admin = Boolean(isAdmin?.() || user?.role === 'admin');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -1821,7 +1817,7 @@ function BridgeIntelligenceTab() {
             Bridge intelligence — AI Q&A
           </h1>
           <p className="text-[11px] mt-1" style={{ color: C.text3 }}>
-            Ask questions about bridge health, sensors, risk, and maintenance — powered by RAG + Groq AI
+            Ask questions about bridge health, sensors, risk, and maintenance — powered by {admin ? 'RAG + Groq AI' : 'RAG AI'}
           </p>
         </div>
         <div className="flex items-center gap-2">
