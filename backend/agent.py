@@ -36,7 +36,7 @@ except ImportError:
         STRAIN_WARN_MPA,
     )
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 AGENT_SYSTEM_PROMPT = """You are an expert Bridge Inspection AI Agent for Indian bridges.
 You have access to live sensor data, anomaly scores, IRC standards, and maintenance history.
@@ -195,6 +195,8 @@ Generate a complete bridge inspection report with:
     )
     
     report_text = completion.choices[0].message.content
+    if not report_text and hasattr(completion.choices[0].message, "reasoning"):
+        report_text = completion.choices[0].message.reasoning
 
     return {
         "bridge_id": bridge_id,

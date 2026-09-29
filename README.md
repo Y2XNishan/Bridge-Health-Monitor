@@ -41,7 +41,7 @@ Bridge Health Monitor is a full-stack AI platform that monitors the structural h
 - **Predictive Maintenance** — Survival analysis predicting days to WARNING/CRITICAL/FAILURE for each bridge
 - **What-If Repair Simulator** — Interactive slider showing how repair timing affects bridge survival (unique feature)
 - **Proactive Alert Assistant** — Chat that auto-alerts when bridges go critical and executes inspection + crew assignment + Telegram with one "yes"
-- **Bridge Intelligence (RAG)** — Natural language Q&A about all 58 bridges powered by Groq + Llama 3.3
+- **Bridge Intelligence (RAG)** — Natural language Q&A about all 58 bridges powered by Groq (GPT OSS 120B)
 
 ### 🔬 ML Models
 | Model | AUC Score |
@@ -96,7 +96,7 @@ VITE_API_URL ──────────► /api/* endpoints
 
 │  AI Services              │
 
-│  ├── Groq (Llama 3.3 70B) │
+│  ├── Groq (GPT OSS 120B)  │
 
 │  ├── Fine-tuned LLaMA 3B  │
 
@@ -129,7 +129,7 @@ VITE_API_URL ──────────► /api/* endpoints
 - FastAPI + Uvicorn
 - Python 3.11
 - Scikit-learn, XGBoost, NumPy, Pandas
-- Groq SDK (Llama 3.3 70B Versatile)
+- Groq SDK (GPT OSS 120B)
 - ReportLab (PDF generation)
 - python-telegram-bot
 

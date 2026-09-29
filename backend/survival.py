@@ -8,7 +8,7 @@ try:
 except ImportError:
     from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, WATER_LEVEL_LIMIT_M
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 def calculate_degradation_rate(health_score: float, anomaly_score: float, 
                                alert_level: str, bridge_id: int,
@@ -174,6 +174,8 @@ Be specific with sensor names, IRC standards, and timeframes. Keep each point to
             )
             
             res = completion.choices[0].message.content
+            if not res and hasattr(completion.choices[0].message, "reasoning"):
+                res = completion.choices[0].message.reasoning
             if res and res.strip():
                 return res
         except Exception as e:

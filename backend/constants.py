@@ -9,6 +9,12 @@ Standards Reference:
 # - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 4.5 m, Watch: 3.5 m
 """
 
+import os
+
+# Default Groq model for cloud LLM reasoning, RAG, and AI chat
+# Verified against Groq documentation (https://console.groq.com/docs/models)
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
 # Single shared water level threshold (4.5 m)
 WATER_LEVEL_THRESHOLD = 4.5
 WATER_LEVEL_LIMIT_M = WATER_LEVEL_THRESHOLD

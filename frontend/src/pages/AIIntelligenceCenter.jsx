@@ -1699,7 +1699,7 @@ function BridgeIntelligenceTab() {
             Bridge intelligence — AI Q&A
           </h1>
           <p className="text-[11px] mt-1" style={{ color: C.text3 }}>
-            Ask questions about bridge health, sensors, risk, and maintenance — powered by RAG + Llama 3.3
+            Ask questions about bridge health, sensors, risk, and maintenance — powered by RAG + Groq AI
           </p>
         </div>
         <div className="flex items-center gap-2">

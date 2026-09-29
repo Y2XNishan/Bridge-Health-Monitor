@@ -395,7 +395,7 @@ export default function AgentInspector({ activeBridgeId }) {
             Agentic bridge inspector
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            AI-powered automatic inspection using RAG + Llama 3.3
+            AI-powered automatic inspection using RAG + AI Agent
           </p>
         </div>
       </div>
@@ -689,7 +689,7 @@ export default function AgentInspector({ activeBridgeId }) {
                 <div className="flex items-center gap-2">
                   <FileText className="text-[var(--accent-blue)]" size={18} />
                   <h2 className="text-sm font-extrabold tracking-wider">
-                    Full AI inspection report (RAG + Llama 3.3)
+                    Full AI inspection report (RAG + AI Agent)
                   </h2>
                 </div>
                 <button

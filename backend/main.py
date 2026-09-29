@@ -3177,7 +3177,7 @@ def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_us
     story = []
     
     # 1. Header Banner
-    story.append(Paragraph("RAG + Llama 3.3 Agentic Bridge Inspection Report", title_style))
+    story.append(Paragraph("RAG + Agentic Bridge Inspection Report", title_style))
     story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Bridge Health Monitor Platform", subtitle_style))
     story.append(Spacer(1, 10))
     story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#CBD5E1'), spaceAfter=15))
@@ -4502,8 +4502,9 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
     try:
         from groq import Groq
         client = Groq(api_key=api_key)
+        groq_model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=groq_model,
             messages=[
                 {
                     "role": "system",
@@ -4519,6 +4520,8 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         )
         
         reply_text = completion.choices[0].message.content
+        if not reply_text and hasattr(completion.choices[0].message, "reasoning"):
+            reply_text = completion.choices[0].message.reasoning
         if not reply_text:
             reply_text = "No response generated. Please try again."
             

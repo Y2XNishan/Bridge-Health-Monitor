@@ -29,7 +29,7 @@ DEFAULT_BRIDGEIQ_REPLY = (
     "level across multiple bridges in real-time."
 )
 
-GROQ_MODEL_NAME = "llama-3.3-70b-versatile"
+GROQ_MODEL_NAME = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 LORA_MODEL_PATH = Path(__file__).resolve().parent / "models" / "bridgeiq_lora"
 INTERNAL_API_BASE_URL = os.getenv("BRIDGEIQ_INTERNAL_API_BASE_URL", "http://localhost:8000")
 INTERNAL_ENDPOINTS = {
@@ -323,6 +323,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
             temperature=0.7,
         )
         reply = completion.choices[0].message.content
+        if not reply and hasattr(completion.choices[0].message, "reasoning"):
+            reply = completion.choices[0].message.reasoning
         return ChatResponse(reply=_ensure_reply(reply))
     except httpx.HTTPError as exc:
         return ChatResponse(reply=f"Groq request failed: {exc}")

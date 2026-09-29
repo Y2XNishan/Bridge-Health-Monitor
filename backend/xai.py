@@ -21,7 +21,7 @@ except ImportError:
         WATER_LEVEL_WARN_M,
     )
 
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 XAI_SYSTEM_PROMPT = """You are an expert structural engineering AI for Indian bridges.
 Your job is to explain anomalies in plain, technical language that a field engineer can act on.
@@ -236,6 +236,8 @@ Generate an XAI explanation with exactly these 4 sections:
                 temperature=0.2,
             )
             raw_explanation = completion.choices[0].message.content
+            if not raw_explanation and hasattr(completion.choices[0].message, "reasoning"):
+                raw_explanation = completion.choices[0].message.reasoning
             if raw_explanation and raw_explanation.strip():
                 explanation = reconcile_explanation_with_triggered_sensors(
                     raw_explanation,
