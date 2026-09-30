@@ -1,197 +1,266 @@
+"""Visual crack assessment with calibrated measurements kept separate."""
+
 import base64
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import io
+import json
+import math
 import os
-from datetime import datetime
-from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
-from groq import Groq
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+from groq import (
+    APIConnectionError, APIStatusError, APITimeoutError, AuthenticationError,
+    BadRequestError, Groq, NotFoundError, RateLimitError,
+)
+from PIL import Image, ImageDraw, ImageOps, UnidentifiedImageError
 
-SEVERITY_LEVELS = {
-    "hairline": {
-        "width_range": "< 0.1 mm",
-        "color": "#22c55e",
-        "action": "Monitor monthly. No immediate repair needed.",
-        "cost_range": "₹5,000 - ₹15,000",
-        "urgency": "LOW",
-        "irc_reference": "IRC:112-2011 Section 12.3.4"
-    },
-    "minor": {
-        "width_range": "0.1 - 0.3 mm",
-        "color": "#84cc16",
-        "action": "Seal with epoxy injection within 90 days.",
-        "cost_range": "₹15,000 - ₹50,000",
-        "urgency": "LOW-MEDIUM",
-        "irc_reference": "IRC:112-2011 Section 12.3.4"
-    },
-    "moderate": {
-        "width_range": "0.3 - 0.5 mm",
-        "color": "#f59e0b",
-        "action": "Epoxy injection + surface sealing within 30 days. Restrict heavy vehicles.",
-        "cost_range": "₹50,000 - ₹2,00,000",
-        "urgency": "MEDIUM",
-        "irc_reference": "IRC:112-2011 Section 12.3.3"
-    },
-    "severe": {
-        "width_range": "0.5 - 1.0 mm",
-        "color": "#ef4444",
-        "action": "Immediate structural assessment. Load restriction mandatory. Repair within 7 days.",
-        "cost_range": "₹2,00,000 - ₹10,00,000",
-        "urgency": "HIGH",
-        "irc_reference": "IRC:112-2011 Section 12.3.2"
-    },
-    "critical": {
-        "width_range": "> 1.0 mm",
-        "color": "#7c3aed",
-        "action": "EMERGENCY: Close bridge immediately. Deploy structural engineer within 24 hours.",
-        "cost_range": "₹10,00,000 - ₹1,00,00,000+",
-        "urgency": "CRITICAL",
-        "irc_reference": "IRC:112-2011 Section 12.3.1"
-    }
+try:
+    from backend.constants import SENSOR_THRESHOLDS, get_sensor_status
+except ImportError:
+    from constants import SENSOR_THRESHOLDS, get_sensor_status
+
+
+VISUAL_SEVERITIES = {"hairline", "minor", "moderate", "severe", "critical"}
+CRACK_TYPES = {"flexural", "shear", "longitudinal", "transverse", "diagonal", "map/pattern"}
+MATERIALS = {"concrete", "steel", "masonry", "unknown"}
+VISION_MODEL = "qwen/qwen3.8-27b"
+VISION_FAILURE_MESSAGES = {
+    "not_configured": "Vision provider credentials are not configured on the server.",
+    "authentication": "The vision provider rejected the server credentials.",
+    "rate_limited": "The vision provider is temporarily rate limited. Try again later.",
+    "model_unavailable": "The configured vision model is unavailable to this provider account.",
+    "invalid_request": "The vision provider rejected this image request.",
+    "provider_unreachable": "The vision provider could not be reached. Try again later.",
+    "provider_unavailable": "The vision provider is temporarily unavailable. Try again later.",
+    "invalid_response": "The vision provider returned an unreadable analysis. Try again later.",
+    "provider_error": "Vision analysis failed at the provider. Try again later.",
 }
+
+
+@dataclass(frozen=True)
+class VisionResult:
+    analysis: dict | None
+    error_category: str | None = None
+RECOMMEND_CRACK = "Arrange an on-site inspection to verify the detected crack and obtain a calibrated width measurement before planning work."
+RECOMMEND_CLEAR = "No crack was identified by the visual model. If a crack is suspected, verify it during an on-site inspection."
+RECOMMEND_UNAVAILABLE = "Visual analysis is unavailable. Inspect the image and verify any suspected crack on site, or retry the analysis."
+
+
+def validate_bridge_selection(bridge_id: int, bridge_name: str, bridges: list[dict]) -> str:
+    """Return the canonical name only for a known, matching bridge ID and name."""
+    match = next((bridge for bridge in bridges if bridge["id"] == bridge_id), None)
+    if match is None or not isinstance(bridge_name, str) or bridge_name.strip().casefold() != match["name"].casefold():
+        raise ValueError("Select a valid bridge ID and matching name from the bridge list")
+    return match["name"]
+
+
+def validate_calibrated_width(width_mm, reference):
+    """Accept a physical width only with an explicit field measurement reference."""
+    if width_mm is None and not reference:
+        return None, None
+    try:
+        width = float(width_mm)
+    except (TypeError, ValueError):
+        raise ValueError("A calibrated width and its measurement reference are required") from None
+    if not math.isfinite(width) or width < 0 or not isinstance(reference, str) or not reference.strip():
+        raise ValueError("A non-negative calibrated width and its measurement reference are required")
+    return width, reference.strip()
+
 
 def image_to_base64(image: Image.Image) -> str:
     buffered = io.BytesIO()
-    image.save(buffered, format="JPEG", quality=85)
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+    image.save(buffered, format="JPEG", quality=90)
+    return base64.b64encode(buffered.getvalue()).decode("ascii")
 
-def analyze_crack_with_groq(image: Image.Image) -> dict:
-    if GROQ_API_KEY:
-        try:
-            client = Groq(api_key=GROQ_API_KEY)
-            base64_image = image_to_base64(image)
-            prompt = """You are a structural engineering AI specialized in bridge crack analysis per IRC:112-2011 and NHAI inspection standards.
 
-Analyze this bridge image carefully and provide a detailed crack assessment.
-
-Respond ONLY with a valid JSON object in this exact format:
+def analyze_crack_with_groq(image: Image.Image) -> VisionResult:
+    """Return model-reported attributes or a safe, actionable failure category."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        return VisionResult(None, "not_configured")
+    prompt = """Assess the visible image only. Return JSON with:
 {
   "crack_detected": true or false,
-  "crack_count": number of cracks visible,
-  "severity": "hairline" or "minor" or "moderate" or "severe" or "critical",
-  "estimated_width_mm": estimated crack width as a number,
-  "length_estimate": "short (<10cm)" or "medium (10-50cm)" or "long (>50cm)",
-  "crack_type": "flexural" or "shear" or "longitudinal" or "transverse" or "diagonal" or "map/pattern",
-  "location_description": "brief description of where the crack is on the structure",
-  "structural_concern": true or false,
-  "confidence_percent": your confidence level 0-100,
-  "material": "concrete" or "steel" or "masonry" or "unknown",
-  "additional_observations": "any other structural concerns visible"
+  "crack_count": integer or null,
+  "visual_severity": "hairline", "minor", "moderate", "severe", "critical", or null,
+  "crack_type": "flexural", "shear", "longitudinal", "transverse", "diagonal", "map/pattern", or null,
+  "material": "concrete", "steel", "masonry", "unknown", or null,
+  "regions": [{"x1": 0.0, "y1": 0.0, "x2": 0.0, "y2": 0.0}]
 }
-
-If no crack is detected, set crack_detected to false and severity to "hairline" with estimated_width_mm to 0.
-Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."""
-
-            response = client.chat.completions.create(
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}"
-                                }
-                            },
-                            {
-                                "type": "text",
-                                "text": prompt
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=1024,
-                temperature=0.1,
-            )
-
-            raw = response.choices[0].message.content.strip()
-            import json
-            import re
-            json_match = re.search(r'\{.*\}', raw, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
-        except Exception as e:
-            print(f"[CrackDetection] Groq API failed for crack analysis, falling back to rule-based mock: {e}")
-
-    # Fallback mock analysis when GROQ_API_KEY is not set or fails
-    return {
-        "crack_detected": True,
-        "crack_count": 2,
-        "severity": "moderate",
-        "estimated_width_mm": 0.38,
-        "length_estimate": "medium (10-50cm)",
-        "crack_type": "transverse",
-        "location_description": "Mid-span tension zone on the bottom face of the main concrete girder.",
-        "structural_concern": True,
-        "confidence_percent": 90,
-        "material": "concrete",
-        "additional_observations": "Flexural crack propagation. Surface sealing and epoxy injection recommended. Fallback offline analysis active."
-    }
-
-def create_annotated_image(image: Image.Image, analysis: dict) -> str:
-    annotated = image.copy()
-    draw = ImageDraw.Draw(annotated)
-    severity = analysis.get("severity", "hairline")
-    color_map = {
-        "hairline": (34, 197, 94),
-        "minor": (132, 204, 22),
-        "moderate": (245, 158, 11),
-        "severe": (239, 68, 68),
-        "critical": (124, 58, 237)
-    }
-    color = color_map.get(severity, (239, 68, 68))
-    w, h = annotated.size
-    border = 8
-    draw.rectangle([border, border, w-border, h-border], outline=color, width=border)
-    label = f"SEVERITY: {severity.upper()} | Width: ~{analysis.get('estimated_width_mm', 0):.2f}mm"
-    draw.rectangle([0, 0, w, 40], fill=color)
+Region coordinates must be normalized image coordinates and included only when a crack can be localized. Otherwise return [].
+Do not estimate physical width, length, confidence percentages, causes, repair work, costs, deadlines, restrictions, or standards. If no crack is visible, return crack_detected false and regions []."""
     try:
-        font = ImageFont.truetype("arial.ttf", 18)
-    except:
-        font = ImageFont.load_default()
-    draw.text((10, 10), label, fill=(255, 255, 255), font=font)
-    buffered = io.BytesIO()
-    annotated.save(buffered, format="JPEG", quality=90)
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+        response = Groq(api_key=api_key, timeout=30.0, max_retries=0).chat.completions.create(
+            model=VISION_MODEL,
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + image_to_base64(image)}},
+            ]}],
+            max_completion_tokens=1024,
+            temperature=0.1,
+            response_format={"type": "json_object"},
+        )
+    except AuthenticationError:
+        return VisionResult(None, "authentication")
+    except RateLimitError:
+        return VisionResult(None, "rate_limited")
+    except NotFoundError:
+        return VisionResult(None, "model_unavailable")
+    except BadRequestError as exc:
+        body = exc.body if isinstance(exc.body, dict) else {}
+        error = body.get("error", body)
+        code = error.get("code") if isinstance(error, dict) else None
+        if code in {"model_decommissioned", "model_not_found", "model_not_available", "model_access_denied"}:
+            return VisionResult(None, "model_unavailable")
+        return VisionResult(None, "invalid_request")
+    except (APIConnectionError, APITimeoutError):
+        return VisionResult(None, "provider_unreachable")
+    except APIStatusError as exc:
+        return VisionResult(None, "provider_unavailable" if exc.status_code >= 500 else "provider_error")
+    except Exception:
+        # Never include provider exception text in the report or logs.
+        return VisionResult(None, "provider_error")
+    try:
+        raw = response.choices[0].message.content
+        parsed = json.loads(raw) if isinstance(raw, str) else None
+        if not isinstance(parsed, dict) or type(parsed.get("crack_detected")) is not bool:
+            return VisionResult(None, "invalid_response")
+        return VisionResult(parsed)
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return VisionResult(None, "invalid_response")
 
-def generate_full_report(analysis: dict, severity_info: dict, bridge_id: int, bridge_name: str) -> dict:
-    now = datetime.now()
+
+def _validated_regions(raw_regions):
+    regions = []
+    if not isinstance(raw_regions, list):
+        return regions
+    for region in raw_regions[:20]:
+        if not isinstance(region, dict):
+            continue
+        try:
+            x1, y1, x2, y2 = (float(region[key]) for key in ("x1", "y1", "x2", "y2"))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if all(math.isfinite(value) for value in (x1, y1, x2, y2)) and 0 <= x1 < x2 <= 1 and 0 <= y1 < y2 <= 1:
+            if (x2 - x1) * (y2 - y1) < 0.8:
+                regions.append({"x1": x1, "y1": y1, "x2": x2, "y2": y2})
+    return regions
+
+
+def create_annotated_image(image: Image.Image, regions: list[dict]) -> str:
+    """Draw only validated, model-reported coordinates; never a frame."""
+    annotated = image.copy()
+    if regions:
+        draw = ImageDraw.Draw(annotated)
+        width, height = annotated.size
+        line_width = max(2, round(min(width, height) / 300))
+        for region in regions:
+            draw.rectangle(
+                [round(region["x1"] * width), round(region["y1"] * height),
+                 round(region["x2"] * width), round(region["y2"] * height)],
+                outline="#0F6E56", width=line_width,
+            )
+    return image_to_base64(annotated)
+
+
+def _model_fields(model_result):
+    if not isinstance(model_result, dict) or type(model_result.get("crack_detected")) is not bool:
+        return {
+            "analysis_status": "unavailable", "crack_detected": None, "crack_count": None,
+            "visual_severity": None, "crack_type": None, "material": None, "regions": [],
+        }
+    detected = model_result["crack_detected"]
+    severity = model_result.get("visual_severity") or model_result.get("severity")
+    count = model_result.get("crack_count")
     return {
-        "report_id": f"CR-{now.strftime('%Y%m%d%H%M%S')}-B{bridge_id}",
+        "analysis_status": "available",
+        "crack_detected": detected,
+        "crack_count": count if detected and type(count) is int and 0 <= count <= 100 else 0 if not detected else None,
+        "visual_severity": severity if detected and severity in VISUAL_SEVERITIES else None,
+        "crack_type": model_result.get("crack_type") if detected and model_result.get("crack_type") in CRACK_TYPES else None,
+        "material": model_result.get("material") if model_result.get("material") in MATERIALS else None,
+        "regions": _validated_regions(model_result.get("regions")) if detected else [],
+    }
+
+
+def recommended_next_step(model: dict, threshold_status: str, width_supplied: bool) -> str:
+    """Keep the user measurement and the model's visual finding distinct."""
+    if model["analysis_status"] == "unavailable":
+        visual_finding = "Visual model analysis is unavailable; it has not confirmed a crack."
+        visual_action = RECOMMEND_UNAVAILABLE
+    elif model["crack_detected"]:
+        visual_finding = "The visual model identified a possible crack."
+        visual_action = RECOMMEND_CRACK
+    else:
+        visual_finding = "The visual model did not identify a crack."
+        visual_action = RECOMMEND_CLEAR
+
+    if threshold_status == "Critical":
+        return (
+            "The user-supplied measured width reaches the project Critical threshold. "
+            "Verify that measurement and its reference, and arrange an on-site crack inspection. "
+            + visual_finding
+        )
+    if threshold_status == "Monitor":
+        return (
+            "The user-supplied measured width reaches the project Monitor threshold. "
+            "Verify that measurement and its reference during an on-site crack inspection. "
+            + visual_finding
+        )
+    if width_supplied:
+        return visual_action + " The user-supplied measured width is below the project warning threshold; verify its reference."
+    return visual_action
+
+
+def analyze_crack_image(
+    image_bytes: bytes, bridge_id: int, bridge_name: str,
+    calibrated_width_mm=None, measurement_reference=None,
+) -> dict:
+    width_mm, reference = validate_calibrated_width(calibrated_width_mm, measurement_reference)
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as uploaded:
+            image = ImageOps.exif_transpose(uploaded).convert("RGB")
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise ValueError("The uploaded file is not a readable image") from exc
+    image.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+
+    vision = analyze_crack_with_groq(image)
+    model = _model_fields(vision.analysis)
+    error_category = vision.error_category
+    if model["analysis_status"] == "unavailable" and error_category is None:
+        error_category = "invalid_response"
+    regions = model.pop("regions")
+    if width_mm is None:
+        threshold_status = "Unavailable"
+        width_source = "Unavailable: no calibrated measurement and reference were provided."
+    else:
+        threshold_status = get_sensor_status("crack_gap", width_mm)
+        width_source = "User-supplied calibrated measurement: " + reference
+    recommendation = recommended_next_step(model, threshold_status, width_mm is not None)
+    now = datetime.now(timezone.utc)
+    return {
+        "report_id": "CR-" + now.strftime("%Y%m%d%H%M%S") + "-B" + str(bridge_id),
         "timestamp": now.isoformat(),
         "bridge_id": bridge_id,
         "bridge_name": bridge_name,
-        "crack_detected": analysis.get("crack_detected", False),
-        "crack_count": analysis.get("crack_count", 0),
-        "severity": analysis.get("severity", "hairline"),
-        "severity_color": severity_info.get("color", "#22c55e"),
-        "urgency": severity_info.get("urgency", "LOW"),
-        "estimated_width_mm": analysis.get("estimated_width_mm", 0),
-        "width_range": severity_info.get("width_range", "< 0.1 mm"),
-        "length_estimate": analysis.get("length_estimate", "unknown"),
-        "crack_type": analysis.get("crack_type", "unknown"),
-        "location_description": analysis.get("location_description", ""),
-        "structural_concern": analysis.get("structural_concern", False),
-        "material": analysis.get("material", "concrete"),
-        "confidence_percent": analysis.get("confidence_percent", 0),
-        "recommended_action": severity_info.get("action", ""),
-        "estimated_repair_cost": severity_info.get("cost_range", ""),
-        "irc_reference": severity_info.get("irc_reference", ""),
-        "additional_observations": analysis.get("additional_observations", ""),
-        "inspector": "BridgeIQ AI Vision System v1.0",
-        "standard": "IRC:112-2011 / NHAI Bridge Inspection Manual"
+        **model,
+        "visual_source": "AI visual estimate; verify on site." if model["analysis_status"] == "available" else "Model analysis unavailable.",
+        "vision_model": VISION_MODEL,
+        "error_category": error_category,
+        "error_message": VISION_FAILURE_MESSAGES.get(error_category) if error_category else None,
+        "threshold_status": threshold_status,
+        "critical_threshold_mm": SENSOR_THRESHOLDS["crack_gap"]["crit"],
+        "calibrated_width_mm": width_mm,
+        "width_source": width_source,
+        "length_mm": None,
+        "length_source": "Unavailable: no calibrated length measurement was provided.",
+        "confidence_percent": None,
+        "confidence_source": "Unavailable: no calibrated model confidence score is provided.",
+        "recommended_action": recommendation,
+        "regions": regions,
+        "annotated_image_base64": create_annotated_image(image, regions),
+        "annotation_caption": (
+            "Model-estimated crack region; verify its location on site."
+            if regions else "No localized crack coordinates returned; the full original image is shown without overlays."
+        ),
     }
-
-def analyze_crack_image(image_bytes: bytes, bridge_id: int = 1, bridge_name: str = "Unknown Bridge") -> dict:
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    max_size = (1024, 1024)
-    image.thumbnail(max_size, Image.Resampling.LANCZOS)
-    analysis = analyze_crack_with_groq(image)
-    severity = analysis.get("severity", "hairline")
-    severity_info = SEVERITY_LEVELS.get(severity, SEVERITY_LEVELS["hairline"])
-    annotated_base64 = create_annotated_image(image, analysis)
-    report = generate_full_report(analysis, severity_info, bridge_id, bridge_name)
-    report["annotated_image_base64"] = annotated_base64
-    return report

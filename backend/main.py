@@ -253,11 +253,12 @@ except ImportError:
 # Re-enabled: crack_detection.py only imports groq + PIL (both in requirements.txt).
 # No heavy ML dependencies whatsoever.
 try:
-    from crack_detection import analyze_crack_image
+    from crack_detection import analyze_crack_image, validate_bridge_selection
     logger.info("Crack detection module loaded successfully")
 except Exception as e:
     logger.warning(f"Could not load crack detection module: {e}")
     analyze_crack_image = None
+    validate_bridge_selection = None
 
 # Re-enabled: agent.py only imports groq + rag.retrieve_context, both safe.
 try:
@@ -3040,26 +3041,46 @@ async def get_telegram_config():
 # ---------------------------------------------------------------------------
 # Crack Detection Endpoints
 # ---------------------------------------------------------------------------
+@app.get("/api/crack-detection/bridges")
+def crack_detection_bridges(user=Depends(get_current_user)):
+    """Return canonical bridge IDs and names for crack-image attribution."""
+    return [{"id": bridge["id"], "name": bridge["name"]} for bridge in _INDIA_BRIDGES]
+
+
 @app.post("/api/crack-detection")
 async def detect_crack(
+    bridge_id: int,
+    bridge_name: str,
     file: UploadFile = File(...),
-    bridge_id: int = 1,
-    bridge_name: str = "Unknown Bridge",
+    calibrated_width_mm: float | None = None,
+    measurement_reference: str | None = None,
     user=Depends(require_role(["admin", "engineer"]))
 ):
-    if not file.content_type.startswith("image/"):
+    if validate_bridge_selection is None or analyze_crack_image is None:
+        raise HTTPException(status_code=503, detail="Crack detection module is unavailable")
+    try:
+        canonical_name = validate_bridge_selection(bridge_id, bridge_name, _INDIA_BRIDGES)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not (file.content_type or "").startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     if file.size and file.size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Image must be under 10MB")
     image_bytes = await file.read()
-    if analyze_crack_image is None:
-        raise HTTPException(status_code=503, detail="Crack detection module failed to load. Check server logs.")
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 10MB")
     try:
-        result = analyze_crack_image(image_bytes, bridge_id, bridge_name)
+        result = analyze_crack_image(
+            image_bytes, bridge_id, canonical_name,
+            calibrated_width_mm=calibrated_width_mm,
+            measurement_reference=measurement_reference,
+        )
         return result
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as e:
-        logger.exception(f"Crack detection failed for bridge {bridge_id} ({bridge_name}): {e}")
-        raise HTTPException(status_code=500, detail=f"Crack detection failed: {e}")
+        logger.exception("Crack detection failed for bridge %s", bridge_id)
+        raise HTTPException(status_code=500, detail="Crack detection failed") from e
 
 @app.get("/api/crack-detection/history/{bridge_id}")
 async def get_crack_history(bridge_id: int, user=Depends(require_role(["admin", "engineer", "viewer"]))):
