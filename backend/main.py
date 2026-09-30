@@ -85,7 +85,7 @@ import threading
 import time
 import random
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 
 import numpy as np
 import pandas as pd
@@ -3104,6 +3104,7 @@ class AgentInspectPDFRequest(BaseModel):
     issues_detected: list[str]
     recommendations: list[str]
     full_report: str
+    inspection_date: date | None = None
 
 @app.post("/api/agent/inspect")
 async def agent_inspect(req: dict, user=Depends(require_role(["admin", "engineer"]))):
@@ -3119,236 +3120,23 @@ async def agent_inspect(req: dict, user=Depends(require_role(["admin", "engineer
         raise HTTPException(status_code=500, detail=f"Inspection failed: {e}")
 
 @app.post("/api/agent/inspect/pdf")
-def agent_inspect_pdf(req: AgentInspectPDFRequest, user = Depends(get_current_user)):
+def agent_inspect_pdf(req: AgentInspectPDFRequest, user=Depends(get_current_user)):
     if SimpleDocTemplate is None:
         raise HTTPException(status_code=503, detail="PDF generation library (reportlab) is not installed")
+    try:
+        from backend.agent_pdf import build_agent_inspection_pdf
+    except ImportError:
+        from agent_pdf import build_agent_inspection_pdf
+
+    pdf_bytes = build_agent_inspection_pdf(req.model_dump())
     add_audit_entry(user["email"], user["role"], "EXPORT_AGENT_REPORT", f"Bridge {req.bridge_id} ({req.bridge_name})", "SUCCESS")
-    
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=36,
-        rightMargin=36,
-        topMargin=36,
-        bottomMargin=36
-    )
-    
-    styles = getSampleStyleSheet()
-    
-    # Custom styles
-    title_style = ParagraphStyle(
-        'AgentTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=24,
-        leading=28,
-        textColor=colors.HexColor('#0F172A'),
-        alignment=TA_LEFT
-    )
-    subtitle_style = ParagraphStyle(
-        'AgentSubtitle',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=12,
-        leading=16,
-        textColor=colors.HexColor('#64748B'),
-        alignment=TA_LEFT
-    )
-    section_title_style = ParagraphStyle(
-        'AgentSectionTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=14,
-        leading=18,
-        textColor=colors.HexColor('#0F172A'),
-        spaceBefore=14,
-        spaceAfter=6,
-        keepWithNext=True
-    )
-    subsection_title_style = ParagraphStyle(
-        'AgentSubSectionTitle',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=12,
-        leading=16,
-        textColor=colors.HexColor('#1E293B'),
-        spaceBefore=10,
-        spaceAfter=4,
-        keepWithNext=True
-    )
-    body_style = ParagraphStyle(
-        'AgentBodyText',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=10,
-        leading=14,
-        textColor=colors.HexColor('#334155'),
-        spaceAfter=6
-    )
-    bullet_style = ParagraphStyle(
-        'AgentBulletText',
-        parent=body_style,
-        leftIndent=15,
-        firstLineIndent=-10,
-        spaceAfter=4
-    )
-    table_cell_style = ParagraphStyle(
-        'AgentTableCellText',
-        parent=styles['Normal'],
-        fontName='Helvetica',
-        fontSize=9,
-        leading=12,
-        textColor=colors.HexColor('#1E293B'),
-    )
-    table_header_style = ParagraphStyle(
-        'AgentTableHeaderText',
-        parent=styles['Normal'],
-        fontName='Helvetica-Bold',
-        fontSize=9,
-        leading=12,
-        textColor=colors.white,
-    )
-
-    story = []
-    
-    # 1. Header Banner
-    story.append(Paragraph("RAG + Agentic Bridge Inspection Report", title_style))
-    story.append(Paragraph(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Bridge Health Monitor Platform", subtitle_style))
-    story.append(Spacer(1, 10))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#CBD5E1'), spaceAfter=15))
-    
-    # 2. General Information & Overall Status
-    story.append(Paragraph("1. General Information & Overall Status", section_title_style))
-    
-    # Create info grid
-    severity_color = '#10B981' # Normal
-    if req.severity == 'CRITICAL':
-        severity_color = '#EF4444'
-    elif req.severity == 'WARNING':
-        severity_color = '#F59E0B'
-        
-    info_data = [
-        [Paragraph("<b>Bridge Name:</b>", table_cell_style), Paragraph(req.bridge_name, table_cell_style),
-         Paragraph("<b>Bridge ID:</b>", table_cell_style), Paragraph(str(req.bridge_id), table_cell_style)],
-        [Paragraph("<b>Health Score:</b>", table_cell_style), Paragraph(f"{req.health_score}/100", table_cell_style),
-         Paragraph("<b>Alert Level:</b>", table_cell_style), Paragraph(req.alert_level, table_cell_style)],
-        [Paragraph("<b>Inspection Severity:</b>", table_cell_style), Paragraph(f"<font color='{severity_color}'><b>{req.severity}</b></font>", table_cell_style),
-         Paragraph("<b>Status:</b>", table_cell_style), Paragraph("ACTIVE MONITORING", table_cell_style)]
-    ]
-    
-    info_table = Table(info_data, colWidths=[120, 140, 100, 160])
-    info_table.setStyle(TableStyle([
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('BACKGROUND', (0,0), (0,-1), colors.HexColor('#F8FAFC')),
-        ('BACKGROUND', (2,0), (2,-1), colors.HexColor('#F8FAFC')),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 6),
-    ]))
-    story.append(info_table)
-    story.append(Spacer(1, 12))
-    
-    # 3. Sensor Summary
-    story.append(Paragraph("2. Telemetry & Sensor Summary", section_title_style))
-    
-    # Columns: Sensor, Current Reading, Safe Limit, Status
-    vib = req.sensor_summary.get("vibration", 0)
-    strn = req.sensor_summary.get("strain", 0)
-    crk = req.sensor_summary.get("crack_gap", 0)
-    wat = req.sensor_summary.get("water_level", 0)
-    
-    def get_status_label(name, val):
-        if name == "vibration":
-            return "CRITICAL" if val >= VIBRATION_LIMIT_G else "WARNING" if val >= VIBRATION_WARN_G else "NORMAL"
-        elif name == "strain":
-            return "CRITICAL" if val >= STRAIN_LIMIT_MPA else "WARNING" if val >= STRAIN_WARN_MPA else "NORMAL"
-        elif name == "crack_gap":
-            return "CRITICAL" if val >= CRACK_GAP_LIMIT_MM else "WARNING" if val >= CRACK_GAP_WARN_MM else "NORMAL"
-        elif name == "water_level":
-            return "CRITICAL" if val >= WATER_LEVEL_LIMIT_M else "WARNING" if val >= WATER_LEVEL_WARN_M else "NORMAL"
-        return "NORMAL"
-        
-    def get_status_color(lbl):
-        return "#EF4444" if lbl == "CRITICAL" else "#F59E0B" if lbl == "WARNING" else "#10B981"
-
-    sensor_data = [
-        [Paragraph("Sensor Type", table_header_style), Paragraph("Current Reading", table_header_style), Paragraph("Safe Limit Threshold", table_header_style), Paragraph("Status", table_header_style)],
-        [Paragraph("Vibration", table_cell_style), Paragraph(f"{vib:.3f} g", table_cell_style), Paragraph(f"{VIBRATION_LIMIT_G:.3f} g (IRC:6-2017)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('vibration', vib))}'><b>{get_status_label('vibration', vib)}</b></font>", table_cell_style)],
-        [Paragraph("Strain", table_cell_style), Paragraph(f"{strn:.1f} MPa", table_cell_style), Paragraph(f"{STRAIN_LIMIT_MPA:.1f} MPa (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('strain', strn))}'><b>{get_status_label('strain', strn)}</b></font>", table_cell_style)],
-        [Paragraph("Crack Gap", table_cell_style), Paragraph(f"{crk:.3f} mm", table_cell_style), Paragraph(f"{CRACK_GAP_LIMIT_MM:.3f} mm (IRC:112-2011)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('crack_gap', crk))}'><b>{get_status_label('crack_gap', crk)}</b></font>", table_cell_style)],
-        [Paragraph("Water Level", table_cell_style), Paragraph(f"{wat:.2f} m", table_cell_style), Paragraph(f"{WATER_LEVEL_THRESHOLD} m (IRC:6-2017 Flood Limit)", table_cell_style), Paragraph(f"<font color='{get_status_color(get_status_label('water_level', wat))}'><b>{get_status_label('water_level', wat)}</b></font>", table_cell_style)]
-    ]
-    
-    sensor_table = Table(sensor_data, colWidths=[130, 130, 150, 110])
-    sensor_table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0F172A')),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('PADDING', (0,0), (-1,-1), 6),
-        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')])
-    ]))
-    story.append(sensor_table)
-    story.append(Spacer(1, 12))
-
-    # 4. Issues Detected
-    if req.issues_detected:
-        story.append(Paragraph("3. Automated Issues Detected", section_title_style))
-        for issue in req.issues_detected:
-            story.append(Paragraph(f"• <font color='#EF4444'><b>{issue}</b></font>", bullet_style))
-        story.append(Spacer(1, 10))
-
-    # 5. Full Agent Report
-    story.append(Paragraph("4. Comprehensive AI Inspection Analysis (RAG 2.0)", section_title_style))
-    
-    # Parse markdown report text
-    import re
-    paragraphs_raw = req.full_report.split("\n")
-    for para in paragraphs_raw:
-        para = para.strip()
-        if not para:
-            story.append(Spacer(1, 4))
-            continue
-            
-        # Headers styling
-        if para.startswith("###"):
-            header_text = para.replace("###", "").strip()
-            header_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', header_text)
-            header_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', header_text)
-            story.append(Paragraph(header_text, ParagraphStyle('H3', parent=subsection_title_style, fontSize=11, spaceBefore=8, spaceAfter=4)))
-        elif para.startswith("##"):
-            header_text = para.replace("##", "").strip()
-            header_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', header_text)
-            header_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', header_text)
-            story.append(Paragraph(header_text, ParagraphStyle('H2', parent=subsection_title_style, fontSize=12, spaceBefore=10, spaceAfter=4)))
-        elif para.startswith("#"):
-            header_text = para.replace("#", "").strip()
-            header_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', header_text)
-            header_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', header_text)
-            story.append(Paragraph(header_text, ParagraphStyle('H1', parent=section_title_style, fontSize=13, spaceBefore=12, spaceAfter=4)))
-        elif para.startswith("-") or para.startswith("*"):
-            bullet_text = para[1:].strip()
-            bullet_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', bullet_text)
-            bullet_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', bullet_text)
-            story.append(Paragraph(f"• {bullet_text}", bullet_style))
-        elif re.match(r'^\d+\.', para):
-            # Numbered list
-            bullet_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', para)
-            bullet_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', bullet_text)
-            story.append(Paragraph(bullet_text, bullet_style))
-        else:
-            body_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', para)
-            body_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', body_text)
-            story.append(Paragraph(body_text, body_style))
-            
-    doc.build(story)
-    buffer.seek(0)
+    inspection_date = req.inspection_date or datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
     return StreamingResponse(
-        buffer,
+        io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=AI_Inspection_Report_{req.bridge_id}_{datetime.now().strftime('%Y%m%d')}.pdf"
-        }
+            "Content-Disposition": f"attachment; filename=AI_Inspection_Report_{req.bridge_id}_{inspection_date:%Y%m%d}.pdf"
+        },
     )
 
 

@@ -13,6 +13,8 @@ import {
   AlertTriangle, 
   Droplet, 
   Activity, 
+  Gauge,
+  ScanLine,
   AlertCircle, 
   FileText, 
   ChevronRight,
@@ -20,9 +22,9 @@ import {
 } from 'lucide-react';
 
 const STAGES = [
-  { id: 'fetch', label: 'Fetching live sensor data...' },
-  { id: 'anomaly', label: 'Analyzing anomaly scores...' },
-  { id: 'rag', label: 'Searching IRC standards...' },
+  { id: 'fetch', label: 'Fetching current sensor data...' },
+  { id: 'thresholds', label: 'Checking project thresholds...' },
+  { id: 'findings', label: 'Preparing findings...' },
   { id: 'llm', label: 'Generating inspection report...' }
 ];
 
@@ -32,42 +34,89 @@ const SEVERITY_CONFIG = {
   HEALTHY: { label: 'Healthy', color: '#0F6E56', bg: '#F0FDF4', border: '#DCFCE7' }
 };
 
+const sentenceCase = (text) => text.toLowerCase()
+  .replace(/(^|[.!?]\s*)([a-z])/g, (_, prefix, letter) => prefix + letter.toUpperCase())
+  .replace(/\b(ai|pdf|irc|mpa)\b/gi, (word) => word.toLowerCase() === 'mpa' ? 'MPa' : word.toUpperCase());
+
+const sentenceCaseHeadings = (content) => content.replace(/^(#{1,6}\s+)(.+)$/gm,
+  (_, prefix, heading) => prefix + sentenceCase(heading));
+
 const markdownComponents = {
-  h1: (props) => <h2 className="text-lg font-black mt-6 mb-3 text-[var(--text-primary)]" {...props} />,
+  h1: (props) => <h2 className="text-lg font-black font-sans mt-6 mb-3 text-[var(--text-primary)]" {...props} />,
   h2: (props) => (
-    <h3 className="text-base font-extrabold mt-5 mb-2.5 text-[var(--text-primary)] flex items-center gap-2">
+    <h3 className="text-base font-extrabold font-sans mt-5 mb-2.5 text-[var(--text-primary)] flex items-center gap-2">
       <Sparkles size={14} className="text-[var(--accent-blue)]" />
       {props.children}
     </h3>
   ),
   h3: (props) => (
-    <h4 className="text-sm font-bold mt-4 mb-2 text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-1 flex items-center gap-1.5">
+    <h4 className="text-sm font-bold font-sans mt-4 mb-2 text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-1 flex items-center gap-1.5">
       <ChevronRight size={12} className="text-[var(--accent-blue)]" />
       {props.children}
     </h4>
   ),
   p: (props) => <p className="text-xs text-[var(--text-secondary)] leading-relaxed my-2" {...props} />,
-  ul: (props) => <ul className="my-2 space-y-1.5" {...props} />,
+  ul: (props) => <ul className="my-2 list-disc ml-6 space-y-1.5" {...props} />,
   ol: (props) => <ol className="my-2 list-decimal ml-6 space-y-1.5" {...props} />,
-  li: (props) => (
-    <li className="flex items-start gap-2 ml-4 my-1.5 list-none">
-      <span className="text-[var(--accent-blue)] mt-0.5">•</span>
-      <span className="text-xs text-[var(--text-secondary)] leading-relaxed flex-1">
-        {props.children}
-      </span>
-    </li>
-  ),
+  li: (props) => <li className="text-xs text-[var(--text-secondary)] leading-relaxed my-1.5 pl-1" {...props} />,
   strong: (props) => <strong className="font-bold text-[var(--text-primary)]" {...props} />
 };
+
+const tableCells = (line) => line.trim().replace(/^\||\|$/g, '')
+  .split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, '|'));
+
+const isTableDivider = (line, columns) => {
+  const cells = tableCells(line);
+  return cells.length === columns && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+};
+
+const reportBlocks = (content) => {
+  const lines = content.split(/\r?\n/);
+  const blocks = [];
+  let prose = [];
+  let inFence = false;
+  const flush = () => {
+    if (prose.length) blocks.push({ type: 'markdown', content: prose.join('\n') });
+    prose = [];
+  };
+  for (let i = 0; i < lines.length; i += 1) {
+    if (/^\s*(```|~~~)/.test(lines[i])) inFence = !inFence;
+    const headers = tableCells(lines[i]);
+    if (!inFence && i + 1 < lines.length && lines[i].includes('|') && isTableDivider(lines[i + 1], headers.length)) {
+      flush();
+      const rows = [];
+      i += 2;
+      while (i < lines.length && lines[i].trim() && (lines[i].includes('|') || headers.length === 1)) {
+        rows.push(tableCells(lines[i]));
+        i += 1;
+      }
+      blocks.push({ type: 'table', headers, rows });
+      i -= 1;
+    } else {
+      prose.push(lines[i]);
+    }
+  }
+  flush();
+  return blocks;
+};
+
+function MarkdownContent({ content }) {
+  return reportBlocks(sentenceCaseHeadings(content)).map((block, index) => block.type === 'table' ? (
+    <div key={index} className="my-3 overflow-x-auto rounded-lg border border-[var(--border-subtle)]">
+      <table className="w-full text-xs text-left border-collapse">
+        <thead><tr>{block.headers.map((cell, i) => <th key={i} scope="col" className="p-2 font-semibold font-sans text-[var(--text-primary)] border-b border-[var(--border-subtle)]"><ReactMarkdown components={{ p: ({ children }) => <>{children}</> }}>{cell}</ReactMarkdown></th>)}</tr></thead>
+        <tbody>{block.rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-[var(--border-subtle)] last:border-0">{block.headers.map((_, cellIndex) => <td key={cellIndex} className="p-2 align-top text-[var(--text-secondary)]"><ReactMarkdown components={{ p: ({ children }) => <>{children}</> }}>{row[cellIndex] || ''}</ReactMarkdown></td>)}</tr>)}</tbody>
+      </table>
+    </div>
+  ) : <ReactMarkdown key={index} components={markdownComponents}>{block.content}</ReactMarkdown>);
+}
 
 function CollapsibleSection({ title, content }) {
   const [isOpen, setIsOpen] = useState(true);
   
   if (!title) {
     return (
-      <ReactMarkdown components={markdownComponents}>
-        {content}
-      </ReactMarkdown>
+      <MarkdownContent content={content} />
     );
   }
   
@@ -89,14 +138,12 @@ function CollapsibleSection({ title, content }) {
       <div
         className="transition-all duration-300 overflow-hidden"
         style={{
-          maxHeight: isOpen ? '1000px' : '0px',
+          maxHeight: isOpen ? 'none' : '0px',
           opacity: isOpen ? 1 : 0,
           marginTop: isOpen ? '8px' : '0px',
         }}
       >
-        <ReactMarkdown components={markdownComponents}>
-          {content}
-        </ReactMarkdown>
+        <MarkdownContent content={content} />
       </div>
     </div>
   );
@@ -104,14 +151,14 @@ function CollapsibleSection({ title, content }) {
 
 const parseReportSections = (reportText) => {
   if (!reportText) return [];
-  const parts = reportText.split(/(?=### )/g);
+  const parts = reportText.split(/(?=^#{2,3} )/gm);
   const sections = [];
   for (const part of parts) {
     const trimmed = part.trim();
     if (!trimmed) continue;
-    if (trimmed.startsWith("### ")) {
+    if (/^#{2,3} /.test(trimmed)) {
       const lines = trimmed.split("\n");
-      const title = lines[0].replace("### ", "").trim();
+      const title = sentenceCase(lines[0].replace(/^#{2,3} /, "").trim());
       const content = lines.slice(1).join("\n").trim();
       sections.push({ title, content });
     } else {
@@ -282,7 +329,7 @@ export default function AgentInspector({ activeBridgeId }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const date = new Date().toISOString().slice(0, 10);
+      const date = inspectionResult.inspection_date || new Date().toISOString().slice(0, 10);
       a.download = `AI_Inspection_Report_${inspectionResult.bridge_name}_${date}.pdf`;
       document.body.appendChild(a);
       a.click();
@@ -305,15 +352,15 @@ export default function AgentInspector({ activeBridgeId }) {
   const pct = healthScore / 100;
   const offset = circumference - pct * circumference;
 
-  const severityCfg = inspectionResult 
-    ? (healthScore >= 60 ? SEVERITY_CONFIG.HEALTHY : (healthScore >= 40 ? SEVERITY_CONFIG.MONITOR : SEVERITY_CONFIG.CRITICAL))
+  const severityCfg = inspectionResult
+    ? (SEVERITY_CONFIG[String(inspectionResult.severity || '').toUpperCase()]
+      || (healthScore >= 60 ? SEVERITY_CONFIG.HEALTHY : (healthScore >= 40 ? SEVERITY_CONFIG.MONITOR : SEVERITY_CONFIG.CRITICAL)))
     : SEVERITY_CONFIG.HEALTHY;
 
   const vib = inspectionResult?.sensor_summary?.vibration ?? 0;
   const str = inspectionResult?.sensor_summary?.strain ?? 0;
   const crk = inspectionResult?.sensor_summary?.crack_gap ?? 0;
   const wat = inspectionResult?.sensor_summary?.water_level ?? 0;
-  const anom = selectedBridge?.anomaly_score ?? 0;
 
   const vibStatus = getSensorStatus('vibration', vib);
   const strStatus = getSensorStatus('strain', str);
@@ -322,9 +369,6 @@ export default function AgentInspector({ activeBridgeId }) {
 
   const displayIssues = [];
   if (inspectionResult) {
-    if (anom > 0.5) {
-      displayIssues.push(`Anomaly score ${(anom * 100).toFixed(1)}% detected — ML pattern deviation requires investigation`);
-    }
     if (vibStatus === 'Critical') {
       displayIssues.push(`Vibration exceeds critical limit: ${Number(vib).toFixed(2)} g (Limit: ${SENSOR_THRESHOLDS.vibration.crit.toFixed(2)} g)`);
     } else if (vibStatus === 'Monitor') {
@@ -344,13 +388,16 @@ export default function AgentInspector({ activeBridgeId }) {
     }
 
     if (watStatus === 'Critical') {
-      displayIssues.push(`Water level exceeds flood danger limit: ${Number(wat).toFixed(2)} m (IRC:6-2017 limit: ${WATER_LEVEL_THRESHOLD} m)`);
+      displayIssues.push(`Water level exceeds the project threshold: ${Number(wat).toFixed(2)} m (Limit: ${WATER_LEVEL_THRESHOLD} m)`);
     } else if (watStatus === 'Monitor') {
       displayIssues.push(`Water level elevated: ${Number(wat).toFixed(2)} m (Watch: ${SENSOR_THRESHOLDS.water_level.warn} m)`);
     }
   }
 
-  const hasExceeded = displayIssues.length > 0;
+  const detectedIssues = Array.isArray(inspectionResult?.issues_detected)
+    ? inspectionResult.issues_detected
+    : displayIssues;
+  const hasDetectedIssues = detectedIssues.length > 0;
 
   if (bridgesLoading) {
     return (
@@ -386,7 +433,7 @@ export default function AgentInspector({ activeBridgeId }) {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in-up" style={{ color: 'var(--text-primary)' }}>
+    <div className="space-y-6 animate-fade-in-up font-sans" style={{ color: 'var(--text-primary)' }}>
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -395,7 +442,7 @@ export default function AgentInspector({ activeBridgeId }) {
             Agentic bridge inspector
           </h1>
           <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            AI-powered automatic inspection using RAG + AI Agent
+            AI-powered bridge inspection using current sensor readings
           </p>
         </div>
       </div>
@@ -441,7 +488,7 @@ export default function AgentInspector({ activeBridgeId }) {
           </div>
           {selectedBridge && (
             <p className="text-[10px] font-sans mt-1" style={{ color: 'var(--text-muted)' }}>
-              {selectedBridge.name} • {selectedBridge.type || 'Beam'} Type • Built in {selectedBridge.year_built || 'N/A'} • {selectedBridge.length_m ? `${selectedBridge.length_m}m Length • ` : ''}{selectedBridge.city ? `${selectedBridge.city}, ` : ''}{selectedBridge.state || 'India'} • Last Inspected: {getTodayDateFormatted()}
+              {selectedBridge.name} • {selectedBridge.type || 'Beam'} type • Built in {selectedBridge.year_built || 'N/A'} • {selectedBridge.length_m ? `${selectedBridge.length_m}m length • ` : ''}{selectedBridge.city ? `${selectedBridge.city}, ` : ''}{selectedBridge.state || 'India'} • Inspection date: {getTodayDateFormatted()}
             </p>
           )}
         </div>
@@ -515,7 +562,6 @@ export default function AgentInspector({ activeBridgeId }) {
             {/* Overall Status & Severity Badge */}
             <div 
               className="glass-card p-6 flex flex-col items-center text-center space-y-4 relative overflow-hidden"
-              style={{ borderTop: `4px solid ${severityCfg.color}` }}
             >
               <StatusBadge status={severityCfg.label} />
 
@@ -594,20 +640,20 @@ export default function AgentInspector({ activeBridgeId }) {
                     unit: 'MPa',
                     decimals: 1,
                     limit: `${SENSOR_THRESHOLDS.strain.crit.toFixed(1)} MPa`,
-                    icon: Bot,
+                    icon: Gauge,
                   },
                   {
                     id: 'crack_gap',
-                    name: 'Crack Gap',
+                    name: 'Crack gap',
                     val: inspectionResult?.sensor_summary?.crack_gap,
                     unit: 'mm',
                     decimals: 2,
                     limit: `${SENSOR_THRESHOLDS.crack_gap.crit.toFixed(2)} mm`,
-                    icon: AlertTriangle,
+                    icon: ScanLine,
                   },
                   {
                     id: 'water_level',
-                    name: 'Water Level',
+                    name: 'Water level',
                     val: inspectionResult?.sensor_summary?.water_level,
                     unit: 'm',
                     decimals: 2,
@@ -615,11 +661,11 @@ export default function AgentInspector({ activeBridgeId }) {
                     icon: Droplet,
                   }
                 ].map((sensor) => {
-                  const Icon = sensor.icon;
                   const hasVal = typeof sensor.val === 'number' && !isNaN(sensor.val);
                   const status = hasVal ? getSensorStatus(sensor.id, sensor.val) : 'Healthy';
                   const isCrit = status === 'Critical';
                   const isWarn = status === 'Monitor';
+                  const Icon = isCrit || isWarn ? AlertTriangle : sensor.icon;
                   return (
                     <div 
                       key={sensor.name} 
@@ -653,12 +699,18 @@ export default function AgentInspector({ activeBridgeId }) {
             {/* Issues Section */}
             <div className="glass-card p-5 space-y-3">
               <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-3">
-                <AlertCircle className="text-[var(--accent-red)]" size={16} />
-                <h3 className="text-xs tracking-wider font-bold">Issues detected</h3>
+                {hasDetectedIssues ? (
+                  <AlertCircle className="text-[var(--accent-red)]" size={16} />
+                ) : (
+                  <CheckCircle color="#0F6E56" size={16} />
+                )}
+                <h3 className="text-xs tracking-wider font-bold">
+                  {hasDetectedIssues ? 'Issues detected' : 'No issues detected'}
+                </h3>
               </div>
-              {hasExceeded ? (
+              {hasDetectedIssues ? (
                 <div className="space-y-2.5">
-                  {displayIssues.map((issue, i) => (
+                  {detectedIssues.map((issue, i) => (
                     <div 
                       key={i} 
                       className="p-3 rounded-lg text-xs leading-relaxed border flex items-start gap-2.5"
@@ -675,7 +727,7 @@ export default function AgentInspector({ activeBridgeId }) {
                 </div>
               ) : (
                 <div className="p-3 text-center text-xs font-medium text-[var(--text-muted)]">
-                  No critical issues detected
+                  All sensor readings are within project thresholds.
                 </div>
               )}
             </div>
@@ -689,7 +741,7 @@ export default function AgentInspector({ activeBridgeId }) {
                 <div className="flex items-center gap-2">
                   <FileText className="text-[var(--accent-blue)]" size={18} />
                   <h2 className="text-sm font-extrabold tracking-wider">
-                    Full AI inspection report (RAG + AI Agent)
+                    Full AI inspection report
                   </h2>
                 </div>
                 <button
@@ -741,7 +793,7 @@ export default function AgentInspector({ activeBridgeId }) {
                           borderColor: 'var(--border-subtle)'
                         }}
                       >
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black font-mono" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--accent-blue-light)' }}>
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black font-sans" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--accent-blue-light)' }}>
                           {i + 1}
                         </span>
                         <p className="flex-1 mt-0.5 leading-relaxed text-[var(--text-secondary)]">{rec}</p>
