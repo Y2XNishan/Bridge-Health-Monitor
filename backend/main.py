@@ -273,9 +273,14 @@ except ImportError:
     explain_anomaly = None
 
 try:
-    from backend.survival import run_survival_analysis, calculate_degradation_rate, predict_time_to_threshold
+    from backend.survival import (
+        run_survival_analysis, build_survival_overview, simulate_repair,
+        calculate_degradation_rate, predict_time_to_threshold,
+    )
 except ImportError:
     run_survival_analysis = None
+    build_survival_overview = None
+    simulate_repair = None
     calculate_degradation_rate = None
     predict_time_to_threshold = None
 
@@ -1372,35 +1377,43 @@ async def xai_explain(bridge_id: int = 1, user=Depends(get_current_user)):
 # ── GET /api/survival/predict ──────────────────────────────────────────────
 @app.get("/api/survival/predict")
 async def survival_predict(bridge_id: int = 1, user=Depends(get_current_user)):
-    """Return survival predictions for a single bridge."""
+    """Return one bridge's simulated health forecast and structured schedule."""
     ensure_simulator_exists(bridge_id)
     if bridge_id not in _simulators:
         raise HTTPException(status_code=404, detail="Bridge simulator not found")
-        
-    sim = _simulators[bridge_id]
-    live = sim.latest_data or sim.tick()
-    
-    bridge_name = sim.name
-    status_str = live.get("health_status", "").upper()
-    health_score = live.get("health_score", 100.0)
-    if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
-        alert_level = "CRITICAL"
-    elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
-        alert_level = "WARNING"
-    else:
-        alert_level = "NORMAL"
-        
-    sensor_data = {**live, "alert_level": alert_level}
-    
     if run_survival_analysis is None:
         raise HTTPException(status_code=500, detail="Survival analysis module is not available")
-    result = run_survival_analysis(bridge_id, bridge_name, sensor_data)
-    return result
+    sim = _simulators[bridge_id]
+    live = sim.latest_data or sim.tick()
+    return run_survival_analysis(bridge_id, sim.name, live)
+
+
+class RepairSimulationRequest(BaseModel):
+    health_score: float | None
+    degradation_rate: float | None
+    repair_day: int
+    post_repair_health: float
+    analysis_date: date | None = None
+
+
+@app.post("/api/survival/simulate")
+async def survival_simulate(req: RepairSimulationRequest, user=Depends(get_current_user)):
+    """Use the same forecast model for the slider, cards, table, and graph."""
+    if simulate_repair is None:
+        raise HTTPException(status_code=500, detail="Repair simulation module is not available")
+    try:
+        return simulate_repair(
+            req.health_score, req.degradation_rate, req.repair_day,
+            req.post_repair_health, req.analysis_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
 
 @app.get("/api/survival/all")
 async def survival_all(user=Depends(get_current_user)):
-    """Get survival predictions for all bridges — for priority dashboard."""
-    if calculate_degradation_rate is None or predict_time_to_threshold is None:
+    """Get network priorities from the same forecast calculation as detail view."""
+    if build_survival_overview is None:
         raise HTTPException(status_code=500, detail="Survival analysis module is not available")
     results = []
     for bridge_id in range(1, 59):
@@ -1410,68 +1423,30 @@ async def survival_all(user=Depends(get_current_user)):
                 continue
             sim = _simulators[bridge_id]
             live = sim.latest_data or sim.tick()
-            bridge_name = sim.name
-            health_score = live.get("health_score", 100.0)
-            anomaly_score = live.get("anomaly_score", 0.0)
-            
-            status_str = live.get("health_status", "").upper()
-            if status_str in ["CRITICAL", "FAIL"] or health_score < 50.0:
-                alert_level = "CRITICAL"
-            elif status_str in ["WARNING", "POOR", "FAIR", "MONITOR"] or health_score <= 74.0:
-                alert_level = "WARNING"
-            else:
-                alert_level = "NORMAL"
-                
-            risk_score = live.get("risk_score", 0.0)
-            crack_gap = live.get("crack_gap", 0.0)
-            vib = live.get("vibration", 0.0)
-            strain_val = live.get("strain", 0.0)
-            sensor_overload = max(
-                1.0,
-                crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
-                vib / SENSOR_THRESHOLDS["vibration"]["crit"],
-                strain_val / SENSOR_THRESHOLDS["strain"]["crit"],
-            )
-            degradation = calculate_degradation_rate(
-                health_score, anomaly_score, alert_level, bridge_id,
-                risk_score=risk_score, sensor_overload=sensor_overload,
-            )
-            rate = degradation["daily_degradation_rate"]
-            days_to_critical = predict_time_to_threshold(health_score, rate, 40.0)
-            days_to_failure = predict_time_to_threshold(health_score, rate, 20.0)
-            
-            if days_to_critical <= 0:
-                urgency = "CRITICAL"
-            elif days_to_critical <= 7:
-                urgency = "HIGH"
-            elif days_to_critical <= 30:
-                urgency = "MEDIUM"
-            else:
-                urgency = "LOW"
-                
-            bridge_info = next((b for b in _INDIA_BRIDGES if b["id"] == bridge_id), None)
+            overview = build_survival_overview(bridge_id, sim.name, live)
+            bridge_info = next((bridge for bridge in _INDIA_BRIDGES if bridge["id"] == bridge_id), None)
             if bridge_info:
                 state = "MP" if bridge_info["state"] == "Madhya Pradesh" else bridge_info["state"]
                 location = f"{bridge_info['city']}, {state}"
             else:
                 location = "India"
-
             results.append({
                 "bridge_id": bridge_id,
-                "bridge_name": bridge_name,
+                "bridge_name": sim.name,
                 "location": location,
-                "health_score": health_score,
-                "alert_level": alert_level,
-                "days_to_critical": days_to_critical,
-                "days_to_failure": days_to_failure,
-                "urgency": urgency,
-                "degradation_rate": degradation["daily_degradation_rate"]
+                "health_score": overview["health_score"],
+                "health_condition": overview["health_condition"],
+                "days_to_critical": overview["survival_predictions"]["days_to_critical"],
+                "days_to_failure": overview["survival_predictions"]["days_to_failure"],
+                "urgency": overview["urgency"],
+                "degradation_rate": overview["degradation_rate"],
             })
-        except Exception as e:
-            print(f"[survival_all] error on bridge {bridge_id}: {e}")
-            pass
-            
-    results.sort(key=lambda x: x["days_to_critical"])
+        except Exception as exc:
+            logger.warning("Survival overview unavailable for bridge %s: %s", bridge_id, exc)
+    results.sort(key=lambda bridge: (
+        bridge["days_to_critical"] is None,
+        bridge["days_to_critical"] if bridge["days_to_critical"] is not None else float("inf"),
+    ))
     return {"bridges": results, "total": len(results)}
 
 

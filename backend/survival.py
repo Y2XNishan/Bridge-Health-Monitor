@@ -1,304 +1,297 @@
-import os
-import json
-import numpy as np
-from groq import Groq
+"""Simulated bridge health forecasts for the predictive maintenance tab.
+
+Health-score boundaries here are separate from the shared sensor thresholds.
+All rates and repair outcomes are illustrative estimates, not guarantees.
+"""
+
+from datetime import date, datetime, timedelta, timezone
+import math
 
 try:
-    from backend.constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, WATER_LEVEL_LIMIT_M
+    from backend.constants import HEALTH_BOUNDARIES, SENSOR_THRESHOLDS, get_bridge_condition, get_sensor_status
 except ImportError:
-    from constants import SENSOR_THRESHOLDS, CRACK_GAP_LIMIT_MM, WATER_LEVEL_LIMIT_M
+    from constants import HEALTH_BOUNDARIES, SENSOR_THRESHOLDS, get_bridge_condition, get_sensor_status
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
-def calculate_degradation_rate(health_score: float, anomaly_score: float, 
+SENSOR_LABELS = {
+    "vibration": "Vibration",
+    "strain": "Strain",
+    "crack_gap": "Crack gap",
+    "water_level": "Water level",
+}
+
+
+def _number(value):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _analysis_date(value=None):
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+    return datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
+
+
+def health_condition(health_score):
+    score = _number(health_score)
+    if score is None or not 0 <= score <= 100:
+        return "Unavailable"
+    if score <= HEALTH_BOUNDARIES["critical"]:
+        return "Critical"
+    if score <= HEALTH_BOUNDARIES["monitor"]:
+        return "Monitor"
+    return "Healthy"
+
+
+def sensor_readings(sensor_data):
+    readings = []
+    for key, label in SENSOR_LABELS.items():
+        value = _number(sensor_data.get(key))
+        threshold = SENSOR_THRESHOLDS[key]
+        ratio = value / threshold["crit"] if value is not None else None
+        readings.append({
+            "key": key,
+            "sensor": label,
+            "reading": value,
+            "unit": threshold["unit"],
+            "critical_threshold": threshold["crit"],
+            "ratio_pct": round(ratio * 100, 1) if ratio is not None else None,
+            "condition": get_sensor_status(key, value) if value is not None else "Unavailable",
+        })
+    return readings
+
+
+def calculate_degradation_rate(health_score: float, anomaly_score: float,
                                alert_level: str, bridge_id: int,
                                risk_score: float = 0.0, sensor_overload: float = 1.0) -> dict:
-    if health_score >= 80:
+    """Return one rounded daily rate and every factor used to calculate it.
+
+    The legacy arguments remain for other callers; bridge ID and alert level
+    are not used as proxies for physical age or structural condition.
+    """
+    _ = (alert_level, bridge_id)
+    score = _number(health_score)
+    if score is None or not 0 <= score <= 100:
+        return {"daily_degradation_rate": None, "unavailable_reason": "Health score is unavailable"}
+
+    if score >= 80:
         base_rate = 0.05
-    elif health_score >= 60:
+    elif score >= HEALTH_BOUNDARIES["monitor"]:
         base_rate = 0.15
-    elif health_score >= 40:
+    elif score >= HEALTH_BOUNDARIES["critical"]:
         base_rate = 0.4
     else:
         base_rate = 0.7
-    
-    anomaly_multiplier = 1.0 + (anomaly_score * 0.8)
-    alert_multipliers = {"NORMAL": 1.0, "WATCH": 1.2, "WARNING": 1.5, "CRITICAL": 2.0}
-    alert_mult = alert_multipliers.get(alert_level, 1.0)
-    age_factor = 1.0 + (bridge_id / 400)
-    risk_multiplier = 1.0 + (max(0.0, min(1.0, float(risk_score))) * 1.5)
-    overload_multiplier = max(1.0, float(sensor_overload))
-    
-    final_rate = base_rate * anomaly_multiplier * alert_mult * age_factor * risk_multiplier * overload_multiplier
-    
-    if alert_level == "CRITICAL" or health_score < 50.0:
-        final_rate = max(1.8, final_rate)
-    elif alert_level == "WARNING" or health_score <= 74.0:
-        final_rate = max(0.5, final_rate)
-    else:
-        final_rate = max(0.05, final_rate)
-    
+
+    anomaly = _number(anomaly_score)
+    risk = _number(risk_score)
+    sensor_ratio = _number(sensor_overload)
+    anomaly_multiplier = 1 + max(0, min(1, anomaly)) * 0.8 if anomaly is not None else 1.0
+    risk_multiplier = 1 + max(0, min(1, risk)) * 1.5 if risk is not None else 1.0
+    sensor_multiplier = max(1.0, sensor_ratio) if sensor_ratio is not None else 1.0
+    condition = health_condition(score)
+    minimum_rate = {"Critical": 1.8, "Monitor": 0.5, "Healthy": 0.05}[condition]
+    raw_rate = base_rate * anomaly_multiplier * risk_multiplier * sensor_multiplier
+    rate = round(max(raw_rate, minimum_rate), 3)
+
     return {
-        "daily_degradation_rate": round(final_rate, 3),
+        "daily_degradation_rate": rate,
         "base_rate": base_rate,
-        "anomaly_multiplier": round(anomaly_multiplier, 2),
-        "alert_multiplier": alert_mult,
-        "age_factor": round(age_factor, 2),
-        "risk_multiplier": round(risk_multiplier, 2),
-        "overload_multiplier": round(overload_multiplier, 2),
+        "anomaly_multiplier": round(anomaly_multiplier, 3),
+        "risk_multiplier": round(risk_multiplier, 3),
+        "sensor_multiplier": round(sensor_multiplier, 3),
+        "minimum_rate": minimum_rate,
+        "raw_rate": round(raw_rate, 3),
+        "anomaly_available": anomaly is not None,
+        "risk_available": risk is not None,
+        "sensor_available": sensor_ratio is not None,
+        "formula": "max(base rate × anomaly factor × risk factor × sensor factor, condition floor)",
     }
 
-def predict_time_to_threshold(health_score: float, degradation_rate: float, 
-                               threshold: float) -> int:
-    """Predict days until health score reaches a threshold."""
-    if health_score <= threshold:
+
+def predict_time_to_threshold(health_score: float, degradation_rate: float,
+                              threshold: float) -> int | None:
+    """First whole day on which projected health reaches a boundary."""
+    score = _number(health_score)
+    rate = _number(degradation_rate)
+    if score is None or rate is None or rate <= 0:
+        return None
+    if score <= threshold:
         return 0
-    if degradation_rate <= 0:
-        return 999
-    days = (health_score - threshold) / degradation_rate
-    return max(0, round(days))
+    return max(0, math.ceil((score - threshold) / rate - 1e-10))
 
-def predict_sensor_failure(sensor_data: dict, bridge_id: int) -> list:
-    """Predict which sensors are at risk of failure."""
-    at_risk = []
-    
-    vibration = sensor_data.get("vibration", 0)
-    strain = sensor_data.get("strain", 0)
-    crack_gap = sensor_data.get("crack_gap", 0)
-    water_level = sensor_data.get("water_level", 0)
-    
-    # Vibration sensor — at risk if > 50% of threshold
-    vib_pct = vibration / 1.2
-    if vib_pct > 0.5:
-        days = round(max(3, (1.0 - vib_pct) * 30 * (200 / (bridge_id + 1))))
-        at_risk.append({
-            "sensor": "Vibration Sensor",
-            "current": f"{vibration:.3f}g",
-            "threshold": "1.2g",
-            "usage_pct": round(vib_pct * 100, 1),
-            "days_to_failure": days,
-            "priority": "HIGH" if vib_pct > 0.8 else "MEDIUM"
-        })
-    
-    # Strain sensor — at risk if > 50% of threshold
-    strain_pct = strain / 210
-    if strain_pct > 0.5:
-        days = round(max(5, (1.0 - strain_pct) * 45 * (200 / (bridge_id + 1))))
-        at_risk.append({
-            "sensor": "Strain Gauge",
-            "current": f"{strain:.1f} MPa",
-            "threshold": "210 MPa",
-            "usage_pct": round(strain_pct * 100, 1),
-            "days_to_failure": days,
-            "priority": "HIGH" if strain_pct > 0.8 else "MEDIUM"
-        })
-    
-    # Crack gap — at risk if > 60% of threshold
-    crack_pct = crack_gap / CRACK_GAP_LIMIT_MM
-    if crack_pct > 0.6:
-        days = round(max(2, (1.0 - crack_pct) * 20 * (200 / (bridge_id + 1))))
-        at_risk.append({
-            "sensor": "Crack Gap Monitor",
-            "current": f"{crack_gap:.3f}mm",
-            "threshold": f"{CRACK_GAP_LIMIT_MM:.2f}mm",
-            "usage_pct": round(crack_pct * 100, 1),
-            "days_to_failure": days,
-            "priority": "CRITICAL" if crack_pct > 0.9 else "HIGH"
-        })
-    
-    # Water level — at risk if > 70% of critical flood limit
-    water_pct = water_level / WATER_LEVEL_LIMIT_M
-    if water_pct > 0.7:
-        days = round(max(1, (1.0 - water_pct) * 25 * (200 / (bridge_id + 1))))
-        at_risk.append({
-            "sensor": "Water Level / Flood Gauge",
-            "current": f"{water_level:.2f}m",
-            "threshold": f"{WATER_LEVEL_LIMIT_M:.2f}m",
-            "usage_pct": round(water_pct * 100, 1),
-            "days_to_failure": days,
-            "priority": "CRITICAL" if water_pct >= 1.0 else "HIGH" if water_pct > 0.85 else "MEDIUM"
-        })
-    
-    return at_risk
 
-def generate_maintenance_schedule(bridge_name: str, health_score: float,
-                                   days_to_warning: int, days_to_critical: int,
-                                   days_to_failure: int, sensor_risks: list,
-                                   degradation: dict) -> str:
-    """Use Groq LLM to generate a natural language maintenance schedule, falling back to rules if API key is missing/fails."""
-    
-    api_key = os.getenv("GROQ_API_KEY")
-    if api_key:
-        try:
-            client = Groq(api_key=api_key)
-            
-            sensor_risk_text = ""
-            for s in sensor_risks:
-                sensor_risk_text += f"- {s['sensor']}: {s['current']} ({s['usage_pct']}% of limit), failure in ~{s['days_to_failure']} days [{s['priority']}]\n"
-            
-            prompt = f"""
-Bridge: {bridge_name}
-Current Health Score: {health_score}/100
-Daily Degradation Rate: {degradation['daily_degradation_rate']} points/day
-
-SURVIVAL PREDICTIONS:
-- Days to WARNING zone (health < 60): {days_to_warning} days
-- Days to CRITICAL zone (health < 40): {days_to_critical} days  
-- Days to FAILURE zone (health < 20): {days_to_failure} days
-
-SENSOR RISKS:
-{sensor_risk_text if sensor_risk_text else "No sensors at immediate risk"}
-
-Generate a maintenance schedule with exactly these 3 sections:
-
-**IMMEDIATE ACTIONS** (within 7 days):
-List 2-3 specific actions needed now based on sensor risks and degradation rate.
-
-**SCHEDULED MAINTENANCE** (7-30 days):
-List 2-3 preventive maintenance tasks to slow degradation.
-
-**LONG-TERM MONITORING** (30+ days):
-List 2 monitoring recommendations to track bridge health trajectory.
-
-Be specific with sensor names, IRC standards, and timeframes. Keep each point to 1 sentence.
-"""
-            
-            completion = client.chat.completions.create(
-                model=GROQ_MODEL,
-                messages=[
-                    {"role": "system", "content": "You are a structural engineering maintenance planner for Indian bridges. Be specific, technical, and actionable. Never include emojis or emoticons in responses. Always maintain a formal, concise, and professional tone."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=600,
-                temperature=0.2,
-            )
-            
-            res = completion.choices[0].message.content
-            if not res and hasattr(completion.choices[0].message, "reasoning"):
-                res = completion.choices[0].message.reasoning
-            if res and res.strip():
-                return res
-        except Exception as e:
-            print(f"[SurvivalAnalysis] Groq API failed for maintenance schedule generation, falling back to rule-based generation: {e}")
-
-    # Fallback rule-based maintenance generator
-    immediate_items = []
-    scheduled_items = []
-    long_term_items = []
-
-    # 1. Immediate Actions (within 7 days)
-    if sensor_risks:
-        for r in sensor_risks:
-            sensor = r["sensor"]
-            current = r["current"]
-            usage = r["usage_pct"]
-            days = r["days_to_failure"]
-            if r["priority"] in ["CRITICAL", "HIGH"]:
-                immediate_items.append(f"Deploy structural team to inspect {sensor} showing {usage}% usage of limits ({current}).")
-            else:
-                scheduled_items.append(f"Recalibrate and check electrical integrity of {sensor} showing elevated readings.")
-    
-    if health_score < 40:
-        immediate_items.append(f"Impose immediate load/traffic restrictions on {bridge_name} per IRC:6 code guidelines.")
-        immediate_items.append(f"Install emergency shoring and auxiliary structural support structures at critical piers.")
-        scheduled_items.append("Repair cracked concrete sections using high-performance epoxy injection compounds.")
-    elif health_score < 60:
-        immediate_items.append(f"Schedule a visual crack inspection and displacement measurement on {bridge_name} within 7 days.")
-        scheduled_items.append("Clean debris from deck drainage channels and lubricate expansion joint bearings.")
-    else:
-        immediate_items.append(f"Perform routine visual sensor check on {bridge_name} to confirm alignment.")
-        scheduled_items.append("Execute standard electrical check on local signal logging and telemetry hardware.")
-
-    # Fill defaults if empty
-    if not immediate_items:
-        immediate_items.append("Verify integrity of external sensor wiring connections and solar power backup.")
-        immediate_items.append("Execute localized visual inspection of main steel girders and bearings.")
-    if not scheduled_items:
-        scheduled_items.append("Conduct calibration validation checks on all active strain gauges.")
-        scheduled_items.append("Clean deck joints and ensure clear flow in bridge drainage spouts.")
-
-    # 2. Long-term monitoring
-    long_term_items.append(f"Monitor the daily health degradation rate of {degradation['daily_degradation_rate']} points/day closely.")
-    long_term_items.append(f"Plan next comprehensive non-destructive testing (NDT) and ultrasonic mapping session.")
-    long_term_items.append("Maintain weekly review of traffic count datasets against design bearing capacities.")
-
-    fallback_text = f"""**IMMEDIATE ACTIONS** (within 7 days):
-"""
-    for item in immediate_items[:3]:
-        fallback_text += f"- {item}\n"
-    
-    fallback_text += f"\n**SCHEDULED MAINTENANCE** (7-30 days):\n"
-    for item in scheduled_items[:3]:
-        fallback_text += f"- {item}\n"
-    
-    fallback_text += f"\n**LONG-TERM MONITORING** (30+ days):\n"
-    for item in long_term_items[:3]:
-        fallback_text += f"- {item}\n"
-
-    return fallback_text
-
-def run_survival_analysis(bridge_id: int, bridge_name: str, sensor_data: dict) -> dict:
-    health_score = sensor_data.get("health_score", 100)
-    anomaly_score = sensor_data.get("anomaly_score", 0)
-    alert_level = sensor_data.get("alert_level", "NORMAL")
-    
-    risk_score = sensor_data.get("risk_score", 0.0)
-    crack_gap = sensor_data.get("crack_gap", 0.0)
-    vibration = sensor_data.get("vibration", 0.0)
-    strain = sensor_data.get("strain", 0.0)
-    water_level = sensor_data.get("water_level", 0.0)
-    sensor_overload = max(
-        1.0,
-        crack_gap / CRACK_GAP_LIMIT_MM if CRACK_GAP_LIMIT_MM else 1.0,
-        water_level / WATER_LEVEL_LIMIT_M if WATER_LEVEL_LIMIT_M else 1.0,
-        vibration / 1.2,
-        strain / 210.0,
-    )
-
-    # Calculate degradation
+def _forecast(bridge_id, bridge_name, sensor_data, as_of=None):
+    score = _number(sensor_data.get("health_score"))
+    readings = sensor_readings(sensor_data)
+    available_ratios = [item["reading"] / item["critical_threshold"] for item in readings if item["reading"] is not None]
+    overload = max(1.0, *available_ratios) if available_ratios else None
     degradation = calculate_degradation_rate(
-        health_score, anomaly_score, alert_level, bridge_id,
-        risk_score=risk_score, sensor_overload=sensor_overload
+        score, sensor_data.get("anomaly_score"), sensor_data.get("alert_level"), bridge_id,
+        risk_score=sensor_data.get("risk_score"), sensor_overload=overload,
     )
     rate = degradation["daily_degradation_rate"]
-    
-    # Predict time to thresholds
-    days_to_warning = predict_time_to_threshold(health_score, rate, 60)
-    days_to_critical = predict_time_to_threshold(health_score, rate, 40)
-    days_to_failure = predict_time_to_threshold(health_score, rate, 20)
-    
-    # Sensor failure predictions
-    sensor_risks = predict_sensor_failure(sensor_data, bridge_id)
-    
-    # Generate maintenance schedule
-    maintenance_text = generate_maintenance_schedule(
-        bridge_name, health_score, days_to_warning, 
-        days_to_critical, days_to_failure, sensor_risks, degradation
-    )
-    
-    # Overall urgency
-    if days_to_critical <= 0:
+    predictions = {
+        "days_to_warning": predict_time_to_threshold(score, rate, HEALTH_BOUNDARIES["monitor"]),
+        "days_to_critical": predict_time_to_threshold(score, rate, HEALTH_BOUNDARIES["critical"]),
+        "days_to_failure": predict_time_to_threshold(score, rate, HEALTH_BOUNDARIES["failure"]),
+    }
+    condition = get_bridge_condition(score, sensor_data)
+    critical_days = predictions["days_to_critical"]
+    if condition == "Critical":
         urgency = "CRITICAL"
-    elif days_to_critical <= 7:
+    elif critical_days is None:
+        urgency = "MEDIUM" if condition == "Monitor" else "UNAVAILABLE"
+    elif condition == "Monitor" and critical_days > 30:
+        urgency = "MEDIUM"
+    elif critical_days == 0:
+        urgency = "CRITICAL"
+    elif critical_days <= 7:
         urgency = "HIGH"
-    elif days_to_critical <= 30:
+    elif critical_days <= 30:
         urgency = "MEDIUM"
     else:
         urgency = "LOW"
-    
+    today = _analysis_date(as_of)
     return {
         "bridge_id": bridge_id,
         "bridge_name": bridge_name,
-        "health_score": health_score,
-        "alert_level": alert_level,
+        "health_score": score,
+        "health_condition": condition,
+        "alert_level": condition,
         "urgency": urgency,
-        "degradation_rate": degradation["daily_degradation_rate"],
-        "survival_predictions": {
-            "days_to_warning": days_to_warning,
-            "days_to_critical": days_to_critical,
-            "days_to_failure": days_to_failure
+        "analysis_date": today.isoformat(),
+        "health_boundaries": HEALTH_BOUNDARIES.copy(),
+        "degradation_rate": rate,
+        "degradation_breakdown": degradation,
+        "survival_predictions": predictions,
+        "forecast_dates": {
+            name: (today + timedelta(days=days)).isoformat() if days is not None else None
+            for name, days in predictions.items()
         },
-        "sensor_risks": sensor_risks,
-        "maintenance_schedule": maintenance_text,
-        "degradation_breakdown": degradation
+        "sensor_readings": readings,
+        "estimate_note": "Simulated estimates from current readings and project thresholds; actual condition requires inspection.",
+    }
+
+
+def build_survival_overview(bridge_id, bridge_name, sensor_data, as_of=None):
+    """The network and detail views use the same forecast calculation."""
+    return _forecast(bridge_id, bridge_name, sensor_data, as_of)
+
+
+def generate_maintenance_schedule(health_score, readings):
+    """Return grounded actions in separate sections, without invented work."""
+    condition = get_bridge_condition(
+        health_score, {item["key"]: item["reading"] for item in readings}
+    )
+    critical = [item for item in readings if item["condition"] == "Critical"]
+    monitor = [item for item in readings if item["condition"] == "Monitor"]
+    immediate = []
+    scheduled = []
+    long_term = []
+
+    if condition == "Critical":
+        immediate.append("Arrange a qualified on-site structural assessment before deciding on restrictions or repairs.")
+    elif condition == "Unavailable":
+        immediate.append("Confirm the current health score before using this forecast.")
+
+    for item in critical:
+        immediate.append(
+            f"Verify the {item['sensor'].lower()} reading against its project critical threshold and inspect the associated bridge condition."
+        )
+    for item in monitor:
+        scheduled.append(
+            f"Repeat the {item['sensor'].lower()} reading and inspect the associated bridge condition before planning work."
+        )
+    if not immediate:
+        immediate.append("No immediate action is indicated by the available readings.")
+    if not scheduled:
+        scheduled.append("Continue routine visual inspection and review readings for changes.")
+    long_term.append("Track health score and sensor readings against project thresholds as new data arrives.")
+    long_term.append("Recalculate this simulated forecast after an inspection or a material change in readings.")
+    return {"immediate": immediate, "scheduled": scheduled, "long_term": long_term}
+
+
+def run_survival_analysis(bridge_id: int, bridge_name: str, sensor_data: dict) -> dict:
+    result = _forecast(bridge_id, bridge_name, sensor_data)
+    result["maintenance_schedule"] = generate_maintenance_schedule(
+        result["health_score"], result["sensor_readings"]
+    )
+    return result
+
+
+def _repair_scenario(score, rate, failure_day, repair_day, post_health, today):
+    if failure_day is None:
+        return {"available": False, "reason": "A baseline forecast is unavailable"}
+    if repair_day >= failure_day:
+        return {"available": False, "reason": "The simulated failure boundary was reached on or before the selected repair day"}
+    health_at_repair = max(HEALTH_BOUNDARIES["failure"], score - rate * repair_day)
+    if post_health < health_at_repair:
+        return {"available": False, "reason": "Assumed post-repair health is below health at repair"}
+    if post_health <= HEALTH_BOUNDARIES["failure"]:
+        return {"available": False, "reason": "Assumed post-repair health is at the failure boundary"}
+    days_after = predict_time_to_threshold(post_health, rate, HEALTH_BOUNDARIES["failure"])
+    total = repair_day + days_after
+    return {
+        "available": True,
+        "health_at_repair": round(health_at_repair, 1),
+        "post_repair_health": round(post_health, 1),
+        "days_after_repair": days_after,
+        "total_days_from_today": total,
+        "additional_days_gained": total - failure_day,
+        "repaired_failure_date": (today + timedelta(days=total)).isoformat(),
+    }
+
+
+def simulate_repair(health_score, degradation_rate, repair_day, post_repair_health, analysis_date=None):
+    """Compare the baseline and a user-assumed repair outcome at the same boundary."""
+    score = _number(health_score)
+    rate = _number(degradation_rate)
+    post_health = _number(post_repair_health)
+    day = int(repair_day)
+    if day < 0 or post_health is None or not 0 <= post_health <= 100:
+        raise ValueError("Repair day and assumed post-repair health must be valid")
+    today = _analysis_date(analysis_date)
+    baseline_days = predict_time_to_threshold(score, rate, HEALTH_BOUNDARIES["failure"])
+    selected = _repair_scenario(score, rate, baseline_days, day, post_health, today)
+    comparison_days = sorted({0, 7, 15, day})
+    comparison = [{"repair_day": candidate, **_repair_scenario(score, rate, baseline_days, candidate, post_health, today)}
+                  for candidate in comparison_days]
+
+    horizon = max(30, day, baseline_days or 0, selected.get("total_days_from_today") or 0)
+    step = max(1, math.ceil(horizon / 120))
+    sample_days = sorted(set(range(0, horizon + 1, step)) | {
+        0, day, horizon, baseline_days or 0, selected.get("total_days_from_today") or 0
+    })
+    chart = []
+    for sample_day in sample_days:
+        baseline = (round(max(HEALTH_BOUNDARIES["failure"], score - rate * sample_day), 1)
+                    if baseline_days is not None and sample_day <= baseline_days else None)
+        repaired = None
+        if selected["available"]:
+            if sample_day < day:
+                repaired = baseline
+            elif sample_day <= selected["total_days_from_today"]:
+                repaired = round(max(HEALTH_BOUNDARIES["failure"], post_health - rate * (sample_day - day)), 1)
+        if selected["available"] and sample_day == day:
+            chart.append({"day": sample_day, "without_repair": baseline, "with_repair": selected["health_at_repair"]})
+        chart.append({"day": sample_day, "without_repair": baseline, "with_repair": repaired})
+
+    return {
+        "analysis_date": today.isoformat(),
+        "failure_boundary": HEALTH_BOUNDARIES["failure"],
+        "baseline_days": baseline_days,
+        "baseline_failure_date": (today + timedelta(days=baseline_days)).isoformat() if baseline_days is not None else None,
+        "repair_day": day,
+        "repair_date": (today + timedelta(days=day)).isoformat(),
+        "assumed_post_repair_health": post_health,
+        "scenario": selected,
+        "comparison": comparison,
+        "chart_data": chart,
+        "estimate_note": "Simulated estimate using an assumed post-repair health score; no repair outcome is guaranteed.",
     }
