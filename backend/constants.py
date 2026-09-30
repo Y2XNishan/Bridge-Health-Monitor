@@ -9,6 +9,7 @@ Standards Reference:
 # - Water Level: IRC:6-2017 Clause 213 / CWC Flood Standards -> Flood Danger limit: 4.5 m, Watch: 3.5 m
 """
 
+import math
 import os
 
 # Default Groq model for cloud LLM reasoning, RAG, and AI chat
@@ -48,6 +49,9 @@ SENSOR_THRESHOLDS = {
     },
 }
 
+# Health-score boundaries are separate from the sensor reading thresholds.
+HEALTH_BOUNDARIES = {"monitor": 60.0, "critical": 40.0, "failure": 20.0}
+
 CRACK_GAP_LIMIT_MM = SENSOR_THRESHOLDS["crack_gap"]["crit"]  # 0.30 mm
 CRACK_GAP_WARN_MM = SENSOR_THRESHOLDS["crack_gap"]["warn"]   # 0.20 mm
 
@@ -68,6 +72,37 @@ def get_sensor_status(sensor_name: str, value: float) -> str:
     if value >= t["warn"]:
         return "Monitor"
     return "Healthy"
+
+
+def get_bridge_condition(health_score, sensor_data: dict) -> str:
+    """Use the worst known health-score band or project sensor status."""
+    try:
+        score = float(health_score)
+    except (TypeError, ValueError):
+        score = math.nan
+
+    if not math.isfinite(score) or not 0 <= score <= 100:
+        condition = "Unavailable"
+    elif score <= HEALTH_BOUNDARIES["critical"]:
+        condition = "Critical"
+    elif score <= HEALTH_BOUNDARIES["monitor"]:
+        condition = "Monitor"
+    else:
+        condition = "Healthy"
+
+    rank = {"Unavailable": -1, "Healthy": 0, "Monitor": 1, "Critical": 2}
+    for sensor_name in SENSOR_THRESHOLDS:
+        try:
+            reading = float(sensor_data.get(sensor_name))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(reading):
+            sensor_condition = get_sensor_status(sensor_name, reading)
+            if condition == "Unavailable" and sensor_condition == "Healthy":
+                continue
+            if rank[sensor_condition] > rank[condition]:
+                condition = sensor_condition
+    return condition
 
 
 def get_sensor_status_label(sensor_name: str, value: float) -> str:
@@ -120,4 +155,3 @@ def get_risk_severity_label(score: float) -> str:
         return "Monitor"
     else:
         return "Healthy"
-
