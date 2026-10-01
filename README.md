@@ -1,270 +1,102 @@
-# 🌉 Bridge Health Monitor
-### AI-Powered Structural Health Monitoring Platform — NHAI
+# Bridge Health Monitor
 
-> Real-time monitoring of 58 bridges across India using ML pipelines, LLaMA 3.2 3B, and autonomous AI agents.
+Bridge Health Monitor is a full-stack demo for exploring how bridge readings, project thresholds, inspections, and maintenance assignments fit together. It has a 58-bridge catalog and generates sensor telemetry from a bundled dataset and in-process simulators. The readings are not connected to physical sensors.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-black?style=for-the-badge&logo=vercel)](https://brideg-health-monitor-145g.vercel.app)
-[![Backend API](https://img.shields.io/badge/Backend%20API-Render-purple?style=for-the-badge&logo=render)](https://brideg-health-monitor.onrender.com/docs)
-[![GitHub](https://img.shields.io/badge/GitHub-Y2XNishan-181717?style=for-the-badge&logo=github)](https://github.com/Y2XNishan/Brideg-Health-Monitor)
+## What you can do
 
----
+- **Monitor and plan:** Review simulated readings, health scores, alerts, and history. The predictive maintenance page estimates degradation and compares repair timing against the same simulated failure boundary.
+- **Inspect and report:** Compare a selected bridge's readings with shared project thresholds, generate an inspection report, and export PDFs. Photo assessment reports model-estimated visual findings separately from any calibrated width supplied by the user.
+- **Coordinate work:** Admins can create assignments for engineers; engineers can progress their own assignments. The Bridge Assistant shows the causes of network alerts and opens an inspection or a prefilled assignment form for review. Dispatch requires a separate admin confirmation.
+- **Review access:** The admin page shows accounts, recorded audit events, and metrics where the backend has enough data to calculate them.
 
-## 🚀 Live Demo
+Generated inspection prose, photo assessment, and some chat responses require a configured external model provider. Simulated monitoring, threshold checks, and forecast calculations do not.
 
-| | URL |
-|---|---|
-| 🌐 Frontend | https://brideg-health-monitor-145g.vercel.app |
-| ⚙️ Backend API | https://brideg-health-monitor.onrender.com/docs |
+## Stack and architecture
 
-**Demo Credentials:**
-- Email: `admin@nhai.gov.in`
-- Password: `admin123`
+The frontend uses React 19, Vite 8, Tailwind CSS 4, Recharts, Leaflet, and Lucide icons. The backend uses FastAPI, Pydantic, NumPy, pandas, scikit-learn, and XGBoost; ReportLab creates PDFs. Groq is used for the main report, chat, and photo-model requests when configured. Telegram messaging and an Anthropic-backed legacy endpoint are optional integrations.
 
----
+The React app calls the FastAPI `/api` routes. The backend reads bundled CSV data, maintains bridge simulators in process, and applies the shared condition and sensor thresholds in `backend/constants.py`. Maintenance assignments are also stored in process; session and audit records use local files. This is a demo architecture, not a durable multi-server deployment.
 
-## 📌 Project Overview
+## Run locally
 
-Bridge Health Monitor is a full-stack AI platform that monitors the structural health of 58 Indian bridges in real-time. Built for NHAI (National Highways Authority of India), it combines IoT sensor simulation, multiple ML models, a fine-tuned LLaMA 3.2 3B model, and autonomous AI agents to detect anomalies, predict failures, and automate inspection workflows.
+Python 3.13 was used to verify this checkout. The locked Vite version requires Node.js 20.19+ or 22.12+.
 
----
+From the repository root, start the backend:
 
-## ✨ Features
-
-### 🔴 Core Monitoring
-- **Live Dashboard** — Real-time health scores, anomaly detection, and alerts for all 58 bridges
-- **India Network Map** — Interactive SVG map showing bridge status across India
-- **58 Bridge Simulation** — Unique sensor data per bridge using deterministic seeds (`bridge_id × 42`)
-
-### 🤖 AI & ML
-- **RAG 2.0 Agentic Inspector** — AI agent that autonomously fetches sensor data, checks IRC standards, and generates complete inspection reports
-- **XAI Anomaly Explanation** — Explainable AI that tells engineers *why* a bridge was flagged (root cause, sensor correlation, IRC reference, action required)
-- **Predictive Maintenance** — Survival analysis predicting days to WARNING/CRITICAL/FAILURE for each bridge
-- **What-If Repair Simulator** — Interactive slider showing how repair timing affects bridge survival (unique feature)
-- **Proactive Alert Assistant** — Chat that auto-alerts when bridges go critical and executes inspection + crew assignment + Telegram with one "yes"
-- **Bridge Intelligence (RAG)** — Natural language Q&A about all 58 bridges powered by Groq (GPT OSS 120B)
-
-### 🔬 ML Models
-| Model | AUC Score |
-|---|---|
-| LSTM Autoencoder | 0.992 |
-| Isolation Forest | 0.985 |
-| Federated Learning Model | 0.991 |
-| Random Forest | 0.726 |
-| XGBoost | 0.726 |
-| Fine-tuned LLaMA 3.2 3B + QLoRA | Loss: 0.076 |
-
-### 🛠️ Operations
-- **AI Crack Detection** — Upload bridge photo → Vision AI detects crack type, severity, IRC recommendation
-- **Maintenance Crew Assignment** — Assign crews to critical bridges, connected to Predictive Maintenance
-- **Telegram Alerts** — Real-time alerts to `@bridge_health_Bot`
-- **PDF Report Generator** — One-click professional NHAI-branded inspection reports
-- **AIOps Intelligence Center** — Anomaly correlation, RCA chain, cost intelligence, auto-decision log
-- **Multi-Modal AI Chat** — Upload crack photos directly in chat for instant AI analysis
-
-### 🔐 Auth & Access
-- 3 roles: Admin / Engineer / Viewer
-- Session-based auth with role-based endpoint protection
-
----
-
-## 🏗️ Architecture
-Frontend (React + Vite)     Backend (FastAPI + Python)
-
-↓                           ↓
-
-Vercel CDN              Render Web Service
-
-↓                           ↓
-
-VITE_API_URL ──────────► /api/* endpoints
-
-↓
-
-┌───────────────────────────┐
-
-│  ML Pipeline              │
-
-│  ├── Isolation Forest     │
-
-│  ├── LSTM Autoencoder     │
-
-│  ├── Federated Model      │
-
-│  └── XGBoost / RF         │
-
-│                           │
-
-│  AI Services              │
-
-│  ├── Groq (GPT OSS 120B)  │
-
-│  ├── Fine-tuned LLaMA 3B  │
-
-│  ├── agent.py (RAG 2.0)   │
-
-│  ├── xai.py               │
-
-│  └── survival.py          │
-
-│                           │
-
-│  Integrations             │
-
-│  ├── Telegram Bot         │
-
-│  └── PDF Generator        │
-
-└───────────────────────────┘
----
-
-## 🧰 Tech Stack
-
-**Frontend**
-- React 18 + Vite
-- Recharts (data visualization)
-- Lucide React (icons)
-- Tailwind CSS
-
-**Backend**
-- FastAPI + Uvicorn
-- Python 3.11
-- Scikit-learn, XGBoost, NumPy, Pandas
-- Groq SDK (GPT OSS 120B)
-- ReportLab (PDF generation)
-- python-telegram-bot
-
-**ML / AI**
-- Fine-tuned LLaMA 3.2 3B + QLoRA (PEFT)
-- Isolation Forest (AUC 0.985)
-- LSTM Autoencoder (AUC 0.992)
-- Federated Learning with FedAvg (AUC 0.991)
-
-**Deployment**
-- Frontend → Vercel
-- Backend → Render
-
----
-
-## 🚀 Local Setup
-
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- Groq API key (free at console.groq.com)
-
-### Backend
-
-```powershell
-cd backend
-pip install -r requirements.txt
-
-$env:GROQ_API_KEY="your_groq_key"
-$env:HF_TOKEN="your_hf_token"
-$env:TELEGRAM_BOT_TOKEN="your_telegram_token"
-$env:TELEGRAM_CHAT_ID="your_chat_id"
-
-uvicorn main:app --reload
+```sh
+python -m venv .venv
 ```
 
-Backend runs at `http://localhost:8000`
-API docs at `http://localhost:8000/docs`
+Activate it with `.\.venv\Scripts\Activate.ps1` in PowerShell or `source .venv/bin/activate` in bash/zsh, then run:
 
-### Frontend
+```sh
+python -m pip install -r backend/requirements.txt
+python -m uvicorn backend.main:app --reload --port 8000
+```
 
-```powershell
+In a second shell, start the frontend:
+
+```sh
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`
+Open `http://localhost:5173`; API documentation is at `http://localhost:8000/docs`. The frontend defaults to that backend URL. The backend seeds demo accounts for the admin, engineer, and viewer roles in `backend/main.py`; these accounts are for local evaluation, not production authentication.
 
-### Environment Variables
+No environment variables are needed for the simulated monitoring views. Set these when enabling an integration or changing the default addresses, using your own values:
 
-Create `backend/.env`:
-GROQ_API_KEY=your_groq_key
+```text
+GROQ_API_KEY=<groq-api-key>                         # Generated reports, photo analysis, model chat
+BRIDGEIQ_INTERNAL_API_BASE_URL=<backend-origin>   # Internal report/chat requests if not on localhost:8000
+TELEGRAM_BOT_TOKEN=<telegram-bot-token>           # Optional dispatch
+TELEGRAM_CHAT_ID=<telegram-chat-id>               # Optional dispatch recipient
+TELEGRAM_RECIPIENT_NAME=<recipient-label>         # Optional display name for that recipient
+ANTHROPIC_API_KEY=<anthropic-api-key>             # Optional legacy /api/rag/chat endpoint
+VITE_API_URL=<backend-origin>                     # Frontend build when the backend is not localhost:8000
+```
 
-HF_TOKEN=your_hf_token
+Set backend variables in the backend process environment; set `VITE_API_URL` when starting or building the frontend. Do not commit credentials. The Bridge Assistant's manual dispatch requires admin review and confirmation. Separately, a legacy live-reading hook can send automatic Telegram alerts from simulated readings when Telegram credentials are set; leave them unset unless that behavior is intended.
 
-TELEGRAM_BOT_TOKEN=your_telegram_token
+## Roles and workflow
 
-TELEGRAM_CHAT_ID=your_chat_id
-Create `frontend/.env`:
-VITE_API_URL=http://localhost:8000
+An admin or engineer selects a bridge and runs an inspection against the current simulated readings. The report can be reviewed on screen or exported as a PDF. An admin can then create an assignment for a valid bridge and engineer, with a task, priority, description, and due date. Engineers see their own assignments and can move them from pending to in progress to completed; admins can also cancel or delete assignments. Viewers can read assignment and bridge information but cannot create or change assignments, run inspections or photo analysis, or dispatch messages. The backend enforces these permissions independently of the UI.
 
----
+## Tests
 
-## 📁 Project Structure
-bridge-monitor/
+Run these from the repository root unless noted:
 
-├── frontend/
+```sh
+python -m unittest discover -s backend -p 'test_*.py'
+python -m pip install pytest                     # additional test dependency
+python -m pytest backend/test_agent_pdf.py -q
+cd frontend
+node --test src/components/chatPanelUtils.test.js src/pages/adminPanelUtils.test.js
+npm run build
+npm run lint
+```
 
-│   ├── src/
+The full frontend lint command currently reports errors; it is listed so the current diagnostics are visible rather than hidden.
 
-│   │   ├── pages/
+## Deployment
 
-│   │   │   ├── Dashboard.jsx          # Live dashboard
+The URLs already listed in this repository returned HTTP 200 when checked on 2026-10-01: [hosted frontend](https://brideg-health-monitor-145g.vercel.app) and [backend API documentation](https://brideg-health-monitor.onrender.com/docs). Availability does not establish that every feature is configured there. There are no Vercel or Render deployment manifests in this repository.
 
-│   │   │   ├── IndiaNetwork.jsx       # SVG bridge map
+## Current limitations
 
-│   │   │   ├── AgentInspector.jsx     # RAG 2.0 inspector
+- Telemetry and traffic are simulated. Forecasts and repair scenarios are estimates, not field measurements or guarantees.
+- Sensor limits are project thresholds, not verified code-compliance limits. This demo is not a certified structural assessment system.
+- Photo findings are model estimates; model performance has not been independently validated. Physical dimensions cannot be inferred from an uncalibrated image. A width can be supplied from a calibrated field measurement.
+- Generated reports, photo analysis, and model chat depend on external services and may be unavailable without credentials or provider access.
+- Assignments are lost when the backend process restarts. Local session and audit files are not a substitute for a production database.
+- The India network endpoint currently fails in this checkout because it expects a `crossings` field that the traffic monitor does not provide; the map's network data needs repair.
 
-│   │   │   ├── SurvivalAnalysis.jsx   # Predictive maintenance
+## Repository structure
 
-│   │   │   ├── AIIntelligenceCenter.jsx # AIOps + Bridge Intelligence
-
-│   │   │   ├── CrackDetection.jsx     # Vision AI
-
-│   │   │   └── Maintenance.jsx        # Crew assignment
-
-│   │   └── components/
-
-│   │       └── ChatPanel.jsx          # AI chat + proactive alerts
-
-│   └── package.json
-
-│
-
-└── backend/
-
-├── main.py              # FastAPI (20+ endpoints)
-
-├── chat.py              # LLaMA + Groq chat
-
-├── agent.py             # RAG 2.0 agentic inspector
-
-├── xai.py               # XAI anomaly explanation
-
-├── survival.py          # Predictive maintenance
-
-├── crack_detection.py   # Vision AI
-
-├── telegram_alerts.py   # Telegram integration
-
-├── requirements.txt
-
-└── models/
-
-└── bridgeiq_lora/   # Fine-tuned LoRA adapter
-
----
-
-## 👨‍💻 Author
-
-**Nishan Kashyap**
-B.Tech Computer Science & Engineering
-KIIT University, Bhubaneswar
-
-[![GitHub](https://img.shields.io/badge/GitHub-Y2XNishan-181717?style=flat&logo=github)](https://github.com/Y2XNishan)
-
----
-## 📄 License
-
-MIT License — feel free to use this project as a reference.
-
-Built with ❤️ to solve a real infrastructure problem — 
-India has 1.7 lakh bridges, and most have no digital monitoring system. 
-Bridge Health Monitor is a step toward changing that.
----
-
-*Bridge Health Monitor SHM v1.0 — Real-time structural health monitoring powered by ML pipelines*
+```text
+backend/     FastAPI routes, simulators, thresholds, forecasts, inspections, reports, and tests
+frontend/    React app, pages, components, and frontend tests
+data/        Bundled sensor and model-output datasets used by the demo
+plots/       Analysis plots produced for the project
+scratch/     Development scripts and experiments
+```
