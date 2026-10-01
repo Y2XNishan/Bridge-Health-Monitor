@@ -63,8 +63,23 @@ export async function fetchHealthHistory(bridgeId = 1) {
 
 export async function fetchMaintenanceAssignments() {
   const res = await apiFetch(`${API_BASE}/api/maintenance/assignments`);
-  if (!res.ok) throw new Error(`/api/maintenance/assignments ${res.status}`);
+  if (!res.ok) throw await maintenanceError(res, 'Load assignments');
   return res.json();
+}
+
+export async function fetchMaintenanceBridges() {
+  const res = await apiFetch(`${API_BASE}/api/maintenance/bridges`);
+  if (!res.ok) throw await maintenanceError(res, 'Load bridges');
+  return res.json();
+}
+
+async function maintenanceError(res, action) {
+  const body = await res.json().catch(() => null);
+  const detail = body?.detail || body?.error;
+  const message = Array.isArray(detail)
+    ? detail.map((item) => `${item.loc?.at(-1) || 'Field'}: ${item.msg}`).join('; ')
+    : typeof detail === 'string' ? detail : `Request failed (${res.status})`;
+  return new Error(`${action}: ${message}`);
 }
 
 export async function createMaintenanceAssignment(payload) {
@@ -73,7 +88,7 @@ export async function createMaintenanceAssignment(payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`/api/maintenance/assignments ${res.status}`);
+  if (!res.ok) throw await maintenanceError(res, 'Create assignment');
   return res.json();
 }
 
@@ -83,7 +98,7 @@ export async function updateMaintenanceAssignment(assignmentId, payload) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`/api/maintenance/assignments/${assignmentId} ${res.status}`);
+  if (!res.ok) throw await maintenanceError(res, 'Update assignment');
   return res.json();
 }
 
@@ -91,13 +106,13 @@ export async function deleteMaintenanceAssignment(assignmentId) {
   const res = await apiFetch(`${API_BASE}/api/maintenance/assignments/${assignmentId}`, {
     method: 'DELETE',
   });
-  if (!res.ok) throw new Error(`/api/maintenance/assignments/${assignmentId} ${res.status}`);
+  if (!res.ok) throw await maintenanceError(res, 'Delete assignment');
   return res.json();
 }
 
 export async function fetchMaintenanceEngineers() {
   const res = await apiFetch(`${API_BASE}/api/maintenance/engineers`);
-  if (!res.ok) throw new Error(`/api/maintenance/engineers ${res.status}`);
+  if (!res.ok) throw await maintenanceError(res, 'Load engineers');
   return res.json();
 }
 

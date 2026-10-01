@@ -1,392 +1,262 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { X } from 'lucide-react';
+import { useAuth } from '../context/authContext';
 import {
   createMaintenanceAssignment,
   deleteMaintenanceAssignment,
-  fetchBridges,
   fetchMaintenanceAssignments,
+  fetchMaintenanceBridges,
   fetchMaintenanceEngineers,
   updateMaintenanceAssignment,
 } from '../api';
 
-const TASK_TYPES = [
-  'ROUTINE_INSPECTION',
-  'CRACK_REPAIR',
-  'SENSOR_REPLACEMENT',
-  'STRUCTURAL_REPAIR',
-  'EMERGENCY_RESPONSE',
-  'LOAD_TESTING',
-];
-
-const PRIORITY_STYLES = {
-  CRITICAL: { background: '#FDF2F2', color: '#991B1B', border: '1px solid #FECACA' },
-  HIGH: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FEF3C7' },
-  MEDIUM: { background: '#FFFBEB', color: '#D97706', border: '1px solid #FEF3C7' },
-  LOW: { background: '#F0FDF4', color: '#0F6E56', border: '1px solid #DCFCE7' },
+const ink = '#1C1F26';
+const teal = '#0F6E56';
+const muted = '#65717B';
+const border = '#DDE3E5';
+const taskLabels = {
+  ROUTINE_INSPECTION: 'Routine inspection',
+  CRACK_REPAIR: 'Crack repair',
+  SENSOR_REPLACEMENT: 'Sensor replacement',
+  STRUCTURAL_REPAIR: 'Structural repair',
+  EMERGENCY_RESPONSE: 'Emergency response',
+  LOAD_TESTING: 'Load testing',
 };
-
-const STATUS_STYLES = {
-  PENDING: { background: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' },
-  IN_PROGRESS: { background: '#F8FAFA', color: '#1C1F26', border: '1px solid var(--border-subtle)' },
-  COMPLETED: { background: '#F0FDF4', color: '#0F6E56', border: '1px solid #DCFCE7' },
-  CANCELLED: { background: '#FDF2F2', color: '#991B1B', border: '1px solid #FECACA' },
+const priorityLabels = { LOW: 'Low', MEDIUM: 'Medium', HIGH: 'High', CRITICAL: 'Critical' };
+const statusLabels = { PENDING: 'Pending', IN_PROGRESS: 'In progress', COMPLETED: 'Completed', CANCELLED: 'Cancelled' };
+const transitions = {
+  PENDING: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
 };
-
-const EMPTY_FORM = {
-  bridge_id: 1,
-  bridge_name: 'Bridge 1',
-  assigned_to_email: '',
-  assigned_to_name: '',
-  priority: 'MEDIUM',
-  task_type: 'ROUTINE_INSPECTION',
-  description: '',
-  due_date: '',
+const priorityTones = {
+  LOW: { color: teal, background: '#EAF4F0' },
+  MEDIUM: { color: '#8A6B32', background: '#F8F3E9' },
+  HIGH: { color: '#9C673D', background: '#FBF1E8' },
+  CRITICAL: { color: '#9B4242', background: '#F9EEEE' },
 };
+const statusTones = {
+  PENDING: { color: muted, background: '#F3F5F5' },
+  IN_PROGRESS: { color: '#8A6B32', background: '#F8F3E9' },
+  COMPLETED: { color: teal, background: '#EAF4F0' },
+  CANCELLED: { color: '#9B4242', background: '#F9EEEE' },
+};
+const emptyForm = { bridge_id: '', assigned_to_id: '', task_type: 'ROUTINE_INSPECTION', priority: 'MEDIUM', due_date: '', description: '' };
+const card = { background: '#fff', border: `1px solid ${border}`, borderRadius: 8 };
+const input = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', color: ink, background: '#fff', border: `1px solid ${border}`, borderRadius: 6, font: 'inherit', fontSize: 14 };
+const action = { border: `1px solid ${teal}`, borderRadius: 6, background: teal, color: '#fff', font: 'inherit', fontWeight: 650, padding: '10px 15px', cursor: 'pointer' };
+const secondaryAction = { ...action, background: '#fff', color: ink, borderColor: border };
 
-function Badge({ value, styles }) {
-  return (
-    <span className="inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider" style={styles[value] || styles.PENDING || styles.LOW}>
-      {value.replace('_', ' ')}
-    </span>
-  );
+function Badge({ value, labels, tones }) {
+  const tone = tones[value] || { color: muted, background: '#F3F5F5' };
+  return <span style={{ display: 'inline-block', padding: '4px 9px', borderRadius: 5, color: tone.color, background: tone.background, fontSize: 12, fontWeight: 650, whiteSpace: 'nowrap', textTransform: 'none' }}>{labels[value] || value || 'Unavailable'}</span>;
 }
 
 function Field({ label, children }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      {children}
-    </label>
-  );
+  return <label style={{ display: 'block', minWidth: 0, color: ink, fontSize: 13, fontWeight: 600 }}><span style={{ display: 'block', marginBottom: 6 }}>{label}</span>{children}</label>;
+}
+
+function validateForm(form, bridges, engineers) {
+  if (!bridges.some((bridge) => bridge.id === Number(form.bridge_id))) return 'Select a valid bridge.';
+  if (!engineers.some((engineer) => engineer.id === Number(form.assigned_to_id))) return 'Select a valid engineer.';
+  if (!Object.hasOwn(taskLabels, form.task_type)) return 'Select a valid task type.';
+  if (!Object.hasOwn(priorityLabels, form.priority)) return 'Select a valid priority.';
+  if (!form.description.trim()) return 'Enter a description.';
+  const parsedDate = new Date(`${form.due_date}T00:00:00Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(form.due_date) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== form.due_date) return 'Select a valid due date.';
+  const dateParts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+  const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  if (form.due_date < today) return 'Due date cannot be in the past.';
+  return '';
 }
 
 export default function Maintenance() {
-  const { user, isAdmin } = useAuth();
-  const admin = isAdmin && isAdmin();
+  const { user } = useAuth();
+  const role = user?.role;
+  const admin = role === 'admin';
+  const engineer = role === 'engineer';
   const location = useLocation();
-  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const preselectionHandled = useRef(null);
+  const submitLock = useRef(false);
   const [assignments, setAssignments] = useState([]);
   const [bridges, setBridges] = useState([]);
   const [engineers, setEngineers] = useState([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [notesById, setNotesById] = useState({});
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const bridgeOptions = useMemo(() => {
-    const fetched = new Map((bridges || []).map((bridge) => [Number(bridge.id), bridge.name]));
-    return Array.from({ length: 58 }, (_, index) => {
-      const id = index + 1;
-      return { id, name: fetched.get(id) || `Bridge ${id}` };
-    });
-  }, [bridges]);
-
-  const stats = useMemo(() => ({
-    PENDING: assignments.filter((a) => a.status === 'PENDING').length,
-    IN_PROGRESS: assignments.filter((a) => a.status === 'IN_PROGRESS').length,
-    COMPLETED: assignments.filter((a) => a.status === 'COMPLETED').length,
-    TOTAL: assignments.length,
-  }), [assignments]);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [modalError, setModalError] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [form, setForm] = useState(emptyForm);
+  const [notesById, setNotesById] = useState({});
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    setError('');
+    setLoadError('');
     try {
-      const [assignmentData, bridgeData] = await Promise.all([
-        fetchMaintenanceAssignments(),
-        fetchBridges(),
+      const [assignmentData, bridgeData, engineerData] = await Promise.all([
+        fetchMaintenanceAssignments(), fetchMaintenanceBridges(), admin ? fetchMaintenanceEngineers() : Promise.resolve([]),
       ]);
       setAssignments(assignmentData);
       setBridges(bridgeData);
-      if (admin) {
-        const engineerData = await fetchMaintenanceEngineers();
-        setEngineers(engineerData);
+      setEngineers(engineerData);
+      const selected = location.state?.preselectedBridge;
+      if (admin && selected && preselectionHandled.current !== location.key) {
+        preselectionHandled.current = location.key;
+        if (bridgeData.some((bridge) => bridge.id === Number(selected.id))) {
+          setForm({ ...emptyForm, bridge_id: String(selected.id) });
+          setIsModalOpen(true);
+        }
       }
-    } catch (err) {
-      setError(err.message);
+    } catch (error) {
+      setLoadError(error.message);
     } finally {
       setIsLoading(false);
     }
-  }, [admin]);
+  }, [admin, location.key, location.state]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { Promise.resolve().then(loadData); }, [loadData]);
 
-  useEffect(() => {
-    if (location.state?.preselectedBridge) {
-      const bridge = location.state.preselectedBridge;
-      setForm((prev) => ({
-        ...prev,
-        bridge_id: Number(bridge.id),
-        bridge_name: bridge.name,
-      }));
-      if (admin) {
-        setIsModalOpen(true);
-      }
-    }
-  }, [location.state, admin]);
+  const counts = useMemo(() => assignments.reduce((acc, assignment) => {
+    if (Object.hasOwn(acc, assignment.status)) acc[assignment.status] += 1;
+    return acc;
+  }, { PENDING: 0, IN_PROGRESS: 0, COMPLETED: 0, CANCELLED: 0 }), [assignments]);
 
-  useEffect(() => {
-    const selectedBridge = bridgeOptions.find((bridge) => bridge.id === form.bridge_id);
-    if (selectedBridge && form.bridge_name !== selectedBridge.name) {
-      setForm((prev) => ({ ...prev, bridge_name: selectedBridge.name }));
-    }
-  }, [bridgeOptions, form.bridge_id, form.bridge_name]);
-
-  function updateForm(field, value) {
-    if (field === 'bridge_id') {
-      const bridge = bridgeOptions.find((b) => b.id === Number(value));
-      setForm((prev) => ({ ...prev, bridge_id: Number(value), bridge_name: bridge?.name || `Bridge ${value}` }));
-      return;
-    }
-    if (field === 'assigned_to_email') {
-      const engineer = engineers.find((eng) => eng.email === value);
-      setForm((prev) => ({ ...prev, assigned_to_email: value, assigned_to_name: engineer?.name || '' }));
-      return;
-    }
-    setForm((prev) => ({ ...prev, [field]: value }));
+  function openModal() {
+    setForm({ ...emptyForm, bridge_id: bridges.length ? String(bridges[0].id) : '' });
+    setModalError('');
+    setIsModalOpen(true);
   }
 
-  async function handleCreate(e) {
-    e.preventDefault();
-    await createMaintenanceAssignment(form);
-    setForm(EMPTY_FORM);
+  function closeModal() {
+    if (isSubmitting) return;
     setIsModalOpen(false);
-    loadData();
+    setModalError('');
   }
 
-  async function handleStatusChange(assignmentId, status, notes) {
-    await updateMaintenanceAssignment(assignmentId, notes ? { status, notes } : { status });
-    setNotesById((prev) => ({ ...prev, [assignmentId]: '' }));
-    loadData();
+  async function refreshAssignments() {
+    try {
+      setAssignments(await fetchMaintenanceAssignments());
+    } catch (error) {
+      setActionError(`Saved, but the assignment list could not be refreshed. ${error.message}`);
+    }
+  }
+
+  async function handleCreate(event) {
+    event.preventDefault();
+    if (submitLock.current) return;
+    const validation = validateForm(form, bridges, engineers);
+    if (validation) { setModalError(validation); return; }
+    submitLock.current = true;
+    setIsSubmitting(true);
+    setModalError('');
+    setActionError('');
+    try {
+      const saved = await createMaintenanceAssignment({
+        bridge_id: Number(form.bridge_id), assigned_to_id: Number(form.assigned_to_id),
+        task_type: form.task_type, priority: form.priority,
+        description: form.description.trim(), due_date: form.due_date,
+      });
+      setAssignments((previous) => [saved, ...previous.filter((item) => item.id !== saved.id)]);
+      setIsModalOpen(false);
+      await refreshAssignments();
+    } catch (error) {
+      setModalError(error.message);
+    } finally {
+      submitLock.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleStatusChange(assignment, nextStatus) {
+    if (busyId !== null || !transitions[assignment.status]?.includes(nextStatus)) return;
+    setBusyId(assignment.id);
+    setActionError('');
+    try {
+      const updated = await updateMaintenanceAssignment(assignment.id, { status: nextStatus, ...(nextStatus === 'COMPLETED' ? { notes: notesById[assignment.id] || '' } : {}) });
+      setAssignments((previous) => previous.map((item) => item.id === updated.id ? updated : item));
+      setNotesById((previous) => ({ ...previous, [assignment.id]: '' }));
+      await refreshAssignments();
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function handleDelete(assignmentId) {
-    await deleteMaintenanceAssignment(assignmentId);
-    loadData();
+    if (busyId !== null) return;
+    setBusyId(assignmentId);
+    setActionError('');
+    try {
+      await deleteMaintenanceAssignment(assignmentId);
+      setAssignments((previous) => previous.filter((item) => item.id !== assignmentId));
+      await refreshAssignments();
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  function inputClass() {
-    return 'w-full rounded-xl border bg-[var(--bg-card)] px-4 py-3 text-sm outline-none focus:border-[#58a6ff]';
-  }
+  return <main style={{ fontFamily: 'var(--font-family, sans-serif)', color: ink, textTransform: 'none', display: 'grid', gap: 14 }}>
+    <section aria-labelledby="maintenance-title" style={{ ...card, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '16px 18px' }}>
+      <div><h1 id="maintenance-title" style={{ margin: 0, color: ink, fontSize: 23, fontWeight: 700 }}>{admin ? 'Crew assignments' : engineer ? 'My assignments' : 'Assignments'}</h1><p style={{ margin: '4px 0 0', color: muted, fontSize: 13 }}>Signed in as {user?.name || 'Unknown user'} · {role || 'Unknown role'}</p></div>
+      {admin && <button type="button" onClick={openModal} disabled={isLoading || Boolean(loadError)} style={{ ...action, marginLeft: 'auto', opacity: isLoading || loadError ? 0.6 : 1 }}>New assignment</button>}
+    </section>
 
-  if (isLoading) {
-    return <div className="p-6 rounded-xl border text-sm" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>Loading maintenance assignments...</div>;
-  }
+    {isLoading && <p role="status" style={{ ...card, margin: 0, padding: 16, color: muted }}>Loading assignments…</p>}
+    {loadError && <div role="alert" style={{ ...card, padding: 16, color: '#9B4242' }}>{loadError} <button type="button" onClick={loadData} style={{ ...secondaryAction, marginLeft: 10 }}>Retry</button></div>}
+    {actionError && <p role="alert" style={{ ...card, margin: 0, padding: 14, color: '#9B4242' }}>{actionError}</p>}
 
-  const showBanner = location.state?.preselectedBridge && !bannerDismissed;
+    {!isLoading && !loadError && <>
+      {admin && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: 12 }}>
+        {[['Pending', counts.PENDING], ['In progress', counts.IN_PROGRESS], ['Completed', counts.COMPLETED], ['Cancelled', counts.CANCELLED], ['Total', assignments.length]].map(([label, value]) =>
+          <div key={label} style={{ ...card, padding: 16 }}><div style={{ color: muted, fontSize: 13 }}>{label}</div><strong style={{ display: 'block', marginTop: 8, fontSize: 25 }}>{value}</strong></div>)}
+      </div>}
 
-  return (
-    <div className="space-y-6 animate-fade-in-up">
-      {/* Preselected Bridge Banner */}
-      {showBanner && (
-        <div 
-          className="flex items-center justify-between animate-fade-in-up"
-          style={{
-            backgroundColor: '#fff7ed',
-            border: '0.5px solid #fed7aa',
-            borderRadius: '8px',
-            padding: '8px 14px',
-            color: '#c2410c',
-            fontSize: '12px',
-            fontWeight: 'bold',
-          }}
-        >
-          <span>
-            Redirected from predictive maintenance — {location.state.preselectedBridge.name} requires urgent crew assignment
-          </span>
-          <button 
-            type="button" 
-            onClick={() => setBannerDismissed(true)}
-            className="text-[#c2410c] hover:opacity-80 font-bold ml-4 cursor-pointer text-sm font-sans"
-            style={{ background: 'none', border: 'none', padding: 0 }}
-          >
-            ×
-          </button>
+      {admin ? <div style={{ ...card, overflowX: 'auto' }}><table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 860, fontSize: 13 }}>
+        <thead><tr>{['Bridge', 'Assigned to', 'Task type', 'Priority', 'Status', 'Due date', 'Actions'].map((heading) => <th key={heading} style={{ padding: 12, textAlign: 'left', borderBottom: `1px solid ${border}`, color: muted, fontWeight: 600 }}>{heading}</th>)}</tr></thead>
+        <tbody>{assignments.map((assignment) => <tr key={assignment.id}>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}>{assignment.bridge_name}</td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}>{assignment.assigned_to_name}</td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}>{taskLabels[assignment.task_type] || assignment.task_type}</td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}><Badge value={assignment.priority} labels={priorityLabels} tones={priorityTones} /></td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}><select aria-label={`Status for ${assignment.bridge_name}`} value={assignment.status} disabled={busyId !== null || !transitions[assignment.status]?.length} onChange={(event) => handleStatusChange(assignment, event.target.value)} style={{ ...input, minWidth: 130, padding: 7 }}><option value={assignment.status}>{statusLabels[assignment.status] || assignment.status}</option>{transitions[assignment.status]?.map((status) => <option key={status} value={status}>{statusLabels[status]}</option>)}</select></td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}>{assignment.due_date || 'Unavailable'}</td>
+          <td style={{ padding: 12, borderBottom: `1px solid ${border}` }}><button type="button" onClick={() => handleDelete(assignment.id)} disabled={busyId !== null} style={{ ...secondaryAction, padding: '7px 10px', color: '#9B4242' }}>Delete</button></td>
+        </tr>)}</tbody>
+      </table>{assignments.length === 0 && <p style={{ margin: 0, padding: 22, textAlign: 'center', color: muted }}>No assignments yet.</p>}</div> : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 310px), 1fr))', gap: 14 }}>
+        {assignments.map((assignment) => <article key={assignment.id} style={{ ...card, padding: 18 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10 }}><div><h2 style={{ margin: 0, fontSize: 17 }}>{assignment.bridge_name}</h2><p style={{ margin: '5px 0 0', color: muted, fontSize: 13 }}>{taskLabels[assignment.task_type] || assignment.task_type}</p></div><Badge value={assignment.priority} labels={priorityLabels} tones={priorityTones} /></div>
+          <p style={{ fontSize: 14, lineHeight: 1.5 }}>{assignment.description}</p>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}><Badge value={assignment.status} labels={statusLabels} tones={statusTones} /><span style={{ color: muted, fontSize: 13 }}>Due: {assignment.due_date || 'Unavailable'}</span></div>
+          {engineer && assignment.status === 'PENDING' && <button type="button" disabled={busyId !== null} onClick={() => handleStatusChange(assignment, 'IN_PROGRESS')} style={{ ...action, marginTop: 15 }}>Start task</button>}
+          {engineer && assignment.status === 'IN_PROGRESS' && <div style={{ marginTop: 15 }}><label style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>Completion notes</label><textarea value={notesById[assignment.id] || ''} onChange={(event) => setNotesById((previous) => ({ ...previous, [assignment.id]: event.target.value }))} style={{ ...input, minHeight: 76 }} /><button type="button" disabled={busyId !== null} onClick={() => handleStatusChange(assignment, 'COMPLETED')} style={{ ...action, marginTop: 10 }}>Complete task</button></div>}
+        </article>)}
+        {assignments.length === 0 && <p style={{ ...card, margin: 0, padding: 22, color: muted }}>No assignments yet.</p>}
+      </div>}
+    </>}
+
+    {admin && isModalOpen && <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(28,31,38,0.55)' }}>
+      <form role="dialog" aria-modal="true" aria-labelledby="assignment-modal-title" noValidate onSubmit={handleCreate} style={{ ...card, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: 650, maxHeight: 'calc(100dvh - 32px)', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '18px 20px', borderBottom: `1px solid ${border}` }}><h2 id="assignment-modal-title" style={{ margin: 0, fontSize: 19 }}>New assignment</h2><button type="button" aria-label="Close" onClick={closeModal} disabled={isSubmitting} style={{ ...secondaryAction, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 6 }}><X size={18} /></button></div>
+        <div style={{ overflowY: 'auto', minHeight: 0, padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))', gap: 16 }}>
+          <Field label="Bridge"><select required value={form.bridge_id} onChange={(event) => setForm((previous) => ({ ...previous, bridge_id: event.target.value }))} style={input}><option value="">Select bridge</option>{bridges.map((bridge) => <option key={bridge.id} value={bridge.id}>{bridge.name}</option>)}</select></Field>
+          <Field label="Assign to"><select required value={form.assigned_to_id} onChange={(event) => setForm((previous) => ({ ...previous, assigned_to_id: event.target.value }))} style={input}><option value="">Select engineer</option>{engineers.map((person) => <option key={person.id} value={person.id}>{person.name} ({person.email})</option>)}</select></Field>
+          <Field label="Task type"><select required value={form.task_type} onChange={(event) => setForm((previous) => ({ ...previous, task_type: event.target.value }))} style={input}>{Object.entries(taskLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+          <Field label="Priority"><select required value={form.priority} onChange={(event) => setForm((previous) => ({ ...previous, priority: event.target.value }))} style={input}>{Object.entries(priorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+          <Field label="Due date"><input required type="date" value={form.due_date} onChange={(event) => setForm((previous) => ({ ...previous, due_date: event.target.value }))} style={input} /></Field>
+          <Field label="Description"><textarea required value={form.description} onChange={(event) => setForm((previous) => ({ ...previous, description: event.target.value }))} style={{ ...input, minHeight: 86 }} /></Field>
         </div>
-      )}
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="section-title">Maintenance Crew Assignment</p>
-          <h1 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            {admin ? 'Crew Dispatch Console' : 'My Assigned Maintenance Tasks'}
-          </h1>
-          <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Logged in as {user?.name} ({user?.role})
-          </p>
+        <div style={{ flexShrink: 0, padding: '14px 20px', borderTop: `1px solid ${border}`, background: '#fff' }}>
+          {modalError && <p role="alert" style={{ margin: '0 0 10px', color: '#9B4242', fontSize: 13 }}>{modalError}</p>}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 10 }}><button type="button" onClick={closeModal} disabled={isSubmitting} style={secondaryAction}>Cancel</button><button type="submit" disabled={isSubmitting} style={{ ...action, opacity: isSubmitting ? 0.65 : 1 }}>{isSubmitting ? 'Creating…' : 'Create assignment'}</button></div>
         </div>
-        {admin && (
-          <button
-            className="rounded-xl px-5 py-3 text-xs font-black tracking-widest text-white transition hover:opacity-90"
-            style={{ background: 'var(--accent-blue-light)', border: '1px solid #58a6ff' }}
-            onClick={() => setIsModalOpen(true)}
-          >
-            New assignment
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div className="rounded-xl border px-4 py-3 text-sm" style={{ background: '#160000', borderColor: '#ff7b72', color: '#ff7b72' }}>
-          {error}
-        </div>
-      )}
-
-      {admin ? (
-        <>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-            {[
-              ['Pending', stats.PENDING],
-              ['In progress', stats.IN_PROGRESS],
-              ['Completed', stats.COMPLETED],
-              ['Total assignments', stats.TOTAL],
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-                <p className="text-[10px] font-black tracking-widest" style={{ color: 'var(--text-secondary)' }}>{label}</p>
-                <p className="mt-3 text-3xl font-black" style={{ color: 'var(--text-primary)' }}>{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="overflow-hidden rounded-xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[920px] text-left text-sm">
-                <thead style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
-                  <tr>
-                    {['Bridge', 'Assigned To', 'Task Type', 'Priority', 'Status', 'Due Date', 'Actions'].map((heading) => (
-                      <th key={heading} className="px-4 py-3 text-[10px] font-black uppercase tracking-widest">{heading}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {assignments.map((assignment) => (
-                    <tr key={assignment.id} className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                      <td className="px-4 py-4 font-bold" style={{ color: 'var(--text-primary)' }}>{assignment.bridge_name}</td>
-                      <td className="px-4 py-4" style={{ color: 'var(--text-secondary)' }}>{assignment.assigned_to_name}</td>
-                      <td className="px-4 py-4 font-mono text-xs" style={{ color: 'var(--text-primary)' }}>{assignment.task_type}</td>
-                      <td className="px-4 py-4"><Badge value={assignment.priority} styles={PRIORITY_STYLES} /></td>
-                      <td className="px-4 py-4">
-                        <select
-                          className="rounded-lg border bg-[var(--bg-card)] px-3 py-2 text-xs font-bold outline-none"
-                          style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }}
-                          value={assignment.status}
-                          onChange={(e) => handleStatusChange(assignment.id, e.target.value)}
-                        >
-                          {['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map((status) => <option key={status}>{status}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-4 py-4" style={{ color: 'var(--text-secondary)' }}>{assignment.due_date || 'No due date'}</td>
-                      <td className="px-4 py-4">
-                        <button className="rounded-lg border px-3 py-2 text-xs font-black" style={{ borderColor: '#ff7b72', color: '#ff7b72' }} onClick={() => handleDelete(assignment.id)}>
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {assignments.length === 0 && (
-                    <tr><td className="px-4 py-8 text-center text-sm" colSpan="7" style={{ color: 'var(--text-secondary)' }}>No assignments yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {assignments.map((assignment) => (
-            <div key={assignment.id} className="rounded-xl border p-5" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>{assignment.bridge_name}</h2>
-                  <p className="mt-1 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{assignment.task_type}</p>
-                </div>
-                <Badge value={assignment.priority} styles={PRIORITY_STYLES} />
-              </div>
-              <p className="mt-4 text-sm leading-6" style={{ color: 'var(--text-primary)' }}>{assignment.description}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Badge value={assignment.status} styles={STATUS_STYLES} />
-                <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>Due: {assignment.due_date || 'No due date'}</span>
-              </div>
-              {assignment.status === 'PENDING' && (
-                <button className="mt-5 rounded-xl px-4 py-2 text-xs font-black tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }} onClick={() => handleStatusChange(assignment.id, 'IN_PROGRESS')}>
-                  Start task
-                </button>
-              )}
-              {assignment.status === 'IN_PROGRESS' && (
-                <div className="mt-5 space-y-3">
-                  <textarea
-                    className={`${inputClass()} min-h-24`}
-                    style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }}
-                    placeholder="Completion notes..."
-                    value={notesById[assignment.id] || ''}
-                    onChange={(e) => setNotesById((prev) => ({ ...prev, [assignment.id]: e.target.value }))}
-                  />
-                  <button className="rounded-xl px-4 py-2 text-xs font-black tracking-widest text-white" style={{ background: '#3fb950' }} onClick={() => handleStatusChange(assignment.id, 'COMPLETED', notesById[assignment.id] || '')}>
-                    Complete
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
-          {assignments.length === 0 && (
-            <div className="rounded-xl border p-8 text-center" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-              No assignments are currently assigned to you.
-            </div>
-          )}
-        </div>
-      )}
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4">
-          <form className="w-full max-w-2xl rounded-2xl border p-6 shadow-2xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }} onSubmit={handleCreate}>
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-black" style={{ color: 'var(--text-primary)' }}>New Assignment</h2>
-              <button type="button" className="text-2xl" style={{ color: 'var(--text-secondary)' }} onClick={() => setIsModalOpen(false)}>x</button>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label="Bridge">
-                <select className={inputClass()} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} value={form.bridge_id} onChange={(e) => updateForm('bridge_id', e.target.value)}>
-                  {bridgeOptions.map((bridge) => <option key={bridge.id} value={bridge.id}>{bridge.id} - {bridge.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Assign To">
-                <select className={inputClass()} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} value={form.assigned_to_email} onChange={(e) => updateForm('assigned_to_email', e.target.value)} required>
-                  <option value="">Select engineer</option>
-                  {engineers.map((engineer) => <option key={`${engineer.id}-${engineer.email}`} value={engineer.email}>{engineer.name} ({engineer.email})</option>)}
-                </select>
-              </Field>
-              <Field label="Task Type">
-                <select className={inputClass()} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} value={form.task_type} onChange={(e) => updateForm('task_type', e.target.value)}>
-                  {TASK_TYPES.map((type) => <option key={type}>{type}</option>)}
-                </select>
-              </Field>
-              <Field label="Priority">
-                <select className={inputClass()} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} value={form.priority} onChange={(e) => updateForm('priority', e.target.value)}>
-                  {['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((priority) => <option key={priority}>{priority}</option>)}
-                </select>
-              </Field>
-              <Field label="Due Date">
-                <input className={inputClass()} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} type="date" value={form.due_date} onChange={(e) => updateForm('due_date', e.target.value)} />
-              </Field>
-              <Field label="Description">
-                <textarea className={`${inputClass()} min-h-28`} style={{ borderColor: 'var(--border-hover)', color: 'var(--text-primary)' }} value={form.description} onChange={(e) => updateForm('description', e.target.value)} required />
-              </Field>
-            </div>
-            <div className="mt-6 flex justify-end gap-3">
-              <button type="button" className="rounded-xl border px-5 py-3 text-xs font-black tracking-widest" style={{ borderColor: 'var(--border-hover)', color: 'var(--text-secondary)' }} onClick={() => setIsModalOpen(false)}>
-                Cancel
-              </button>
-              <button type="submit" className="rounded-xl px-5 py-3 text-xs font-black tracking-widest text-white" style={{ background: 'var(--accent-blue-light)' }}>
-                Submit assignment
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-    </div>
-  );
+      </form>
+    </div>}
+  </main>;
 }
