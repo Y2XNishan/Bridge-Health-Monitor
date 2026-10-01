@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AuroraBackground from './components/AuroraBackground';
 import Header from './components/Header';
 import BridgeOverview from './components/BridgeOverview';
@@ -62,8 +62,10 @@ const getInitialPage = () => {
 export default function App() {
   const { token, loading } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(getInitialPage);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [inspectionOpenRevision, setInspectionOpenRevision] = useState(0);
 
   useEffect(() => {
     const path = location.pathname;
@@ -81,6 +83,7 @@ export default function App() {
   const [activeBridgeId, setActiveBridgeId] = useState(1);
   const [bridges, setBridges] = useState([]);
   const [liveData, setLiveData] = useState(null);
+  const [liveBridgeId, setLiveBridgeId] = useState(null);
   const [chartData, setChartData] = useState({
     water_level: [],
     vibration: [],
@@ -129,6 +132,7 @@ export default function App() {
     try {
       const data = await fetchLive(activeBridgeSafeId);
       setLiveData(data);
+      setLiveBridgeId(activeBridgeSafeId);
       setConnectionStatus('connected');
 
       // Extract time label
@@ -182,6 +186,7 @@ export default function App() {
       crack_gap: [],
     });
     setLiveData(null);
+    setLiveBridgeId(null);
 
     fetchHistory(activeBridgeSafeId)
       .then(setHistoryData)
@@ -209,19 +214,35 @@ export default function App() {
     };
   }, [token, pollLive, pollAlerts, pollHealthHistory, pollBridges]);
 
+  const noteProactiveAlert = useCallback(() => {
+    if (!isChatOpen) setUnreadProactiveAlerts((previous) => previous + 1);
+  }, [isChatOpen]);
+  const clearProactiveAlerts = useCallback(() => setUnreadProactiveAlerts(0), []);
+  const openAlertInspection = useCallback((alert) => {
+    setActiveBridgeId(alert.bridge_id);
+    setInspectionOpenRevision((previous) => previous + 1);
+    setCurrentPage('ai-inspector');
+    navigate('/ai-inspector');
+  }, [navigate]);
+  const reviewAlertAssignment = useCallback((alert) => {
+    setCurrentPage('maintenance');
+    navigate('/maintenance', { state: { preselectedBridge: { id: alert.bridge_id, name: alert.bridge_name } } });
+  }, [navigate]);
+
   const floatingTools = (
     <>
       <ChatPanel 
         bridgeId={activeBridgeSafeId} 
         bridgeName={activeBridgeName} 
+        liveData={liveData}
+        liveBridgeId={liveBridgeId}
+        connectionStatus={connectionStatus}
         isOpen={isChatOpen} 
         setIsOpen={setIsChatOpen} 
-        onNewProactiveAlert={() => {
-          if (!isChatOpen) {
-            setUnreadProactiveAlerts(prev => prev + 1);
-          }
-        }}
-        onClearProactiveAlerts={() => setUnreadProactiveAlerts(0)}
+        onNewProactiveAlert={noteProactiveAlert}
+        onClearProactiveAlerts={clearProactiveAlerts}
+        onOpenInspection={openAlertInspection}
+        onReviewAssignment={reviewAlertAssignment}
       />
       <InstallPrompt />
     </>
@@ -323,7 +344,7 @@ export default function App() {
                 ) : currentPage === 'aiops' ? (
                   <AIIntelligenceCenter />
                 ) : currentPage === 'ai-inspector' ? (
-                  <AgentInspector activeBridgeId={activeBridgeSafeId} />
+                  <AgentInspector key={`${activeBridgeSafeId}-${inspectionOpenRevision}`} activeBridgeId={activeBridgeSafeId} />
                 ) : currentPage === 'predictive' ? (
                   <SurvivalAnalysis />
                 ) : (

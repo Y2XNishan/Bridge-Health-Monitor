@@ -11,6 +11,8 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+# Telegram requires the bot token in the request URL; never log httpx URLs at INFO.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 logger.info("Starting Bridge Health Monitor API...")
 logger.info(f"Python version: {sys.version}")
@@ -250,7 +252,7 @@ except ImportError:
 
 # Re-enabled: chat.py is safe to import — it uses groq (in requirements.txt)
 # and only loads torch/peft in a background thread with try/except.
-# RAG (sentence-transformers/faiss) is lazily loaded and degrades gracefully.
+# Chat uses current bridge context and shared project thresholds.
 try:
     from backend.chat import router as chat_router
     logger.info("Chat router loaded successfully")
@@ -275,7 +277,10 @@ except ImportError:
 # Re-enabled: crack_detection.py only imports groq + PIL (both in requirements.txt).
 # No heavy ML dependencies whatsoever.
 try:
-    from crack_detection import analyze_crack_image, validate_bridge_selection
+    try:
+        from backend.crack_detection import analyze_crack_image, validate_bridge_selection
+    except ImportError:
+        from crack_detection import analyze_crack_image, validate_bridge_selection
     logger.info("Crack detection module loaded successfully")
 except Exception as e:
     logger.warning(f"Could not load crack detection module: {e}")
@@ -319,6 +324,7 @@ try:
         VIBRATION_WARN_G,
         STRAIN_LIMIT_MPA,
         STRAIN_WARN_MPA,
+        get_bridge_condition,
         get_sensor_status,
         get_risk_alert_level,
         get_risk_severity_label,
@@ -335,6 +341,7 @@ except ImportError:
         VIBRATION_WARN_G,
         STRAIN_LIMIT_MPA,
         STRAIN_WARN_MPA,
+        get_bridge_condition,
         get_sensor_status,
         get_risk_alert_level,
         get_risk_severity_label,
@@ -1360,6 +1367,7 @@ async def live_reading(bridge_id: int = 1):
     sim = _simulators[bridge_id]
     data = dict(sim.get_data(force_tick_interval=3.0))
     data["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["condition"] = get_bridge_condition(data.get("health_score"), data)
 
     # Trigger Telegram alert check (non-blocking)
     if check_and_send_alert is not None:
@@ -4575,104 +4583,151 @@ async def chat_bridge_intelligence(request: BridgeIntelligenceRequest):
         })
 
 
-import base64
-
 @app.post("/api/chat/vision")
 async def chat_vision(
     bridge_id: int = Form(...),
     message: str = Form(...),
     image: UploadFile = File(...),
-    user=Depends(get_current_user)
+    user=Depends(require_role(["admin", "engineer"]))
 ):
-    # Read image
+    if validate_bridge_selection is None or analyze_crack_image is None:
+        raise HTTPException(status_code=503, detail="Crack analysis is unavailable")
+    try:
+        bridge_name = validate_bridge_selection(bridge_id, next(
+            (bridge["name"] for bridge in _INDIA_BRIDGES if bridge["id"] == bridge_id), ""
+        ), _INDIA_BRIDGES)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not (image.content_type or "").startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
     image_bytes = await image.read()
-    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
-    media_type = image.content_type or "image/jpeg"
-    
-    # Get bridge context
-    from backend.chat import _fetch_bridge_context, _clean_bridge_context
-    context = await _fetch_bridge_context(bridge_id)
-    clean_context = _clean_bridge_context(context)
-    
-    # Analyze with vision
-    from backend.chat import _analyze_image_with_groq
-    reply = _analyze_image_with_groq(image_base64, media_type, message, clean_context)
-    
-    return {"reply": reply, "model": "llama-4-scout-17b (Vision)"}
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image must be under 10MB")
+    try:
+        analysis = analyze_crack_image(image_bytes, bridge_id, bridge_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Chat image analysis failed for bridge %s", bridge_id)
+        raise HTTPException(status_code=500, detail="Image analysis failed") from exc
+    if analysis["analysis_status"] == "unavailable":
+        finding = "**Visual analysis unavailable.** The model did not establish whether this image shows a crack."
+        if analysis.get("error_message"):
+            finding += f" {analysis['error_message']}"
+    elif analysis["crack_detected"]:
+        severity = analysis.get("visual_severity") or "unavailable"
+        finding = f"**Possible crack identified.** Model-estimated visual severity: {severity}."
+    else:
+        finding = "**No crack identified by the visual model.** This is not a field inspection."
+    reply = (
+        f"**{bridge_name} — photo assessment**\n\n{finding}\n\n"
+        "Physical width and length are unavailable without a calibrated reference. "
+        f"{analysis['recommended_action']}"
+    )
+    return {"reply": reply, "analysis_status": analysis["analysis_status"], "error_category": analysis.get("error_category")}
 
 
 @app.get("/api/chat/critical-alerts")
 async def get_critical_alerts(user=Depends(get_current_user)):
-    critical_bridges = []
     try:
-        india_bridges = get_india_bridges()
-        for bridge in india_bridges:
-            bid = bridge.get("id")
-            sim = _simulators.get(bid)
-            if not sim:
-                continue
-            data = sim.latest_data or sim.tick()
-            health = data.get("health_score", 100)
-            if health < 60:
-                critical_bridges.append({
-                    "bridge_id": bid,
-                    "bridge_name": bridge.get("name") or bridge.get("bridge_name"),
-                    "health_score": round(float(health), 1),
-                    "alert_level": data.get("alert_level", "WARNING"),
-                    "vibration": data.get("vibration", 0),
-                    "strain": data.get("strain", 0),
-                    "crack_gap": data.get("crack_gap", 0),
-                    "anomaly_score": data.get("anomaly_score", 0)
-                })
-    except Exception as e:
-        print(f"Error: {e}")
-        
-    critical_bridges.sort(key=lambda x: x["health_score"])
-    return {"critical_bridges": critical_bridges[:5]}
+        from backend.chat_alerts import build_critical_alert
+    except ImportError:
+        from chat_alerts import build_critical_alert
+
+    critical_bridges = []
+    evaluated = 0
+    failed = 0
+    for bridge in _INDIA_BRIDGES:
+        sim = _simulators.get(bridge["id"])
+        if sim is None:
+            continue
+        evaluated += 1
+        try:
+            alert = build_critical_alert(bridge, sim.latest_data or sim.tick())
+        except Exception:
+            failed += 1
+            logger.exception("Could not evaluate chat alert for bridge %s", bridge["id"])
+            continue
+        if alert is not None:
+            critical_bridges.append(alert)
+
+    critical_bridges.sort(key=lambda item: (item["health_score"] is None, item["health_score"] or 0))
+    if evaluated and failed == evaluated:
+        raise HTTPException(status_code=503, detail="Network alert readings are unavailable")
+    return {"critical_bridges": critical_bridges, "evaluation_errors": failed}
 
 
 @app.post("/api/chat/autonomous-action")
-async def autonomous_action(req: dict, 
-                           user=Depends(get_current_user)):
-    bridge_id = req.get("bridge_id", 1)
-    bridge_name = req.get("bridge_name", "Unknown")
-    confirmed = req.get("confirmed", False)
-    
-    if not confirmed:
-        return {
-            "status": "awaiting_confirmation",
-            "message": "Ready to run inspection, assign crew, send Telegram. Confirm?"
-        }
-    
-    results = {}
-    
-    # Step 1: Run inspection
+async def autonomous_action_removed(user=Depends(require_role(["admin"]))):
+    raise HTTPException(status_code=410, detail="Bundled actions are no longer supported. Review each action separately.")
+
+
+def _dispatch_recipient() -> str | None:
+    chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
+    if not chat_id or not os.getenv("TELEGRAM_BOT_TOKEN"):
+        return None
+    return os.getenv("TELEGRAM_RECIPIENT_NAME") or f"Telegram chat ID {chat_id}"
+
+
+class ChatDispatchRequest(BaseModel):
+    bridge_id: int
+    recipient: str
+    message: str
+    confirmed: bool
+    request_id: str
+
+
+_chat_dispatch_lock = asyncio.Lock()
+_chat_dispatch_inflight: set[str] = set()
+_chat_dispatch_sent: set[str] = set()
+
+
+@app.get("/api/chat/dispatch-preview")
+def chat_dispatch_preview(user=Depends(require_role(["admin"]))):
+    recipient = _dispatch_recipient()
+    return {"available": recipient is not None, "recipient": recipient}
+
+
+@app.post("/api/chat/dispatch")
+async def chat_dispatch(req: ChatDispatchRequest, user=Depends(require_role(["admin"]))):
+    import httpx
+
+    recipient = _dispatch_recipient()
+    if recipient is None:
+        raise HTTPException(status_code=503, detail="Dispatch recipient is not configured")
+    if req.recipient != recipient or not req.confirmed:
+        raise HTTPException(status_code=422, detail="Review and confirm the configured recipient and message")
+    bridge = next((item for item in _INDIA_BRIDGES if item["id"] == req.bridge_id), None)
+    if bridge is None or not req.message.strip() or len(req.message) > 2000 or len(req.request_id) < 16:
+        raise HTTPException(status_code=422, detail="Invalid bridge, message, or request ID")
+    async with _chat_dispatch_lock:
+        if req.request_id in _chat_dispatch_sent:
+            return {"status": "already_sent", "recipient": recipient, "bridge_name": bridge["name"]}
+        if req.request_id in _chat_dispatch_inflight:
+            raise HTTPException(status_code=409, detail="This dispatch is already in progress")
+        _chat_dispatch_inflight.add(req.request_id)
     try:
-        from agent import run_inspection_agent
-        inspection = await run_inspection_agent(bridge_id, bridge_name)
-        results["inspection"] = inspection
-    except Exception as e:
-        results["inspection"] = {"status": "failed", "error": str(e)}
-    
-    # Step 2: Auto-assign crew
-    import random
-    crew = random.choice(["Team Alpha", "Team Beta", "Team Gamma", "Team Delta"])
-    results["crew_assignment"] = crew
-    
-    # Step 3: Send Telegram alert
-    try:
-        from telegram_alerts import send_telegram_alert
-        msg = f"[ACTION] AUTONOMOUS ACTION\nBridge: {bridge_name}\nCrew: {crew}\nInspection: COMPLETE"
-        await send_telegram_alert(msg)
-        results["telegram"] = "sent"
-    except Exception as e:
-        results["telegram"] = f"failed: {e}"
-    
-    return {
-        "status": "completed",
-        "summary": f"Inspection done, {crew} assigned (ETA 2hrs), alert notification dispatched.",
-        "actions_taken": results
-    }
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                f"https://api.telegram.org/bot{os.getenv('TELEGRAM_BOT_TOKEN')}/sendMessage",
+                json={"chat_id": os.getenv("TELEGRAM_CHAT_ID"), "text": req.message.strip()},
+            )
+        if response.status_code != 200 or not response.json().get("ok"):
+            raise HTTPException(status_code=502, detail="Dispatch provider did not confirm delivery")
+        async with _chat_dispatch_lock:
+            _chat_dispatch_sent.add(req.request_id)
+            if len(_chat_dispatch_sent) > 512:
+                _chat_dispatch_sent.pop()
+        add_audit_entry(user["email"], user["role"], "CHAT_DISPATCH", bridge["name"], "SUCCESS")
+        return {"status": "sent", "recipient": recipient, "bridge_name": bridge["name"]}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Chat dispatch failed for bridge %s (%s)", req.bridge_id, type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Dispatch failed; no delivery confirmation") from None
+    finally:
+        async with _chat_dispatch_lock:
+            _chat_dispatch_inflight.discard(req.request_id)
 
 
 def seed_mock_audit_log():
