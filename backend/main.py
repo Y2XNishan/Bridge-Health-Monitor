@@ -92,6 +92,28 @@ import pandas as pd
 from fastapi import FastAPI, Depends, Header, HTTPException, status, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+try:
+    from backend.admin_security import (
+        AdminError, active_session_count, actual_events, alerts_today,
+        apply_revoke, canonicalize_seed_users, last_login_by_user,
+        load_revoked_ids, plan_revoke, role_allowed, save_revoked_ids, session_user_id,
+        successful_pdf_exports,
+    )
+except ImportError:
+    from admin_security import (
+        AdminError, active_session_count, actual_events, alerts_today,
+        apply_revoke, canonicalize_seed_users, last_login_by_user,
+        load_revoked_ids, plan_revoke, role_allowed, save_revoked_ids, session_user_id,
+        successful_pdf_exports,
+    )
+try:
+    from backend.maintenance_assignments import (
+        AssignmentCreateRequest, AssignmentError, AssignmentStatusRequest, AssignmentStore,
+    )
+except ImportError:
+    from maintenance_assignments import (
+        AssignmentCreateRequest, AssignmentError, AssignmentStatusRequest, AssignmentStore,
+    )
 
 # ReportLab Auto-installation and imports for PDF Export
 import sys
@@ -964,16 +986,32 @@ USERS = [
   {"id": 7, "name": "Amit Das", "email": "viewer@nhai.gov.in", "password": "demo123", "role": "viewer", "org": "PWD Assam", "avatar": "AD", "last_login": None},
 ]
 
-# Maintenance assignments storage
-_assignments: list[dict] = []
-_assignment_id_counter = 1
+USERS, USER_ID_ALIASES, USER_PASSWORD_ALIASES, _identity_conflicts = canonicalize_seed_users(USERS)
+if _identity_conflicts:
+    logger.error("Conflicting seeded user identities require review (%s)", len(_identity_conflicts))
 
-TASK_STATUSES = ["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]
-PRIORITY_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+# Assignments remain in process memory, so a browser refresh can reload them.
+_assignment_store = AssignmentStore()
 import json
 import os
 
 SESSIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sessions.json")
+REVOKED_USERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "revoked_users.json")
+AUDIT_EVENTS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audit_events.jsonl")
+
+REVOKED_USER_IDS = load_revoked_ids(REVOKED_USERS_FILE)
+USERS[:] = [user for user in USERS if user["id"] not in REVOKED_USER_IDS]
+
+def load_actual_audit_events():
+    if not os.path.exists(AUDIT_EVENTS_FILE):
+        return [], True
+    try:
+        with open(AUDIT_EVENTS_FILE, "r", encoding="utf-8") as file:
+            events = [json.loads(line) for line in file if line.strip()]
+        return [event for event in events if event.get("source") == "actual"], True
+    except (OSError, ValueError, TypeError, AttributeError):
+        logger.error("Audit event history could not be read")
+        return [], False
 
 def load_sessions():
     try:
@@ -1001,26 +1039,34 @@ def save_sessions():
     except Exception as e:
         print(f"[Auth] Error saving sessions: {e}")
 
-SESSIONS = load_sessions()
-SESSIONS["permanent-admin-token"] = {
-    "user_id": 1,
-    "email": "admin@nhai.gov.in", 
-    "name": "Rajesh Kumar",
-    "role": "admin",
-    "created_at": "2026-01-01T00:00:00",
-    "expires_at": "2099-12-31T23:59:59"
-}
-AUDIT_LOG = []  # list of audit entries
+SESSIONS = {key: value for key, value in load_sessions().items() if key != "permanent-admin-token"}
+AUDIT_LOG, AUDIT_HISTORY_COMPLETE = load_actual_audit_events()
+_audit_lock = threading.Lock()
+_revoke_lock = threading.Lock()
 
-def add_audit_entry(user_email: str, user_role: str, action: str, target: str, status_str: str):
-    AUDIT_LOG.append({
-        "timestamp": datetime.now().isoformat(),
+def add_audit_entry(user_email: str, user_role: str, action: str, target: str, status_str: str, *, user_id=None, source="actual"):
+    global AUDIT_HISTORY_COMPLETE
+    event = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "user_id": user_id,
         "user_email": user_email,
         "user_role": user_role,
         "action": action,
         "target": target,
-        "status": status_str
-    })
+        "status": status_str,
+        "source": source,
+    }
+    with _audit_lock:
+        AUDIT_LOG.append(event)
+        if source == "actual":
+            try:
+                with open(AUDIT_EVENTS_FILE, "a", encoding="utf-8") as file:
+                    file.write(json.dumps(event) + "\n")
+            except OSError:
+                AUDIT_HISTORY_COMPLETE = False
+                logger.error("Audit event could not be persisted")
+    return event
 
 # Seeding of mock logs has been moved to the end of the file to prevent NameError on _INDIA_BRIDGES
 
@@ -1038,7 +1084,16 @@ def get_current_user(authorization: str = Header(None), token: str = Query(None)
         )
     
     uid = SESSIONS[actual_token]
-    user_id = uid.get("user_id") if isinstance(uid, dict) else uid
+    if isinstance(uid, dict) and uid.get("expires_at"):
+        try:
+            expiry = datetime.fromisoformat(uid["expires_at"].replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            expiry = None
+        if expiry is None or expiry.tzinfo is None or expiry <= datetime.now(timezone.utc):
+            SESSIONS.pop(actual_token, None)
+            save_sessions()
+            raise HTTPException(status_code=401, detail="Session expired; sign in again")
+    user_id = session_user_id(uid, USER_ID_ALIASES)
     user = next((u for u in USERS if u["id"] == user_id), None)
     if not user:
         raise HTTPException(
@@ -1049,7 +1104,7 @@ def get_current_user(authorization: str = Header(None), token: str = Query(None)
 
 def require_role(allowed_roles: list):
     def dependency(user = Depends(get_current_user)):
-        if user["role"] not in allowed_roles:
+        if not role_allowed(user, allowed_roles):
             add_audit_entry(user["email"], user["role"], "ACCESS_DENIED", "Restricted operation blocked", "DENIED")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -1064,7 +1119,8 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/auth/login")
 def auth_login(req: LoginRequest):
-    user = next((u for u in USERS if u["email"] == req.email and u["password"] == req.password), None)
+    user = next((u for u in USERS if u["email"].lower() == req.email.strip().lower()
+                 and req.password in USER_PASSWORD_ALIASES.get(u["id"], set())), None)
     if not user:
         add_audit_entry(req.email, "anonymous", "LOGIN", "Platform access", "DENIED")
         return JSONResponse(
@@ -1074,13 +1130,18 @@ def auth_login(req: LoginRequest):
     
     # Generate token
     token = str(uuid.uuid4())
-    SESSIONS[token] = user["id"]
+    now = datetime.now(timezone.utc)
+    SESSIONS[token] = {
+        "user_id": user["id"],
+        "created_at": now.isoformat(),
+        "expires_at": (now + timedelta(hours=24)).isoformat(),
+    }
     save_sessions()
     
     # Update login timestamp
-    user["last_login"] = datetime.now().isoformat()
+    user["last_login"] = now.isoformat()
     
-    add_audit_entry(user["email"], user["role"], "LOGIN", "Platform access", "SUCCESS")
+    add_audit_entry(user["email"], user["role"], "LOGIN", "Platform access", "SUCCESS", user_id=user["id"])
     
     user_resp = {k: v for k, v in user.items() if k != "password"}
     return {"token": token, "user": user_resp}
@@ -1110,47 +1171,51 @@ def auth_me(user = Depends(get_current_user)):
 
 @app.get("/api/auth/users")
 def auth_get_users(user = Depends(require_role(["admin"]))):
-    return [{k: v for k, v in u.items() if k != "password"} for u in USERS]
+    latest = last_login_by_user(AUDIT_LOG) if AUDIT_HISTORY_COMPLETE else {}
+    return [{**{k: v for k, v in u.items() if k != "password"}, "last_login": latest.get(u["id"])} for u in USERS]
 
 @app.delete("/api/auth/users/{user_id}")
 def auth_delete_user(user_id: int, user = Depends(require_role(["admin"]))):
-    if user["id"] == user_id:
-        raise HTTPException(status_code=400, detail="Cannot revoke your own active clearance session.")
-    
-    target_user = next((u for u in USERS if u["id"] == user_id), None)
-    if not target_user:
-        raise HTTPException(status_code=404, detail="Clearance record not found.")
-        
-    USERS[:] = [u for u in USERS if u["id"] != user_id]
-    
-    active_tokens = [
-        tok for tok, uid in SESSIONS.items()
-        if (uid.get("user_id") if isinstance(uid, dict) else uid) == user_id
-    ]
-    for tok in active_tokens:
-        del SESSIONS[tok]
-    if active_tokens:
-        save_sessions()
-        
-    add_audit_entry(user["email"], user["role"], "REVOKE_CLEARANCE", f"User ID {user_id} ({target_user['email']})", "SUCCESS")
-    return {"status": "success", "message": f"Revoked credentials for {target_user['name']}."}
+    with _revoke_lock:
+        try:
+            target_user, active_tokens = plan_revoke(USERS, SESSIONS, user, user_id, USER_ID_ALIASES)
+        except AdminError as exc:
+            add_audit_entry(user["email"], user["role"], "REVOKE_CLEARANCE", f"User ID {user_id}", "DENIED", user_id=user["id"])
+            raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+        try:
+            save_revoked_ids(REVOKED_USERS_FILE, REVOKED_USER_IDS | {user_id})
+        except OSError as exc:
+            add_audit_entry(user["email"], user["role"], "REVOKE_CLEARANCE", f"User ID {user_id}", "FAILED", user_id=user["id"])
+            raise HTTPException(status_code=503, detail="Revocation could not be saved; no account was changed") from exc
+        REVOKED_USER_IDS.add(user_id)
+        apply_revoke(USERS, SESSIONS, target_user, active_tokens)
+        if active_tokens:
+            save_sessions()
+        add_audit_entry(user["email"], user["role"], "REVOKE_CLEARANCE", f"User ID {user_id}", "SUCCESS", user_id=user["id"])
+        return {"status": "success", "revoked_user_id": user_id, "sessions_revoked": len(active_tokens)}
 
 @app.get("/api/audit-log")
-def get_audit_log(user = Depends(require_role(["admin", "engineer"]))):
-    sorted_logs = sorted(AUDIT_LOG, key=lambda x: x["timestamp"], reverse=True)
-    return sorted_logs[:15]
+def get_audit_log(user = Depends(require_role(["admin"]))):
+    sorted_logs = sorted(actual_events(AUDIT_LOG), key=lambda event: event["timestamp"], reverse=True)
+    return sorted_logs[:100]
 
-class AuditLogEntry(BaseModel):
-    user_email: str
-    user_role: str
-    action: str
-    target: str
-    status: str
-
-@app.post("/api/audit-log")
-def create_audit_log_endpoint(entry: AuditLogEntry):
-    add_audit_entry(entry.user_email, entry.user_role, entry.action, entry.target, entry.status)
-    return {"status": "success"}
+@app.get("/api/admin/metrics")
+def get_admin_metrics(user = Depends(require_role(["admin"]))):
+    now = datetime.now(timezone.utc)
+    inspection_day = now.astimezone(timezone(timedelta(hours=5, minutes=30))).date()
+    session_count = active_session_count(SESSIONS, USERS, USER_ID_ALIASES, now)
+    return {
+        "active_sessions": session_count,
+        "active_sessions_note": "Unexpired authenticated session tokens" if session_count is not None else "Legacy sessions without expiry prevent an accurate count",
+        "simulator_instances": len(_simulators),
+        "alerts_today": alerts_today(AUDIT_LOG, complete=False, now=now),
+        "alerts_today_note": "No complete recorded alert-event history; generated alerts are excluded",
+        "alert_day": inspection_day.isoformat(),
+        "alert_timezone": "Asia/Kolkata",
+        "pdf_reports_exported": successful_pdf_exports(AUDIT_LOG) if AUDIT_HISTORY_COMPLETE else None,
+        "pdf_reports_note": "Recorded successful PDF generations since audit tracking began; earlier exports unavailable" if AUDIT_HISTORY_COMPLETE else "Audit history is unavailable",
+        "audit_history_complete": AUDIT_HISTORY_COMPLETE,
+    }
 
 @app.post("/api/alerts/acknowledge")
 def acknowledge_alert(bridge_id: int, alert_timestamp: str, user = Depends(require_role(["admin", "engineer"]))):
@@ -1159,56 +1224,42 @@ def acknowledge_alert(bridge_id: int, alert_timestamp: str, user = Depends(requi
 
 
 # ── GET /api/bridges ───────────────────────────────────────────────────────
+@app.get("/api/maintenance/bridges")
+def get_assignment_bridges(user=Depends(require_role(["admin", "engineer", "viewer"]))):
+    return [{"id": bridge["id"], "name": bridge["name"]} for bridge in _INDIA_BRIDGES]
+
+
 @app.get("/api/maintenance/assignments")
-def get_assignments(user=Depends(require_role(["admin", "engineer"]))):
-    if user["role"] == "engineer":
-        return [a for a in _assignments if a["assigned_to_email"] == user["email"]]
-    return _assignments
+def get_assignments(user=Depends(require_role(["admin", "engineer", "viewer"]))):
+    return _assignment_store.list_for(user)
+
 
 @app.post("/api/maintenance/assignments")
-def create_assignment(req: dict, user=Depends(require_role(["admin"]))):
-    global _assignment_id_counter
-    assignment = {
-        "id": _assignment_id_counter,
-        "bridge_id": req["bridge_id"],
-        "bridge_name": req["bridge_name"],
-        "assigned_to_email": req["assigned_to_email"],
-        "assigned_to_name": req["assigned_to_name"],
-        "priority": req["priority"],
-        "task_type": req["task_type"],
-        "description": req["description"],
-        "status": "PENDING",
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
-        "due_date": req.get("due_date", ""),
-        "created_by": user["email"],
-    }
-    _assignments.append(assignment)
-    _assignment_id_counter += 1
-    return assignment
+def create_assignment(req: AssignmentCreateRequest, user=Depends(require_role(["admin"]))):
+    try:
+        today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
+        return _assignment_store.create(req.model_dump(), user, _INDIA_BRIDGES, USERS, today)
+    except AssignmentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 @app.patch("/api/maintenance/assignments/{assignment_id}")
-def update_assignment_status(assignment_id: int, req: dict, user=Depends(require_role(["admin", "engineer"]))):
-    for a in _assignments:
-        if a["id"] == assignment_id:
-            if user["role"] == "engineer" and a["assigned_to_email"] != user["email"]:
-                raise HTTPException(status_code=403, detail="Not your assignment")
-            a["status"] = req["status"]
-            a["updated_at"] = datetime.utcnow().isoformat()
-            if "notes" in req:
-                a["notes"] = req["notes"]
-            return a
-    raise HTTPException(status_code=404, detail="Assignment not found")
+def update_assignment_status(assignment_id: int, req: AssignmentStatusRequest, user=Depends(require_role(["admin", "engineer"]))):
+    try:
+        return _assignment_store.update_status(assignment_id, req.status, req.notes, user)
+    except AssignmentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 @app.delete("/api/maintenance/assignments/{assignment_id}")
 def delete_assignment(assignment_id: int, user=Depends(require_role(["admin"]))):
-    global _assignments
-    _assignments = [a for a in _assignments if a["id"] != assignment_id]
+    try:
+        _assignment_store.delete(assignment_id, user)
+    except AssignmentError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
     return {"status": "deleted"}
 
 @app.get("/api/maintenance/engineers")
 def get_engineers(user=Depends(require_role(["admin"]))):
-    return [u for u in USERS if u["role"] == "engineer"]
+    return [{"id": u["id"], "name": u["name"], "email": u["email"]} for u in USERS if u["role"] == "engineer"]
 
 @app.get("/api/bridges")
 def get_bridges():
@@ -4643,17 +4694,11 @@ def seed_mock_audit_log():
         t = (_seed_time + timedelta(minutes=i * 5)).isoformat()
         r = random.random()
         if r < 0.40:
-            email = random.choice(["viewer@pwdassam.gov.in", "engineer@nhai.gov.in"])
-            role = "viewer" if "viewer" in email else "engineer"
-            if random.random() < 0.50:
-                action = "LOGIN"
-                target = "Platform Access"
-                status = "SUCCESS"
-            else:
-                action = "ACTIVATE_BRIDGE"
-                bid = random.randint(1, 58)
-                status = random.choice(["SUCCESS", "DENIED"])
-                target = f"Bridge {bid}"
+            email = "simulation@local"
+            role = "simulation"
+            action = "SIMULATED_TELEMETRY"
+            target = "Demo telemetry event"
+            status = "SIMULATED"
         else:
             email = "system@nhai.gov.in"
             role = "system"
@@ -4695,7 +4740,8 @@ def seed_mock_audit_log():
             "user_role": role,
             "action": action,
             "target": target,
-            "status": status
+            "status": status,
+            "source": "simulated",
         })
     AUDIT_LOG.extend(temp_logs)
 
@@ -4730,17 +4776,11 @@ def audit_log_generator():
         try:
             r = random.random()
             if r < 0.40:
-                email = random.choice(["viewer@pwdassam.gov.in", "engineer@nhai.gov.in"])
-                role = "viewer" if "viewer" in email else "engineer"
-                if random.random() < 0.50:
-                    action = "LOGIN"
-                    target = "Platform Access"
-                    status = "SUCCESS"
-                else:
-                    action = "ACTIVATE_BRIDGE"
-                    bid = random.randint(1, 58)
-                    status = random.choice(["SUCCESS", "DENIED"])
-                    target = f"Bridge {bid}"
+                email = "simulation@local"
+                role = "simulation"
+                action = "SIMULATED_TELEMETRY"
+                target = "Demo telemetry event"
+                status = "SIMULATED"
             else:
                 email = "system@nhai.gov.in"
                 role = "system"
@@ -4776,7 +4816,7 @@ def audit_log_generator():
                     target = selected_name
                     last_pred_maint = selected_name
 
-            add_audit_entry(email, role, action, target, status)
+            add_audit_entry(email, role, action, target, status, source="simulated")
         except Exception as e:
             print(f"[Audit Log Generator] Error: {e}")
 

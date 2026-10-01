@@ -25,6 +25,9 @@ models/*.keras
 *.safetensors
 *.arrow
 backend/sessions.json
+backend/revoked_users.json
+backend/revoked_users.json.tmp
+backend/audit_events.jsonl
 .vscode/
 .DS_Store
 Thumbs.db
