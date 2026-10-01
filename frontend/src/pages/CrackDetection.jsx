@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, Camera, CheckCircle2, MapPin, Ruler, Upload } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const ink = '#1C1F26';

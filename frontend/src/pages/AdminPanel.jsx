@@ -1,374 +1,150 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, AlertCircle, AlertTriangle, FileText, RefreshCw, Shield, Users } from 'lucide-react';
+import { useAuth } from '../context/authContext';
+import { filterAuditLogs } from './adminPanelUtils';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-import { fetchBridges } from '../api';
-import { Users, Activity, AlertTriangle, FileText, AlertCircle, Shield } from 'lucide-react';
+const ink = '#1C1F26';
+const teal = '#0F6E56';
+const muted = '#65717B';
+const border = '#DDE3E5';
+const card = { background: '#fff', border: `1px solid ${border}`, borderRadius: 8 };
+const button = { font: 'inherit', fontSize: 13, fontWeight: 650, borderRadius: 6, padding: '8px 11px', border: `1px solid ${border}`, background: '#fff', color: ink, cursor: 'pointer' };
+const cell = { padding: '11px 12px', borderBottom: `1px solid ${border}`, textAlign: 'left', verticalAlign: 'middle' };
+const roleTones = {
+  admin: { color: '#8A5060', background: '#F7EEF1' },
+  engineer: { color: '#466E88', background: '#EDF3F7' },
+  viewer: { color: muted, background: '#F3F5F5' },
+};
+const statusTones = {
+  SUCCESS: { color: teal, background: '#EAF4F0' },
+  DENIED: { color: '#9B4242', background: '#F9EEEE' },
+  FAILED: { color: '#9B4242', background: '#F9EEEE' },
+};
+const actionLabels = {
+  LOGIN: 'Signed in', LOGOUT: 'Signed out', ACCESS_DENIED: 'Access denied',
+  REVOKE_CLEARANCE: 'Access revocation', ACTIVATE_BRIDGE: 'Bridge activated',
+  DEACTIVATE_BRIDGE: 'Bridge deactivated', ACKNOWLEDGE_ALERT: 'Alert acknowledged',
+  EXPORT_REPORT: 'PDF report exported', EXPORT_AGENT_REPORT: 'Inspection PDF exported',
+  EXPORT_CHAT_REPORT: 'Chat PDF exported',
+};
+
+function readable(value) {
+  if (!value) return 'Unavailable';
+  const words = value.replaceAll('_', ' ').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function initials(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  return parts.length ? (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase() : '?';
+}
+
+function timestamp(value) {
+  if (!value) return 'Unavailable';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? 'Unavailable' : parsed.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function Pill({ value, tones }) {
+  const tone = tones[value] || { color: muted, background: '#F3F5F5' };
+  return <span style={{ display: 'inline-block', padding: '4px 8px', borderRadius: 5, background: tone.background, color: tone.color, fontWeight: 650, fontSize: 12, textTransform: 'none', whiteSpace: 'nowrap' }}>{readable(value)}</span>;
+}
+
+async function requestJson(url, token, options = {}) {
+  const response = await fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    throw new Error(typeof body?.detail === 'string' ? body.detail : `Request failed (${response.status})`);
+  }
+  return response.json();
+}
 
 export default function AdminPanel() {
   const { user: currentUser, token } = useAuth();
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [bridges, setBridges] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [verifiedUser, setVerifiedUser] = useState(null);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busyId, setBusyId] = useState(null);
+  const isAdmin = currentUser?.role === 'admin';
 
-  const fetchData = async () => {
+  const loadData = useCallback(async (showLoading = false) => {
+    if (!token || !isAdmin) return;
+    if (showLoading) setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
-      
-      const headers = { 'Authorization': `Bearer ${token}` };
-      
-      // Fetch users (Admin only)
-      const usersRes = await fetch(`${API_BASE}/api/auth/users`, { headers });
-      if (!usersRes.ok) throw new Error(`Users failed: ${usersRes.status}`);
-      const usersData = await usersRes.json();
-      setUsers(usersData);
-
-      // Fetch audit logs (Admin/Engineer only)
-      const logsRes = await fetch(`${API_BASE}/api/audit-log`, { headers });
-      if (!logsRes.ok) throw new Error(`Audit logs failed: ${logsRes.status}`);
-      const logsData = await logsRes.json();
-      setAuditLogs(logsData);
-
-      // Fetch bridges to get stats
-      const bridgesData = await fetchBridges();
-      setBridges(bridgesData);
-    } catch (err) {
-      console.error('[admin-fetch-error]', err);
-      setError('Failed to fetch admin dashboard parameters. Ensure you have administrator clearance.');
+      const [people, logs, overview, me] = await Promise.all([
+        requestJson(`${API_BASE}/api/auth/users`, token),
+        requestJson(`${API_BASE}/api/audit-log`, token),
+        requestJson(`${API_BASE}/api/admin/metrics`, token),
+        requestJson(`${API_BASE}/api/auth/me`, token),
+      ]);
+      setUsers(people);
+      setAuditLogs(logs);
+      setMetrics(overview);
+      setVerifiedUser(me);
+      setHasLoaded(true);
+    } catch (failure) {
+      setError(failure.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, token]);
 
   useEffect(() => {
-    fetchData();
-    // Poll logs and stats every 10 seconds
-    const interval = setInterval(fetchData, 10000);
+    if (!isAdmin) return undefined;
+    Promise.resolve().then(() => loadData(true));
+    const interval = setInterval(() => loadData(false), 30000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, [isAdmin, loadData]);
 
-  const handleRemoveUser = async (userId, userName) => {
-    if (userId === currentUser.id) return;
-    if (!window.confirm(`Are you sure you want to revoke system clearance for ${userName}?`)) return;
+  const filteredLogs = useMemo(() => filterAuditLogs(auditLogs, statusFilter), [auditLogs, statusFilter]);
+  const statuses = useMemo(() => [...new Set(['SUCCESS', 'DENIED', 'FAILED', ...auditLogs.map((log) => log.status).filter(Boolean)])].sort(), [auditLogs]);
+  const adminCount = users.filter((person) => person.role === 'admin').length;
 
+  async function handleRevoke(person) {
+    if (!isAdmin || busyId !== null || person.id === verifiedUser?.id || (person.role === 'admin' && adminCount <= 1)) return;
+    const confirmed = window.confirm(`Revoke ${person.name} (${person.email}, ID ${person.id})? This removes this account's access and all its sessions. Assignments and audit records are retained.`);
+    if (!confirmed) return;
+    setBusyId(person.id);
+    setNotice('');
+    setError('');
     try {
-      const res = await fetch(`${API_BASE}/api/auth/users/${userId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        // Refresh local list
-        setUsers(prev => prev.filter(u => u.id !== userId));
-        fetchData(); // pull fresh audit logs
-      } else {
-        const errorData = await res.json();
-        alert(errorData.error || 'Failed to remove user');
-      }
-    } catch (e) {
-      console.error('[remove-user-error]', e);
-      alert('Network error removing user');
+      const result = await requestJson(`${API_BASE}/api/auth/users/${person.id}`, token, { method: 'DELETE' });
+      setNotice(`Access revoked for user ID ${result.revoked_user_id}; ${result.sessions_revoked} session${result.sessions_revoked === 1 ? '' : 's'} revoked.`);
+      await loadData(false);
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusyId(null);
     }
-  };
-
-  // Filter audit logs based on selected status
-  const filteredLogs = useMemo(() => {
-    if (statusFilter === 'ALL') return auditLogs;
-    return auditLogs.filter(log => log.status === statusFilter);
-  }, [auditLogs, statusFilter]);
-
-  // System Stats calculations
-  const stats = useMemo(() => {
-    // Bridges with live simulator models
-    const monitoredCount = bridges.filter(b => b.is_live).length || 3;
-    
-    // Sum alert counts
-    const activeAlerts = bridges.reduce((acc, b) => acc + (b.alert_count || 0), 0);
-    
-    // Count PDF exports from audit log
-    const pdfExports = auditLogs.filter(log => log.action === 'EXPORT_REPORT' && log.status === 'SUCCESS').length;
-
-    return {
-      activeSessions: users.length > 0 ? Math.max(1, Math.min(users.length - 1, 2)) : 1, // realistic simulation
-      monitoredBridges: monitoredCount,
-      alertsToday: activeAlerts,
-      pdfReportsExported: pdfExports
-    };
-  }, [bridges, auditLogs, users]);
-
-  const getRoleBadgeStyle = (role) => {
-    switch (role?.toLowerCase()) {
-      case 'admin':
-        return { background: 'rgba(255, 123, 114, 0.1)', border: '1px solid rgba(255, 123, 114, 0.2)', color: 'var(--accent-red-light)' };
-      case 'engineer':
-        return { background: 'rgba(88, 166, 255, 0.1)', border: '1px solid rgba(88, 166, 255, 0.2)', color: 'var(--accent-blue-light)' };
-      default:
-        return { background: 'rgba(63, 185, 80, 0.1)', border: '1px solid rgba(63, 185, 80, 0.2)', color: 'var(--accent-green-light)' };
-    }
-  };
-
-  const getStatusBadgeStyle = (status) => {
-    switch (status?.toUpperCase()) {
-      case 'SUCCESS':
-        return { background: 'rgba(63, 185, 80, 0.1)', border: '1px solid rgba(63, 185, 80, 0.2)', color: 'var(--accent-green-light)' };
-      case 'DENIED':
-        return { background: 'rgba(255, 123, 114, 0.1)', border: '1px solid rgba(255, 123, 114, 0.2)', color: 'var(--accent-red-light)' };
-      default:
-        return { background: 'rgba(88, 166, 255, 0.1)', border: '1px solid rgba(88, 166, 255, 0.2)', color: 'var(--accent-blue-light)' };
-    }
-  };
-
-  if (loading && users.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-20 space-y-4">
-        <div className="w-10 h-10 rounded-full border-4 border-t-2 animate-spin" style={{ borderColor: 'rgba(88, 166, 255, 0.2)', borderTopColor: '#58a6ff' }} />
-        <p className="text-xs tracking-widest font-bold" style={{ color: 'var(--text-secondary)' }}>
-          Decrypting security database...
-        </p>
-      </div>
-    );
   }
 
-  if (error) {
-    return (
-      <div 
-        className="p-6 text-center rounded-xl space-y-4 max-w-lg mx-auto border mt-10"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-      >
-        <div className="flex justify-center">
-          <AlertCircle size={32} color="#991B1B" />
-        </div>
-        <h3 className="text-sm font-bold tracking-wider" style={{ color: '#991B1B' }}>Access denied</h3>
-        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{error}</p>
-        <button
-          onClick={fetchData}
-          className="mt-3 text-[10px] font-bold tracking-wider px-4 py-2 rounded-lg transition"
-          style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
-        >
-          Retry authorization
-        </button>
-      </div>
-    );
-  }
+  if (!isAdmin) return <div role="alert" style={{ ...card, padding: 20, fontFamily: 'var(--font-family)', color: ink }}>Admin access is required. This page is read-only for other roles.</div>;
 
-  return (
-    <div className="space-y-6">
-      {/* SECTION 3: SYSTEM STATS CARDS */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Active sessions', value: stats.activeSessions, icon: Users, color: '#1C1F26', desc: 'Secure client logins' },
-          { label: 'Bridges monitored', value: stats.monitoredBridges, icon: Activity, color: '#0F6E56', desc: 'Active sensor simulators' },
-          { label: 'Alerts today', value: stats.alertsToday, icon: AlertTriangle, color: '#991B1B', desc: 'Active critical telemetry' },
-          { label: 'PDF reports', value: stats.pdfReportsExported, icon: FileText, color: '#475569', desc: 'Successful exports logged' },
-        ].map((stat, i) => {
-          const IconComp = stat.icon;
-          return (
-            <div 
-              key={i}
-              className="p-5 rounded-xl border flex items-center justify-between"
-              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-            >
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                  {stat.label}
-                </p>
-                <p className="text-2xl font-bold font-mono tracking-tight" style={{ color: stat.color }}>
-                  {stat.value}
-                </p>
-                <p className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
-                  {stat.desc}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)' }}>
-                <IconComp size={18} color={stat.color} />
-              </div>
-            </div>
-          );
-        })}
-      </section>
+  const cards = [
+    { label: 'Active sessions', value: metrics?.active_sessions, note: metrics?.active_sessions_note, icon: Users },
+    { label: 'Simulator instances', value: metrics?.simulator_instances, note: 'Loaded in this server process', icon: Activity },
+    { label: `Alerts today${metrics?.alert_day ? ` · ${metrics.alert_day}` : ''}`, value: metrics?.alerts_today, note: `${metrics?.alerts_today_note || 'Recorded alert events'} · ${metrics?.alert_timezone || 'Asia/Kolkata'}`, icon: AlertTriangle },
+    { label: 'PDF reports exported', value: metrics?.pdf_reports_exported, note: metrics?.pdf_reports_note, icon: FileText },
+  ];
 
-      {/* SECTION 1: USER MANAGEMENT TABLE */}
-      <section 
-        className="p-6 rounded-xl border space-y-4"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-      >
-        <div className="flex items-center justify-between pb-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div>
-            <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Users size={16} color="#0F6E56" />
-              Platform identity management
-            </h2>
-            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              Authorized administrators can audit active personnel and revoke security credentials.
-            </p>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Avatar</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Name</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Email Address</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Role</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Organization</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Last Login</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Status</th>
-                <th className="py-3 px-4 uppercase font-bold text-[9px] text-right" style={{ color: 'var(--text-secondary)' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const isSelf = u.id === currentUser?.id;
-                return (
-                  <tr 
-                    key={u.id} 
-                    className="hover:bg-[#161b22]/50 transition-colors"
-                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                  >
-                    {/* Avatar initials */}
-                    <td className="py-3 px-4">
-                      <div 
-                        className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[10px]"
-                        style={{ background: '#21262d', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
-                      >
-                        {u.avatar || u.name?.slice(0, 2).toUpperCase()}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-bold" style={{ color: 'var(--text-primary)' }}>
-                      {u.name} {isSelf && <span className="text-[9px] font-normal" style={{ color: 'var(--text-secondary)' }}>(You)</span>}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
-                    <td className="py-3 px-4">
-                      <span 
-                        className="px-2 py-0.5 rounded-full text-[8.5px] font-bold uppercase tracking-wider"
-                        style={getRoleBadgeStyle(u.role)}
-                      >
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4" style={{ color: 'var(--text-primary)' }}>{u.org}</td>
-                    <td className="py-3 px-4 font-mono text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                      {u.last_login ? new Date(u.last_login).toLocaleString() : 'N/A'}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="flex items-center gap-1.5 text-[10px] font-semibold" style={{ color: 'var(--accent-green-light)' }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#3fb950' }} />
-                        Active
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        disabled={isSelf}
-                        onClick={() => handleRemoveUser(u.id, u.name)}
-                        className="text-[8px] font-bold uppercase tracking-wider px-2 py-1 rounded transition border cursor-pointer hover:bg-red-500/10 disabled:opacity-30 disabled:cursor-not-allowed"
-                        style={{
-                          background: 'transparent',
-                          borderColor: isSelf ? '#21262d' : 'rgba(255, 123, 114, 0.3)',
-                          color: isSelf ? '#484f58' : '#ff7b72'
-                        }}
-                      >
-                        Revoke
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* SECTION 2: AUDIT LOG TABLE */}
-      <section 
-        className="p-6 rounded-xl border space-y-4"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)' }}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 gap-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div>
-            <h2 className="text-sm font-bold tracking-tight flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-              <Shield size={16} color="#0F6E56" />
-              System audit log trail
-            </h2>
-            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              Real-time immutable ledger tracking API transactions, auth events, and security exceptions.
-            </p>
-          </div>
-
-          {/* Filter dropdown */}
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] tracking-wider font-bold" style={{ color: 'var(--text-secondary)' }}>Filter status</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-[10px] font-semibold py-1.5 px-3 rounded-lg border focus:outline-none focus:border-[#0F6E56]"
-              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-            >
-              <option value="ALL">All events</option>
-              <option value="SUCCESS">Success</option>
-              <option value="DENIED">Denied (Auth err)</option>
-              <option value="ACTION">Action</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          {filteredLogs.length === 0 ? (
-            <div className="py-10 text-center text-xs" style={{ color: 'var(--text-secondary)' }}>
-              No audit logs found matching your filter selection.
-            </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Timestamp</th>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>User Email</th>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Role</th>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Action</th>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px]" style={{ color: 'var(--text-secondary)' }}>Target / Scope</th>
-                  <th className="py-3 px-4 uppercase font-bold text-[9px] text-right" style={{ color: 'var(--text-secondary)' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLogs.map((log, idx) => (
-                  <tr 
-                    key={idx} 
-                    className="hover:bg-[#161b22]/30 transition-colors font-mono"
-                    style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                  >
-                    <td className="py-3 px-4 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                      {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A'}
-                    </td>
-                    <td className="py-3 px-4 font-bold text-[10px]" style={{ color: 'var(--text-primary)' }}>{log.user_email}</td>
-                    <td className="py-3 px-4">
-                      <span 
-                        className="px-2 py-0.5 rounded text-[8px] font-black uppercase"
-                        style={getRoleBadgeStyle(log.user_role)}
-                      >
-                        {log.user_role}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-[10px]" style={{ color: 'var(--accent-blue-light)' }}>{log.action}</td>
-                    <td className="py-3 px-4 text-[10px]" style={{ color: 'var(--text-secondary)' }}>{log.target}</td>
-                    <td className="py-3 px-4 text-right">
-                      <span 
-                        className="px-2 py-0.5 rounded text-[8px] font-black"
-                        style={getStatusBadgeStyle(log.status)}
-                      >
-                        {log.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </section>
-    </div>
-  );
+  return <main style={{ fontFamily: 'var(--font-family, sans-serif)', color: ink, textTransform: 'none', fontVariantNumeric: 'tabular-nums', display: 'grid', gap: 16 }}>
+    <section aria-labelledby="admin-panel-title" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '16px 18px' }}><div><h1 id="admin-panel-title" style={{ margin: 0, color: ink, fontSize: 23 }}>Admin panel</h1><p style={{ margin: '4px 0 0', color: muted, fontSize: 13 }}>Accounts, recorded access events, and server metrics</p></div><button type="button" onClick={() => loadData(true)} disabled={loading} style={{ ...button, display: 'inline-flex', alignItems: 'center', gap: 7, marginLeft: 'auto' }}><RefreshCw size={15} /> Refresh</button></section>
+    {loading && !hasLoaded && <p role="status" style={{ ...card, margin: 0, padding: 16, color: muted }}>Loading admin data…</p>}
+    {error && <div role="alert" style={{ ...card, display: 'flex', alignItems: 'center', gap: 9, padding: 14, color: '#9B4242' }}><AlertCircle size={17} />{error}<button type="button" onClick={() => loadData(true)} style={{ ...button, marginLeft: 'auto' }}>Retry</button></div>}
+    {metrics?.audit_history_complete === false && <p role="alert" style={{ ...card, margin: 0, padding: 14, color: '#9B4242' }}>Recorded audit history is incomplete. Historical counts and last-login times may be unavailable.</p>}
+    {notice && <p role="status" style={{ ...card, margin: 0, padding: 14, color: teal }}>{notice}</p>}
+    {hasLoaded && <>
+      <section aria-label="Admin metrics" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>{cards.map((metric) => { const Icon = metric.icon; return <div key={metric.label} style={{ ...card, padding: 16, display: 'flex', justifyContent: 'space-between', gap: 10 }}><div><div style={{ color: muted, fontSize: 13 }}>{metric.label}</div><div style={{ marginTop: 8, color: ink, fontSize: metric.value == null ? 18 : 26, fontWeight: 700 }}>{metric.value ?? 'Unavailable'}</div><div style={{ marginTop: 5, color: muted, fontSize: 12 }}>{metric.note || 'Recorded backend data'}</div></div><Icon size={18} color={teal} /></div>; })}</section>
+      <section style={{ ...card, overflow: 'hidden' }}><div style={{ padding: '17px 18px', borderBottom: `1px solid ${border}` }}><h2 style={{ margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}><Users size={17} color={teal} /> User access</h2><p style={{ margin: '5px 0 0', color: muted, fontSize: 13 }}>Revocation removes one account and its sessions. It does not remove assignments or audit records.</p></div><div style={{ overflowX: 'auto' }}><table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 850, fontSize: 13 }}><thead><tr>{['User', 'Email', 'Role', 'Organization', 'Last login', 'Action'].map((heading) => <th key={heading} style={{ ...cell, color: muted, fontWeight: 600 }}>{heading}</th>)}</tr></thead><tbody>{users.map((person) => { const self = person.id === verifiedUser?.id; const lastAdmin = person.role === 'admin' && adminCount <= 1; return <tr key={person.id}><td style={cell}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}><span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 31, height: 31, borderRadius: 6, background: '#EAF4F0', color: teal, fontWeight: 700, fontSize: 12 }}>{initials(person.name)}</span><span><strong>{person.name}</strong>{self && <span style={{ color: muted }}> · You</span>}<small style={{ display: 'block', color: muted }}>ID {person.id}</small></span></span></td><td style={cell}>{person.email}</td><td style={cell}><Pill value={person.role} tones={roleTones} /></td><td style={cell}>{person.org || 'Unavailable'}</td><td style={cell}>{timestamp(person.last_login)}</td><td style={cell}><button type="button" disabled={self || lastAdmin || busyId !== null} title={self ? 'You cannot revoke your own account' : lastAdmin ? 'The last admin cannot be revoked' : undefined} onClick={() => handleRevoke(person)} style={{ ...button, color: '#9B4242', opacity: self || lastAdmin || busyId !== null ? 0.5 : 1 }}>{busyId === person.id ? 'Revoking…' : 'Revoke access'}</button></td></tr>; })}</tbody></table>{users.length === 0 && <p style={{ margin: 0, padding: 20, color: muted }}>No users available.</p>}</div></section>
+      <section style={{ ...card, overflow: 'hidden' }}><div style={{ padding: '17px 18px', borderBottom: `1px solid ${border}`, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}><div><h2 style={{ margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}><Shield size={17} color={teal} /> Audit log</h2><p style={{ margin: '5px 0 0', color: muted, fontSize: 13 }}>Latest 100 recorded events; simulated events are excluded. Times shown in Asia/Kolkata.</p></div><label style={{ display: 'flex', alignItems: 'center', gap: 8, color: muted, fontSize: 13 }}>Filter status<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} style={{ ...button, minWidth: 125 }}><option value="ALL">All events</option>{statuses.map((status) => <option key={status} value={status}>{readable(status)}</option>)}</select></label></div><div style={{ overflowX: 'auto' }}><table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 820, fontSize: 13 }}><thead><tr>{['Time', 'User', 'Role', 'Action', 'Target', 'Status'].map((heading) => <th key={heading} style={{ ...cell, color: muted, fontWeight: 600 }}>{heading}</th>)}</tr></thead><tbody>{filteredLogs.map((log) => <tr key={log.id}><td style={cell}>{timestamp(log.timestamp)}</td><td style={cell}>{log.user_email || 'Unavailable'}</td><td style={cell}><Pill value={log.user_role} tones={roleTones} /></td><td style={cell} title={log.action}>{actionLabels[log.action] || readable(log.action)}</td><td style={cell}>{log.target || 'Unavailable'}</td><td style={cell}><Pill value={log.status} tones={statusTones} /></td></tr>)}</tbody></table>{filteredLogs.length === 0 && <p style={{ margin: 0, padding: 20, color: muted }}>{auditLogs.length ? 'No events match this filter.' : 'No recorded audit events yet.'}</p>}</div></section>
+    </>}
+  </main>;
 }

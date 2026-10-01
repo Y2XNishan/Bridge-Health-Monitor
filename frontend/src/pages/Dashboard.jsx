@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 import {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchBridges, downloadReport } from '../api';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 import { MapPin, Download, AlertTriangle } from 'lucide-react';
 
 const GRADE_CONFIG = {

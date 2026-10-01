@@ -24,7 +24,7 @@ import Dashboard from './pages/Dashboard';
 import AgentInspector from './pages/AgentInspector';
 import SurvivalAnalysis from './pages/SurvivalAnalysis';
 import ErrorBoundary from './components/ErrorBoundary';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './context/authContext';
 import {
   fetchLive,
   fetchAlerts,

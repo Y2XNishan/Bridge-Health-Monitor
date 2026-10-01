@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 
-export default function Header({ currentPage = 'dashboard', activeBridgeId, activeBridgeName }) {
-  const { user, logout, switchRoleDemo } = useAuth();
+export default function Header({ currentPage = 'dashboard' }) {
+  const { user, logout } = useAuth();
   const [time, setTime] = useState(new Date());
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
@@ -215,7 +215,7 @@ export default function Header({ currentPage = 'dashboard', activeBridgeId, acti
                         className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center justify-between gap-2 text-xs text-slate-700"
                         onClick={() => setShowRoles(true)}
                       >
-                        <span>Switch clearance role</span>
+                        <span>Change role</span>
                         <span className="text-slate-400 font-normal">→</span>
                       </div>
                     </div>
@@ -233,7 +233,7 @@ export default function Header({ currentPage = 'dashboard', activeBridgeId, acti
                   </>
                 ) : (
                   <>
-                    {/* Role-switching sub-menu */}
+                    {/* Changing roles requires a new authenticated session. */}
                     <div className="px-4 py-2 border-b border-slate-100 flex items-center gap-2">
                       <span
                         className="cursor-pointer text-slate-400 hover:text-slate-900 text-xs"
@@ -241,27 +241,14 @@ export default function Header({ currentPage = 'dashboard', activeBridgeId, acti
                       >
                         ←
                       </span>
-                      <p className="font-semibold text-slate-900">Select clearance role</p>
+                      <p className="font-semibold text-slate-900">Change role</p>
                     </div>
 
-                    <div className="py-1">
-                      {['Admin', 'Engineer', 'Viewer'].map((role) => {
-                        const isCurrent = user.role.toLowerCase() === role.toLowerCase();
-                        return (
-                          <div
-                            key={role}
-                            className="px-4 py-2 hover:bg-slate-50 cursor-pointer flex items-center justify-between text-xs"
-                            onClick={() => {
-                              switchRoleDemo(role.toLowerCase());
-                              setShowRoles(false);
-                              setDropdownOpen(false);
-                            }}
-                          >
-                            <span className={isCurrent ? 'font-semibold text-slate-900' : 'text-slate-700'}>{role}</span>
-                            {isCurrent && <span className="text-[#0F6E56] font-semibold">Active</span>}
-                          </div>
-                        );
-                      })}
+                    <div className="px-4 py-3 text-xs text-slate-600">
+                      Sign out and sign in with the account for the role you need.
+                      <button type="button" onClick={logout} className="mt-3 w-full rounded border border-slate-200 px-3 py-2 text-left font-semibold text-slate-900">
+                        Sign out to change role
+                      </button>
                     </div>
                   </>
                 )}

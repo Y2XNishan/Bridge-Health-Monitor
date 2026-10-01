@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 import { MapPin, Activity, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import { SENSOR_THRESHOLDS, getSensorStatus } from '../constants/thresholds';

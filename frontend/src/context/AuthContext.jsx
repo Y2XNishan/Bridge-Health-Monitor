@@ -1,16 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { AuthContext } from './authContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-const AuthContext = createContext(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => localStorage.getItem('bridgeiq_token') || null);
@@ -20,10 +11,10 @@ export const AuthProvider = ({ children }) => {
   });
   const [loading, setLoading] = useState(true);
 
-  // Synchronise state with localStorage on initial load or change
+  // The token, not cached profile data, determines the authenticated identity.
   useEffect(() => {
-    if (token && !user) {
-      // If we have a token but no user info, fetch it from backend
+    let cancelled = false;
+    if (token) {
       fetch(`${API_BASE}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -34,10 +25,12 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Invalid token');
       })
       .then(data => {
+        if (cancelled) return;
         setUser(data);
         localStorage.setItem('bridgeiq_user', JSON.stringify(data));
       })
       .catch(err => {
+        if (cancelled) return;
         console.error('[auth-verify-error]', err);
         // Clear invalid session
         setToken(null);
@@ -45,11 +38,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('bridgeiq_token');
         localStorage.removeItem('bridgeiq_user');
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
     } else {
-      setLoading(false);
+      Promise.resolve().then(() => { if (!cancelled) setLoading(false); });
     }
-  }, [token, user]);
+    return () => { cancelled = true; };
+  }, [token]);
 
   const login = async (email, password) => {
     const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -114,26 +108,6 @@ export const AuthProvider = ({ children }) => {
     return false;
   };
 
-  const switchRoleDemo = (newRole) => {
-    if (!user) return;
-    const roleMapping = {
-      admin: { name: 'Rajesh Kumar', email: 'admin@nhai.gov.in', org: 'NHAI HQ', avatar: 'RK' },
-      engineer: { name: 'Priya Sharma', email: 'engineer@nhai.gov.in', org: 'NHAI Assam', avatar: 'PS' },
-      viewer: { name: 'Amit Das', email: 'viewer@pwdassam.gov.in', org: 'PWD Assam', avatar: 'AD' }
-    };
-    const profile = roleMapping[newRole.toLowerCase()] || roleMapping.viewer;
-    const updated = {
-      ...user,
-      role: newRole.toLowerCase(),
-      name: profile.name,
-      email: profile.email,
-      org: profile.org,
-      avatar: profile.avatar
-    };
-    setUser(updated);
-    localStorage.setItem('bridgeiq_user', JSON.stringify(updated));
-  };
-
   const value = {
     token,
     user,
@@ -142,10 +116,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     isAdmin,
     isEngineer,
-    hasPermission,
-    switchRoleDemo
+    hasPermission
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-

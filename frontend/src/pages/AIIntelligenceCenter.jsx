@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/authContext';
 import { SENSOR_THRESHOLDS } from '../constants/thresholds';
 import StatusBadge, { formatHealthScore } from '../components/StatusBadge';
 import ReactMarkdown from 'react-markdown';
